@@ -14,3 +14,8 @@ export enum ErrorCodesEnum {
   FORBIDDEN = "FORBIDDEN",
   TOO_MANY_RQUESTS = "TOO_MANY_REQUESTS",
 }
+
+export enum EventsEnum {
+  emailVerification = "EmailVerification",
+  forgetPassword = "ForgetPassword",
+}

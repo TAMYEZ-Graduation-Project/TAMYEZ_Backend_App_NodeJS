@@ -1,17 +1,5 @@
-const HTML_EMAIL_TEMPLATE = ({
-  title,
-  message,
-  otpOrLink,
-  company = process.env.APP_NAME,
-  logoUrl,
-}: {
-  title: string;
-  message: string;
-  otpOrLink: string;
-  company?: string;
-  logoUrl?: string;
-}): string => {
-  return `
+const HTML_EMAIL_TEMPLATE = ({ title, message, otpOrLink, company = process.env.APP_NAME, logoUrl, }) => {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,5 +84,4 @@ const HTML_EMAIL_TEMPLATE = ({
 </html>
 `;
 };
-
 export default HTML_EMAIL_TEMPLATE;

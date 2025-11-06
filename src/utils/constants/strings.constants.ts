@@ -12,7 +12,20 @@ class StringConstants {
 
   static readonly DONE_MESSAGE = "Done ✅";
 
-  static readonly EMAIL_CONTENT_MISSING_MESSAGE = "Can't Send Email, because Email Content is Missing 🔍"
+  static readonly EMAIL_CONTENT_MISSING_MESSAGE =
+    "Can't Send Email, because Email Content is Missing 🔍";
+
+  static readonly EMAIL_VERIFICATION_SUBJECT = "Email Verification ✉️";
+
+  static readonly FORGET_PASSWORD_SUBJECT = "Forget Password 🔑";
+
+  static readonly THANK_YOU_MESSAGE = "Thank you for using our Application ❤️.";
+
+  static readonly USE_EMAIL_VERIFICATION_LINK_MESSAGE =
+    "Please use the Link below to verify your Email.";
+
+  static readonly USE_FORGET_PASSWORD_OTP_MESSAGE =
+    "Please use the OTP below to verify your Forget Password Attempt.";
 
   static WRONG_ROUTE_MESSAGE(req: Request): string {
     return `Wrong URI ${req.url} or METHOD ${req.method} ⛔`;
@@ -24,6 +37,10 @@ class StringConstants {
 
   static SERVER_STARTED_MESSAGE(port: string): string {
     return `Server Started on PORT ${process.env.PORT} 🚀`;
+  }
+
+  static FAILED_EXECUTING_EVENT_MESSAGE(eventName: string, e: Error): string {
+    return `Failed Executing ${eventName} Event ⚠️. Error: ${e}`;
   }
 }
 export default StringConstants;

@@ -35,6 +35,14 @@ async function bootstrap() {
     });
   } else {
     // Routes
+    // emailEvent.publish({
+    //   eventName: EventsEnum.emailVerification,
+    //   payload: {
+    //     otpOrLink: "12243324",
+    //     to: "klilmohammed9@gmail.com",
+    //     subject: StringConstants.EMAIL_VERIFICATION_SUBJECT,
+    //   },
+    // });
     app.use(express.json());
     app.use([RoutePaths.SLASH_PATH, RoutePaths.API_V1_PATH], modulesRouter);
     app.use(RoutePaths.ALL_PATH, (req: Request, res: Response) => {

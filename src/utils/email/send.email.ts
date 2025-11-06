@@ -1,8 +1,8 @@
 import { createTransport, type TransportOptions } from "nodemailer";
-import type { MailOptions } from "nodemailer/lib/json-transport/index.js";
 import { ApplicationException } from "../exceptions/custom.exceptions.ts";
 import { ErrorCodesEnum } from "../constants/enum.constants.ts";
 import StringConstants from "../constants/strings.constants.ts";
+import type { IExtendedMailOptions } from "../constants/interface.constants.ts";
 
 class EmailService {
   private static _transporter = createTransport({
@@ -14,9 +14,9 @@ class EmailService {
       user: process.env.SENDER_EMAIL,
       pass: process.env.APP_PASS,
     },
-  } );
+  } as TransportOptions);
 
-  static sendEmail = async (data: MailOptions) => {
+  static sendEmail = async (data: IExtendedMailOptions) => {
     if (!data.html && !data.attachments?.length && !data.text) {
       throw new ApplicationException(
         ErrorCodesEnum.RESOURCE_NOT_FOUND,
