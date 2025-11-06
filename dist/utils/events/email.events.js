@@ -18,6 +18,7 @@ emailEvent.subscribe({
                 message: StringConstants.THANK_YOU_MESSAGE +
                     " " +
                     StringConstants.USE_EMAIL_VERIFICATION_LINK_MESSAGE,
+                logoUrl: process.env.LOGO_URL,
                 otpOrLink: payload.otpOrLink,
             }),
         });
@@ -35,6 +36,7 @@ emailEvent.subscribe({
                 message: StringConstants.THANK_YOU_MESSAGE +
                     " " +
                     StringConstants.USE_FORGET_PASSWORD_OTP_MESSAGE,
+                logoUrl: process.env.LOGO_URL,
                 otpOrLink: payload.otpOrLink,
             }),
         });

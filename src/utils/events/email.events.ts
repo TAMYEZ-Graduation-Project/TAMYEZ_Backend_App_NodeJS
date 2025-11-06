@@ -12,7 +12,7 @@ emailEvent.subscribe({
   eventName: EventsEnum.emailVerification,
   bgFunction: (payload) => {
     console.log(payload);
-    
+
     return EmailService.sendEmail({
       otpOrLink: payload.otpOrLink,
       to: payload.to,
@@ -23,6 +23,7 @@ emailEvent.subscribe({
           StringConstants.THANK_YOU_MESSAGE +
           " " +
           StringConstants.USE_EMAIL_VERIFICATION_LINK_MESSAGE,
+        logoUrl: process.env.LOGO_URL!,
         otpOrLink: payload.otpOrLink,
       }),
     });
@@ -42,6 +43,7 @@ emailEvent.subscribe({
           StringConstants.THANK_YOU_MESSAGE +
           " " +
           StringConstants.USE_FORGET_PASSWORD_OTP_MESSAGE,
+        logoUrl: process.env.LOGO_URL!,
         otpOrLink: payload.otpOrLink,
       }),
     });
