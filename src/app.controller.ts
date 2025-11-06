@@ -7,6 +7,9 @@ import morgan from "morgan";
 import connnectToDB from "./db/db.connection.ts";
 import modulesRouter from "./modules/modules.routes.ts";
 import { ProjectMoodsEnum } from "./utils/constants/enum.constants.ts";
+import StringConstants from "./utils/constants/strings.constants.ts";
+import globalErrorHandler from "./utils/handlers/global_error.handler.ts";
+import RoutePaths from "./utils/constants/route_paths.constants.ts";
 
 async function bootstrap() {
   const app: Express = express();
@@ -25,25 +28,29 @@ async function bootstrap() {
   );
 
   if (!(await connnectToDB())) {
-    app.use("{/*dummy}", (req: Request, res: Response) => {
+    app.use(RoutePaths.ALL_PATH, (req: Request, res: Response) => {
       res.status(500).json({
-        error: { message: "Something Went Wrong Please Try Again Later 🤔" },
+        error: { message: StringConstants.GENERIC_ERROR_MESSAGE },
       });
     });
   } else {
-    app.use(["/", "/api/v1"], modulesRouter);
-    app.use("{/*dummy}", (req: Request, res: Response) => {
+    // Routes
+    app.use(express.json());
+    app.use([RoutePaths.SLASH_PATH, RoutePaths.API_V1_PATH], modulesRouter);
+    app.use(RoutePaths.ALL_PATH, (req: Request, res: Response) => {
       res.status(404).json({
-        error: { message: `Wrong URI ${req.url} or METHOD ${req.method} ⛔` },
+        error: { message: StringConstants.WRONG_ROUTE_MESSAGE(req) },
       });
     });
+    app.use(globalErrorHandler);
   }
 
+  // Start the server
   app.listen(process.env.PORT, (error) => {
     if (error) {
-      console.log(`Error Starting the Server ❌: ${error}`);
+      console.log(StringConstants.ERROR_STARTING_SERVER_MESSAGE(error));
     }
-    console.log(`Server Started on PORT ${process.env.PORT} 🚀`);
+    console.log(StringConstants.SERVER_STARTED_MESSAGE(process.env.PORT!));
   });
 }
 
