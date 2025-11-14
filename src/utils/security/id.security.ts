@@ -1,11 +1,15 @@
 import { customAlphabet, nanoid } from "nanoid";
 
 class IdSecurityUtil {
-  static generateNumericId = ({ size = 6 }: { size?: number }): string => {
+  static generateNumericId = ({ size = 6 }: { size?: number } = {}): string => {
     return customAlphabet("0123456789", size)();
   };
 
-  static generateAlphaNumericId = ({ size = 21 }: { size?: number }) => {
+  static generateAlphaNumericId = ({
+    size = 21,
+  }: {
+    size?: number;
+  } = {}): string => {
     return nanoid(size);
   };
 }

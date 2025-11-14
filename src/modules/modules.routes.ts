@@ -1,5 +1,6 @@
 import { Router } from "express";
 import authRouter from "./auth/auth.controller.ts";
+import RoutePaths from "../utils/constants/route_paths.constants.ts";
 
 const modulesRouter: Router = Router();
 
@@ -9,6 +10,6 @@ modulesRouter.get("/", (req, res) => {
   });
 });
 
-modulesRouter.use("/auth", authRouter);
+modulesRouter.use(RoutePaths.auth, authRouter);
 
 export default modulesRouter;

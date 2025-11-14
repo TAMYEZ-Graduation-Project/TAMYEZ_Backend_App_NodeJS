@@ -57,15 +57,18 @@ const HTML_EMAIL_TEMPLATE = ({
       margin-bottom: 20px;
     }
     .otp-box {
-      font-size: 24px;
+      font-size: 18px;
       font-weight: bold;
       color: #004aad;
       background-color: #eaf1fb;
       padding: 15px;
       border-radius: 6px;
       margin: 20px auto;
-      letter-spacing: 4px;
-      display: inline-block;
+      letter-spacing: 1px;
+      display: block; /* instead of inline-block */
+      max-width: 90%; /* keep it inside screen */
+      word-break: break-all; /* allow breaking long URLs */
+      text-align: center; /* center text */
     }
     .footer {
       font-size: 12px;

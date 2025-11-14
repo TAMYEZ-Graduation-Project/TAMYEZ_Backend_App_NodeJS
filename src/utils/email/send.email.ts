@@ -3,10 +3,11 @@ import { ApplicationException } from "../exceptions/custom.exceptions.ts";
 import { ErrorCodesEnum } from "../constants/enum.constants.ts";
 import StringConstants from "../constants/strings.constants.ts";
 import type { IExtendedMailOptions } from "../constants/interface.constants.ts";
+import EnvFields from "../constants/env_fields.constants.ts";
 
 class EmailService {
   private static _transporter = createTransport({
-    host: process.env.HOST!,
+    host: process.env[EnvFields.EMAIL_HOST]!,
     port: Number(process.env.EMAIL_PORT),
     service: process.env.SERVICE,
     secure: process.env.IS_SECURE,

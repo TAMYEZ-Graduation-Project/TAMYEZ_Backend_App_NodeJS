@@ -2,9 +2,10 @@ import { createTransport } from "nodemailer";
 import { ApplicationException } from "../exceptions/custom.exceptions.js";
 import { ErrorCodesEnum } from "../constants/enum.constants.js";
 import StringConstants from "../constants/strings.constants.js";
+import EnvFields from "../constants/env_fields.constants.js";
 class EmailService {
     static _transporter = createTransport({
-        host: process.env.HOST,
+        host: process.env[EnvFields.EMAIL_HOST],
         port: Number(process.env.EMAIL_PORT),
         service: process.env.SERVICE,
         secure: process.env.IS_SECURE,

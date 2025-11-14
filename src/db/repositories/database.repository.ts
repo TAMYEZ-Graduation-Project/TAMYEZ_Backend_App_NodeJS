@@ -9,6 +9,8 @@ import type {
   UpdateQuery,
 } from "mongoose";
 import type { CreateOptions, Model } from "mongoose";
+import { BadRequestException } from "../../utils/exceptions/custom.exceptions.ts";
+import StringConstants from "../../utils/constants/strings.constants.ts";
 
 abstract class DatabaseRepository<TDocument> {
   constructor(protected readonly model: Model<TDocument>) {}
@@ -22,7 +24,14 @@ abstract class DatabaseRepository<TDocument> {
     data: Partial<TDocument>[];
     options?: CreateOptions;
   }): Promise<HydratedDocument<TDocument>[]> => {
-    return this.model.create(data, options);
+    const resultList = await this.model.create(data, options);
+    if (!resultList || resultList.length == 0) {
+      throw new BadRequestException(
+        StringConstants.FAILED_CREATE_INSTANCE_MESSAGE
+      );
+    }
+
+    return resultList;
   };
 
   findOne = async ({
@@ -52,7 +61,7 @@ abstract class DatabaseRepository<TDocument> {
   updateOne = async ({
     filter = {},
     update,
-    options = {},
+    options = { runValidators: true },
   }: {
     filter?: RootFilterQuery<TDocument>;
     update: UpdateQuery<TDocument>;

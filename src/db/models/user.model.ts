@@ -3,7 +3,18 @@ import type { IUser } from "../interfaces/user.interface.ts";
 import {
   GenderEnum,
   ProvidersEnum,
+  RolesEnum,
 } from "../../utils/constants/enum.constants.ts";
+import ModelsNames from "../../utils/constants/models.names.ts";
+
+const OtpOrLinkObjectSchema = new mongoose.Schema(
+  {
+    code: { type: String, required: true },
+    expiresAt: { type: Date, required: true },
+    count: { type: Number, required: true },
+  },
+  { _id: false }
+);
 
 const userSchema = new mongoose.Schema<IUser>(
   {
@@ -17,17 +28,13 @@ const userSchema = new mongoose.Schema<IUser>(
       lowercase: true,
     },
     confirmedAt: { type: Date },
-    confirmEmailOtp: {
-      code: { type: String, required: true },
-      expiresAt: { type: Date, required: true },
-      count: { type: Number, default: 0 },
+    confirmEmailLink: {
+      type: OtpOrLinkObjectSchema,
     },
 
     password: { type: String, required: true },
     forgetPasswordOtp: {
-      code: { type: String, required: true },
-      expiresAt: { type: Date, required: true },
-      count: { type: Number, default: 0 },
+      type: OtpOrLinkObjectSchema,
     },
     forgetPasswordVerificationExpiresAt: { type: Date },
     lastResetPasswordAt: { type: Date },
@@ -35,6 +42,11 @@ const userSchema = new mongoose.Schema<IUser>(
     changeCredentialsTime: { type: Date },
 
     gender: { type: String, enum: Object.values(GenderEnum), required: true },
+    role: {
+      type: String,
+      enum: Object.values(RolesEnum),
+      default: RolesEnum.user,
+    },
 
     authProvider: {
       type: String,
@@ -47,11 +59,10 @@ const userSchema = new mongoose.Schema<IUser>(
     dateOfBirth: { type: Date },
 
     profilePicture: {
-      url: { type: String, required: true },
+      url: { type: String },
       provider: {
         type: String,
         enum: Object.values(ProvidersEnum),
-        default: ProvidersEnum.local,
       },
     },
 
@@ -61,7 +72,15 @@ const userSchema = new mongoose.Schema<IUser>(
     coursesAndCertifications: { type: [String], default: [] },
     careerPathId: { type: mongoose.Schema.Types.ObjectId, ref: "CareerPath" },
 
-    deletedAt: { type: Date },
+    freezed: {
+      at: Date,
+      by: { type: mongoose.Schema.Types.ObjectId, ref: ModelsNames.userModel },
+    },
+
+    restored: {
+      at: Date,
+      by: { type: mongoose.Schema.Types.ObjectId, ref: ModelsNames.userModel },
+    },
   },
   {
     timestamps: true,
@@ -70,6 +89,35 @@ const userSchema = new mongoose.Schema<IUser>(
   }
 );
 
-const UserModel = mongoose.models.User || mongoose.model<IUser>("User", userSchema);
+userSchema
+  .virtual("fullName")
+  .get(function (this: IUser) {
+    return `${this.firstName} ${this.lastName}`;
+  })
+  .set(function (value: string) {
+    const [firstName, lastName] = value.split(" ");
+    this.set({ firstName, lastName });
+  });
+
+userSchema.methods.toJSON = function () {
+  const { id, ...restObj }: IUser = this.toObject();
+
+  return {
+    id: this._id,
+    fullName: `${restObj.firstName} ${restObj.lastName}`,
+    email: restObj.email,
+    phoneNumber: restObj.phoneNumber,
+    gender: restObj.gender,
+    role: restObj.role,
+    profilePicture: restObj.profilePicture,
+    createdAt: restObj.createdAt,
+    updatedAt: restObj.updatedAt,
+    confirmedAt: restObj.confirmedAt,
+  };
+};
+
+const UserModel =
+  (mongoose.models?.User as mongoose.Model<IUser>) ||
+  mongoose.model<IUser>(ModelsNames.userModel, userSchema);
 
 export default UserModel;

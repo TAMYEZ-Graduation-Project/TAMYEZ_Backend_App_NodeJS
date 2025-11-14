@@ -1,3 +1,5 @@
+import { BadRequestException } from "../../utils/exceptions/custom.exceptions.js";
+import StringConstants from "../../utils/constants/strings.constants.js";
 class DatabaseRepository {
     model;
     constructor(model) {
@@ -6,7 +8,11 @@ class DatabaseRepository {
     create = async ({ data, options = {
         validateBeforeSave: true,
     }, }) => {
-        return this.model.create(data, options);
+        const resultList = await this.model.create(data, options);
+        if (!resultList || resultList.length == 0) {
+            throw new BadRequestException(StringConstants.FAILED_CREATE_INSTANCE_MESSAGE);
+        }
+        return resultList;
     };
     findOne = async ({ filter, projection, options = {}, }) => {
         return this.model.findOne(filter, projection, options);
@@ -14,7 +20,7 @@ class DatabaseRepository {
     findById = async ({ id, projection, options = {}, }) => {
         return this.model.findById(id, projection, options);
     };
-    updateOne = async ({ filter = {}, update, options = {}, }) => {
+    updateOne = async ({ filter = {}, update, options = { runValidators: true }, }) => {
         return this.model.updateOne(filter, { ...update, $inc: { __v: 1 } }, options);
     };
     updateById = async ({ id, update, options = {}, }) => {

@@ -11,14 +11,14 @@ const emailEvent = new CustomEvents<IExtendedMailOptions>(new EventEmitter());
 emailEvent.subscribe({
   eventName: EventsEnum.emailVerification,
   bgFunction: (payload) => {
-    console.log(payload);
-
+    const subject = StringConstants.EMAIL_VERIFICATION_SUBJECT;
+    
     return EmailService.sendEmail({
       otpOrLink: payload.otpOrLink,
       to: payload.to,
-      subject: payload.subject,
+      subject: subject,
       html: HTML_EMAIL_TEMPLATE({
-        title: payload.subject,
+        title: subject,
         message:
           StringConstants.THANK_YOU_MESSAGE +
           " " +
@@ -33,12 +33,14 @@ emailEvent.subscribe({
 emailEvent.subscribe({
   eventName: EventsEnum.forgetPassword,
   bgFunction: (payload) => {
+    const subject = StringConstants.FORGET_PASSWORD_SUBJECT;
+
     return EmailService.sendEmail({
       otpOrLink: payload.otpOrLink,
       to: payload.to,
-      subject: payload.subject,
+      subject: subject,
       html: HTML_EMAIL_TEMPLATE({
-        title: payload.subject,
+        title: subject,
         message:
           StringConstants.THANK_YOU_MESSAGE +
           " " +

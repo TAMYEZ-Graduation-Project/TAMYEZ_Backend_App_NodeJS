@@ -13,7 +13,6 @@ export interface IAppError extends Error {
 export interface IExtendedMailOptions extends MailOptions {
   otpOrLink: string;
   to: string;
-  subject: string;
 }
 
 export interface ITokenPayload extends JwtPayload {

@@ -5,6 +5,7 @@ import type {
 } from "../utils/types/valdiation_schema.type.ts";
 import type { IssueObjectType } from "../utils/types/issue_object.type.ts";
 import { ValidationException } from "../utils/exceptions/custom.exceptions.ts";
+import StringConstants from "../utils/constants/strings.constants.ts";
 
 const validationMiddleware = ({ schema }: { schema: ZodSchemaType }) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -13,10 +14,17 @@ const validationMiddleware = ({ schema }: { schema: ZodSchemaType }) => {
         message: "",
         details: [],
       };
-      
+
     for (const key of Object.keys(schema) as RequestKeysType[]) {
       if (!schema[key]) continue;
-      const result = await schema[key].safeParseAsync(req[key]);
+      const result = await schema[key].safeParseAsync(req[key], {
+        error: (issue) => {
+          if (issue.code === "invalid_type")
+            return StringConstants.REQUEST_KEY_REQUIRED_MESSAGE(key);
+
+          return undefined;
+        },
+      });
       if (!result.success) {
         validationErrorObject.details.push(
           ...result.error.issues.map((issue): IssueObjectType => {
@@ -42,8 +50,6 @@ const validationMiddleware = ({ schema }: { schema: ZodSchemaType }) => {
         });
       }
     }
-
-    console.log({ validationErrorObject });
 
     if (validationErrorObject.message.length > 0) {
       throw new ValidationException(

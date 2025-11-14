@@ -29,3 +29,29 @@ export enum ProvidersEnum {
   local = "Local",
   google = "Google",
 }
+
+export enum RolesEnum {
+  user = "User",
+  admin = "Admin",
+  superAdmin = "SuperAdmin",
+}
+
+export enum OTPsOrLinksEnum {
+  confirmEmailLink = "ConfirmEmailLink",
+  forgetPasswordOTP = "ForgetPasswordOTP",
+}
+
+export enum EmailStatusEnum {
+  notConfirmed = "NotConfirmed",
+  confirmed = "Confirmed",
+}
+
+export enum SignatureLevelsEnum {
+  BearerUser = "BUser",
+  BearerSystem = "BSystem",
+  BearerSuperSystem = "BSuperSystem",
+}
+
+export enum TokenTypesEnum {
+  accessToken = "AccessToken",
+}

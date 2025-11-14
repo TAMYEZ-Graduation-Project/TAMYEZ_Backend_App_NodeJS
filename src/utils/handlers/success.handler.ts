@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import StringConstants from "../constants/strings.constants.ts";
 
-function successHandler({
+function successHandler<TBody = any>({
   res,
   statusCode = 200,
   message = StringConstants.DONE_MESSAGE,
@@ -10,7 +10,7 @@ function successHandler({
   res: Response;
   statusCode?: number;
   message?: string;
-  body?: Object;
+  body?: TBody;
 }): Response {
   return res.status(statusCode).json({ success: true, message, body });
 }

@@ -1,10 +1,10 @@
-import { AES } from "crypto-js";
+import CryptoJS from "crypto-js";
 class EncryptionSecurityUtil {
     static encryptText = ({ plainText, secretKey = process.env.ENCRYPTION_KEY, }) => {
-        return AES.encrypt(plainText, secretKey).toString();
+        return CryptoJS.AES.encrypt(plainText, secretKey).toString();
     };
-    static decryptText = ({ cipherText, secreteKey = process.env.ENCRYPTION_KEY, }) => {
-        return AES.decrypt(cipherText, secreteKey).toString();
+    static decryptText = ({ cipherText, secretKey = process.env.ENCRYPTION_KEY, }) => {
+        return CryptoJS.AES.decrypt(cipherText, secretKey).toString(CryptoJS.enc.Utf8);
     };
 }
 export default EncryptionSecurityUtil;

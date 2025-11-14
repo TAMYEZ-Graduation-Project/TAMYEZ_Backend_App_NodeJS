@@ -1,4 +1,6 @@
 import type { Request } from "express";
+import { GenderEnum } from "./enum.constants.ts";
+import type { RequestKeysType } from "../types/valdiation_schema.type.ts";
 
 class StringConstants {
   static readonly GENERIC_ERROR_MESSAGE =
@@ -29,6 +31,11 @@ class StringConstants {
 
   static readonly INVALID_EMAIL_MESSAGE = "Invalid email address ✉️❌";
 
+  static readonly INVALID_USER_ACCOUNT_MESSAGE = "Invalid user account ⚠️";
+
+  static readonly INVALID_LOGIN_CREDENTIALS_MESSAGE =
+    "Invalid login credentials 🪪";
+
   static readonly NAME_VALIDATION_MESSAGE =
     "Full name must be at least 2 words, each starting with a capital letter and 2-25 characters long 📛";
 
@@ -38,7 +45,58 @@ class StringConstants {
   static readonly MISMATCH_CONFIRM_PASSWORD_MESSAGE =
     "confirmPassword mismatch password ☹️";
 
-  static readonly BODY_REQUIRED_MESSAGE = "Body parameters are required 🚫";
+  static readonly INVALID_GENDER_MESSAGE = `Invalid gender, it must be either [${Object.values(
+    GenderEnum
+  )}] 🚻`;
+
+  static readonly SINGED_UP_SUCCESSFUL_MESSAGE =
+    "Signed up Successfully! Please check your email for verification link 🔗✉️";
+
+  static readonly LOG_IN_SUCCESSFUL_MESSAGE = "Logged In Successfully ✅";
+
+  static readonly FAILED_CREATE_INSTANCE_MESSAGE =
+    "Failed to create instanc(s) ❌";
+
+  static readonly EMAIL_VERIFICATION_LINK_EXPIRE_MESSAGE =
+    "Email Verification Link has expired ⏰";
+
+  static readonly RESENT_EMAIL_VERIFICATION_LINK_MESSAGE =
+    "Email verification link has be resent to your email 🔗✉️";
+
+  static readonly INVALID_EMAIL_ACCOUNT_OR_VARIFIED_MESSAGE =
+    "Invalid email account or already verified ❌";
+
+  static readonly INVALID_OTP_VALIDATION_MESSAGE =
+    "Invalid OTP! OTP must consists only of 6 digits 🔒";
+
+  static readonly INVALID_OTP_MESSAGE = "Invalid OTP or has expired 🔑 ⏰";
+
+  static readonly INVALID_USER_ID_MESSAGE = "Invalid userId 🆔";
+
+  static readonly INVALID_TOKEN_MESSAGE = "Invalid Token ⛔";
+
+  static readonly MISSING_TOKEN_PARTS_MESSAGE = "Missing Token Parts ⛔";
+
+  static readonly INVALID_TOKEN_PAYLOAD_MESSAGE = "Invalid Token Payload ❌";
+
+  static readonly TOKEN_REVOKED_MESSAGE = "Token as been Revoked ☠️";
+
+  static readonly INVALID_BEARER_KEY_MESSAGE = "Invalid Bearer Key 🚫";
+
+  static readonly OTP_SENT_MESSAGE = "OTP has been sent to your email 🔑";
+
+  static readonly OTP_VERIFIED_MESSAGE = "OTP verified successfully 🔑 ✅";
+
+  static readonly FORGET_PASSWORD_VERIFICATION_EXPIRE_MESSAGE =
+    "Forget Password Verification has expired ⏰";
+
+  static readonly PASSWORD_RESET_SUCCESSFULLY_MESSAGE =
+    "Password has been reset successfully 🔒 ✅";
+
+  static readonly RESET_PASSWORD_RECENTLY_MESSAGE =
+    "You have reset your password recenty please try after 24 hours from last time ⏳";
+
+  static readonly TRY_AFTER_A_WHILE_MESSAGE = "Please try after a while 🕰️";
 
   static WRONG_ROUTE_MESSAGE(req: Request): string {
     return `Wrong URI ${req.url} or METHOD ${req.method} ⛔`;
@@ -59,5 +117,15 @@ class StringConstants {
   static PATH_REQUIRED_MESSAGE(pathName: string): string {
     return `${pathName} is required 🚫`;
   }
+
+  static PATH_NOEMPTY_MESSAGE(pathName: string): string {
+    return `${pathName} must not be empty 🚫`;
+  }
+  static REQUEST_KEY_REQUIRED_MESSAGE(requestKey: RequestKeysType): string {
+    return `${requestKey.toString()} parameters are required 🚫`;
+  }
+
+  // assets paths
+  static readonly TAMYEZ_LOGO_PATH = "/assets/TAMYEZ_logo.png";
 }
 export default StringConstants;
