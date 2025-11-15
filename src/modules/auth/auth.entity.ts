@@ -4,3 +4,5 @@ export interface ILogInResponse {
   accessToken: string;
   user: IUser;
 }
+
+export interface ISignUpLogInGmailResponse extends ILogInResponse {}

@@ -11,6 +11,11 @@ export interface IOtpOrLinkObject {
   count: number;
 }
 
+export interface IProfilePicture {
+  url: string;
+  provider: ProvidersEnum;
+}
+
 export interface IUser {
   id?: Types.ObjectId; // virtual
 
@@ -33,14 +38,12 @@ export interface IUser {
   role: RolesEnum;
   authProvider: ProvidersEnum;
 
-  phoneNumber?: string;
+  phoneNumber: string;
 
   dateOfBirth?: Date;
 
-  profilePicture: {
-    url: string;
-    provider: ProvidersEnum;
-  };
+  profilePicture?: IProfilePicture;
+  coverImages?: string[];
 
   // Acadamic Info
   education?: string;

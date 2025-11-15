@@ -1,4 +1,4 @@
-import { GenderEnum } from "./enum.constants.js";
+import { GenderEnum, SignatureLevelsEnum } from "./enum.constants.js";
 class StringConstants {
     static GENERIC_ERROR_MESSAGE = "An unexpected error occurred. Please try again later. 🤔";
     static SOMETHING_WRONG_MESSAGE = "Something went wrong. 🤔";
@@ -18,7 +18,8 @@ class StringConstants {
     static PASSWORD_VALIDATION_MESSAGE = "Password must be at least 8 characters long, include at least one uppercase letter, one lowercase letter, one number and one special character 🔑";
     static MISMATCH_CONFIRM_PASSWORD_MESSAGE = "confirmPassword mismatch password ☹️";
     static INVALID_GENDER_MESSAGE = `Invalid gender, it must be either [${Object.values(GenderEnum)}] 🚻`;
-    static SINGED_UP_SUCCESSFUL_MESSAGE = "Signed up Successfully! Please check your email for verification link 🔗✉️";
+    static SINGED_UP_SUCCESSFUL_WITH_LINK_MESSAGE = "Signed up Successfully! Please check your email for verification link 🔗✉️";
+    static SINGED_UP_SUCCESSFUL_MESSAGE = "Signed Up Successfully ✅";
     static LOG_IN_SUCCESSFUL_MESSAGE = "Logged In Successfully ✅";
     static FAILED_CREATE_INSTANCE_MESSAGE = "Failed to create instanc(s) ❌";
     static EMAIL_VERIFICATION_LINK_EXPIRE_MESSAGE = "Email Verification Link has expired ⏰";
@@ -38,6 +39,12 @@ class StringConstants {
     static PASSWORD_RESET_SUCCESSFULLY_MESSAGE = "Password has been reset successfully 🔒 ✅";
     static RESET_PASSWORD_RECENTLY_MESSAGE = "You have reset your password recenty please try after 24 hours from last time ⏳";
     static TRY_AFTER_A_WHILE_MESSAGE = "Please try after a while 🕰️";
+    static INVALID_VALIDATION_TOKEN_MESSAGE = `Token must consist of three parts having any characters accept line terimantors, each part seperated with dot ❌`;
+    static INVALID_VALIDATION_BEARER_TOKEN_MESSAGE = `Token and start with one of ${Object.values(SignatureLevelsEnum)}. ${this.INVALID_VALIDATION_TOKEN_MESSAGE}`;
+    static FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE = "Failed to verify this gmail account 🇬✉️";
+    static INVALID_GMAIL_CREDENTIALS_MESSAGE = "Invaild gmail account credentials 🇬🪪";
+    static EMAIL_EXISTS_PROVIDER_MESSAGE = "Email exists with another provider ✉️❌";
+    static PHONE_NUMBER_VALIDATION_MESSAGE = "Phone number must start with country code (+20) followed by one of the code [10,11,12,15] followed by 8 digits 📱🔢 ❌";
     static WRONG_ROUTE_MESSAGE(req) {
         return `Wrong URI ${req.url} or METHOD ${req.method} ⛔`;
     }

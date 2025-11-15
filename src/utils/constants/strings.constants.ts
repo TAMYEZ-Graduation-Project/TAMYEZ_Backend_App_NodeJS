@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import { GenderEnum } from "./enum.constants.ts";
+import { GenderEnum, SignatureLevelsEnum } from "./enum.constants.ts";
 import type { RequestKeysType } from "../types/valdiation_schema.type.ts";
 
 class StringConstants {
@@ -49,8 +49,10 @@ class StringConstants {
     GenderEnum
   )}] 🚻`;
 
-  static readonly SINGED_UP_SUCCESSFUL_MESSAGE =
+  static readonly SINGED_UP_SUCCESSFUL_WITH_LINK_MESSAGE =
     "Signed up Successfully! Please check your email for verification link 🔗✉️";
+
+  static readonly SINGED_UP_SUCCESSFUL_MESSAGE = "Signed Up Successfully ✅";
 
   static readonly LOG_IN_SUCCESSFUL_MESSAGE = "Logged In Successfully ✅";
 
@@ -97,6 +99,24 @@ class StringConstants {
     "You have reset your password recenty please try after 24 hours from last time ⏳";
 
   static readonly TRY_AFTER_A_WHILE_MESSAGE = "Please try after a while 🕰️";
+
+  static readonly INVALID_VALIDATION_TOKEN_MESSAGE = `Token must consist of three parts having any characters accept line terimantors, each part seperated with dot ❌`;
+
+  static readonly INVALID_VALIDATION_BEARER_TOKEN_MESSAGE = `Token and start with one of ${Object.values(
+    SignatureLevelsEnum
+  )}. ${this.INVALID_VALIDATION_TOKEN_MESSAGE}`;
+
+  static readonly FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE =
+    "Failed to verify this gmail account 🇬✉️";
+
+  static readonly INVALID_GMAIL_CREDENTIALS_MESSAGE =
+    "Invaild gmail account credentials 🇬🪪";
+
+  static readonly EMAIL_EXISTS_PROVIDER_MESSAGE =
+    "Email exists with another provider ✉️❌";
+
+  static readonly PHONE_NUMBER_VALIDATION_MESSAGE =
+    "Phone number must start with country code (+20) followed by one of the code [10,11,12,15] followed by 8 digits 📱🔢 ❌";
 
   static WRONG_ROUTE_MESSAGE(req: Request): string {
     return `Wrong URI ${req.url} or METHOD ${req.method} ⛔`;

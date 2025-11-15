@@ -5,6 +5,8 @@ class RoutePaths {
     static auth = "/auth";
     static signUp = "/sign-up";
     static logIn = "/log-in";
+    static signUpGmail = "/sign-up-gmail";
+    static logInGmail = "/log-in-gmail";
     static verifyEmail = "/verify-email";
     static forgetPassword = "/forget-password";
     static verifyForgetPassowrd = "/verify-forget-password";

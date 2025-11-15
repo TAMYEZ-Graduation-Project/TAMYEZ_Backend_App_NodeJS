@@ -5,15 +5,16 @@ import { BadRequestException, ConflictException, NotFoundException, } from "../.
 import IdSecurityUtil from "../../utils/security/id.security.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
 import emailEvent from "../../utils/events/email.events.js";
-import { EmailStatusEnum, EventsEnum, OTPsOrLinksEnum, } from "../../utils/constants/enum.constants.js";
+import { EmailStatusEnum, EventsEnum, OTPsOrLinksEnum, ProvidersEnum, } from "../../utils/constants/enum.constants.js";
 import RoutePaths from "../../utils/constants/route_paths.constants.js";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
-import successHtmlHandler from "../../utils/handlers/success_html.handler.js";
+import responseHtmlHandler from "../../utils/handlers/success_html.handler.js";
 import HTML_VERIFY_EMAIL_TEMPLATE from "../../utils/email/templates/html_verify_email.template.js";
 import OTPSecurityUtil from "../../utils/security/otp.security.js";
 import HashingSecurityUtil from "../../utils/security/hash.security.js";
 import TokenSecurityUtil from "../../utils/security/token.security.js";
+import { OAuth2Client } from "google-auth-library";
 class AuthService {
     _userRespository = new UserRepository(UserModel);
     _sendTokenToUser = ({ email, otp, }) => {
@@ -30,7 +31,7 @@ class AuthService {
         });
     };
     signUp = async (req, res) => {
-        const { fullName, email, password, gender } = req.body;
+        const { fullName, email, password, gender, phoneNumber, } = req.body;
         const emailExists = await this._userRespository.findByEmail({ email });
         if (emailExists) {
             throw new ConflictException("email already exists!");
@@ -43,6 +44,7 @@ class AuthService {
                     email,
                     password: await HashingSecurityUtil.hashText({ plainText: password }),
                     gender,
+                    phoneNumber,
                     confirmEmailLink: {
                         code: await HashingSecurityUtil.hashText({
                             plainText: otp,
@@ -57,7 +59,7 @@ class AuthService {
         this._sendTokenToUser({ email, otp });
         return successHandler({
             res,
-            message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
+            message: StringConstants.SINGED_UP_SUCCESSFUL_WITH_LINK_MESSAGE,
         });
     };
     verifyEmail = async (req, res) => {
@@ -97,7 +99,7 @@ class AuthService {
                 $unset: { confirmEmailLink: true },
                 confirmedAt: new Date(),
             });
-            return successHtmlHandler({
+            return responseHtmlHandler({
                 res,
                 htmlContent: HTML_VERIFY_EMAIL_TEMPLATE({
                     logoUrl: process.env[EnvFields.LOGO_URL],
@@ -105,7 +107,7 @@ class AuthService {
             });
         }
         catch (error) {
-            return successHtmlHandler({
+            return responseHtmlHandler({
                 res,
                 htmlContent: HTML_VERIFY_EMAIL_TEMPLATE({
                     logoUrl: process.env[EnvFields.LOGO_URL],
@@ -158,6 +160,94 @@ class AuthService {
             throw new BadRequestException(StringConstants.INVALID_LOGIN_CREDENTIALS_MESSAGE);
         }
         const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({ user });
+        return successHandler({
+            res,
+            message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
+            body: {
+                accessToken,
+                user,
+            },
+        });
+    };
+    _verifyGmailAccount = async ({ idToken, }) => {
+        const client = new OAuth2Client();
+        const ticket = await client.verifyIdToken({
+            idToken,
+            audience: process.env[EnvFields.WEB_CLIENT_IDS]?.split(",") || [],
+        });
+        const payload = ticket.getPayload();
+        if (!payload?.email_verified) {
+            throw new BadRequestException(StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE);
+        }
+        return payload;
+    };
+    signUpWithGmail = async (req, res) => {
+        const { idToken } = req.body;
+        const { email, given_name, family_name, picture } = await this._verifyGmailAccount({ idToken });
+        if (!email || !given_name || given_name.length < 2) {
+            throw new BadRequestException(StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE);
+        }
+        const userExist = await this._userRespository.findByEmail({
+            email,
+        });
+        if (userExist) {
+            if (userExist.authProvider === ProvidersEnum.google) {
+                return await this.logInWithGmail(req, res);
+            }
+            throw new ConflictException(StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE);
+        }
+        const objectToCreate = {};
+        if (picture && picture.length != 0) {
+            objectToCreate.profilePicture = {
+                url: picture,
+                provider: ProvidersEnum.google,
+            };
+        }
+        const [user] = await this._userRespository.create({
+            data: [
+                {
+                    firstName: given_name,
+                    lastName: family_name || `${IdSecurityUtil.generateNumericId({ size: 3 })}`,
+                    email,
+                    confirmedAt: new Date(),
+                    authProvider: ProvidersEnum.google,
+                    ...objectToCreate,
+                },
+            ],
+        });
+        const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
+            user: user,
+        });
+        return successHandler({
+            res,
+            statusCode: 201,
+            message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
+            body: {
+                accessToken,
+                user: user,
+            },
+        });
+    };
+    logInWithGmail = async (req, res) => {
+        const { idToken } = req.body;
+        const { email } = await this._verifyGmailAccount({ idToken });
+        if (!email) {
+            throw new BadRequestException(StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE);
+        }
+        const user = await this._userRespository.findOne({
+            filter: {
+                email,
+                authProvider: ProvidersEnum.google,
+            },
+        });
+        if (!user) {
+            throw new NotFoundException(StringConstants.INVALID_USER_ACCOUNT_MESSAGE +
+                " or " +
+                StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE);
+        }
+        const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
+            user,
+        });
         return successHandler({
             res,
             message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,

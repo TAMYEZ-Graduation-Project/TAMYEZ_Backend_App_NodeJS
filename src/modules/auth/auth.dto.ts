@@ -21,3 +21,7 @@ export type VerifyForgetPasswordBodyDtoType = z.infer<
 export type ResetForgetPasswordBodyDtoType = z.infer<
   typeof AuthValidators.resetForgetPassword.body
 >;
+
+export type SignUpLogInGmailBodyDtoType = z.infer<
+  typeof AuthValidators.signUpLogInGamil.body
+>;

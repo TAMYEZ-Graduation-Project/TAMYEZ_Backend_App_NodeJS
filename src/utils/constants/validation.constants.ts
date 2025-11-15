@@ -1,7 +1,6 @@
 import z from "zod";
 import StringConstants from "./strings.constants.ts";
 import AppRegex from "./regex.constants.ts";
-import type { RequestKeysType } from "../types/valdiation_schema.type.ts";
 import { Types } from "mongoose";
 
 const generalValidationConstants = {
@@ -22,7 +21,9 @@ const generalValidationConstants = {
 
   otp: z
     .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("otp") })
-    .regex(AppRegex.otpRegex, { error: StringConstants.INVALID_OTP_VALIDATION_MESSAGE }),
+    .regex(AppRegex.otpRegex, {
+      error: StringConstants.INVALID_OTP_VALIDATION_MESSAGE,
+    }),
   confirmPasswordChecker: (
     data: { confirmPassword: string; password: String } & Record<string, any>,
     ctx: z.core.$RefinementCtx
@@ -35,19 +36,26 @@ const generalValidationConstants = {
       });
     }
   },
-  requiredObjectCheker: (
-    objectName: RequestKeysType,
-    data: Record<string, any>,
-    ctx: z.core.$RefinementCtx
-  ) => {
-    if (data == undefined) {
-      ctx.addIssue({
-        code: "custom",
-        path: [""],
-        message: StringConstants.MISMATCH_CONFIRM_PASSWORD_MESSAGE,
-      });
-    }
-  },
+
+  phoneNumber: z
+    .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("phoneNumber") })
+    .regex(AppRegex.phoneNumberRegex, {
+      error: StringConstants.PHONE_NUMBER_VALIDATION_MESSAGE,
+    }),
+
+  token: z
+    .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("token") })
+    .regex(AppRegex.tokenRegex, {
+      error: StringConstants.INVALID_VALIDATION_TOKEN_MESSAGE,
+    }),
+
+  bearerWithToken: z
+    .string({
+      error: StringConstants.PATH_REQUIRED_MESSAGE("token"),
+    })
+    .regex(AppRegex.bearerWithTokenRegex, {
+      error: StringConstants.INVALID_VALIDATION_BEARER_TOKEN_MESSAGE,
+    }),
 };
 
 export default generalValidationConstants;

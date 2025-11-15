@@ -20,10 +20,17 @@ class AuthValidators {
         gender: z.enum(Object.values(GenderEnum), {
           error: StringConstants.INVALID_GENDER_MESSAGE,
         }),
+        phoneNumber: generalValidationConstants.phoneNumber,
       })
       .superRefine((data, ctx) => {
         generalValidationConstants.confirmPasswordChecker(data, ctx);
       }),
+  };
+
+  static signUpLogInGamil = {
+    body: z.strictObject({
+      idToken: generalValidationConstants.token,
+    }),
   };
 
   static verifyEmail = {

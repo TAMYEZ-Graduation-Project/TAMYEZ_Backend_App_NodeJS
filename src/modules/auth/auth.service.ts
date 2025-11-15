@@ -8,6 +8,7 @@ import type {
   ResendEmailVerificationLinkBodyDtoType,
   ResetForgetPasswordBodyDtoType,
   SignUpBodyDtoType,
+  SignUpLogInGmailBodyDtoType,
   VerifyEmailQueryDtoType,
   VerifyForgetPasswordBodyDtoType,
 } from "./auth.dto.ts";
@@ -23,16 +24,22 @@ import {
   EmailStatusEnum,
   EventsEnum,
   OTPsOrLinksEnum,
+  ProvidersEnum,
 } from "../../utils/constants/enum.constants.ts";
 import RoutePaths from "../../utils/constants/route_paths.constants.ts";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
-import successHtmlHandler from "../../utils/handlers/success_html.handler.ts";
+import responseHtmlHandler from "../../utils/handlers/success_html.handler.ts";
 import HTML_VERIFY_EMAIL_TEMPLATE from "../../utils/email/templates/html_verify_email.template.ts";
 import OTPSecurityUtil from "../../utils/security/otp.security.ts";
 import HashingSecurityUtil from "../../utils/security/hash.security.ts";
 import TokenSecurityUtil from "../../utils/security/token.security.ts";
-import type { ILogInResponse } from "./auth.entity.ts";
+import type {
+  ILogInResponse,
+  ISignUpLogInGmailResponse,
+} from "./auth.entity.ts";
+import { OAuth2Client, type TokenPayload } from "google-auth-library";
+import type { IProfilePicture } from "../../db/interfaces/user.interface.ts";
 
 class AuthService {
   private _userRespository = new UserRepository(UserModel);
@@ -63,8 +70,13 @@ class AuthService {
   };
 
   signUp = async (req: Request, res: Response) => {
-    const { fullName, email, password, gender }: SignUpBodyDtoType =
-      req.body as SignUpBodyDtoType;
+    const {
+      fullName,
+      email,
+      password,
+      gender,
+      phoneNumber,
+    }: SignUpBodyDtoType = req.body as SignUpBodyDtoType;
 
     const emailExists = await this._userRespository.findByEmail({ email });
 
@@ -81,6 +93,7 @@ class AuthService {
           email,
           password: await HashingSecurityUtil.hashText({ plainText: password }),
           gender,
+          phoneNumber,
           confirmEmailLink: {
             code: await HashingSecurityUtil.hashText({
               plainText: otp,
@@ -99,7 +112,7 @@ class AuthService {
 
     return successHandler({
       res,
-      message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
+      message: StringConstants.SINGED_UP_SUCCESSFUL_WITH_LINK_MESSAGE,
     });
   };
 
@@ -157,14 +170,14 @@ class AuthService {
         confirmedAt: new Date(),
       });
 
-      return successHtmlHandler({
+      return responseHtmlHandler({
         res,
         htmlContent: HTML_VERIFY_EMAIL_TEMPLATE({
           logoUrl: process.env[EnvFields.LOGO_URL]!,
         }),
       });
     } catch (error: any) {
-      return successHtmlHandler({
+      return responseHtmlHandler({
         res,
         htmlContent: HTML_VERIFY_EMAIL_TEMPLATE({
           logoUrl: process.env[EnvFields.LOGO_URL]!,
@@ -238,6 +251,136 @@ class AuthService {
     const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({ user });
 
     return successHandler<ILogInResponse>({
+      res,
+      message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
+      body: {
+        accessToken,
+        user,
+      },
+    });
+  };
+
+  // Social Login/Signup with gmail
+
+  private _verifyGmailAccount = async ({
+    idToken,
+  }: {
+    idToken: string;
+  }): Promise<TokenPayload> => {
+    const client = new OAuth2Client();
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: process.env[EnvFields.WEB_CLIENT_IDS]?.split(",") || [], // Specify the WEB_CLIENT_ID of the app that accesses the backend
+      // Or, if multiple clients access the backend:
+      //[WEB_CLIENT_ID_1, WEB_CLIENT_ID_2, WEB_CLIENT_ID_3]
+    });
+    const payload = ticket.getPayload();
+    // This ID is unique to each Google Account, making it suitable for use as a primary key
+    // during account lookup. Email is not a good choice because it can be changed by the user.
+
+    if (!payload?.email_verified) {
+      throw new BadRequestException(
+        StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE
+      );
+    }
+    return payload;
+  };
+
+  signUpWithGmail = async (req: Request, res: Response): Promise<Response> => {
+    const { idToken } = req.body as SignUpLogInGmailBodyDtoType;
+
+    const { email, given_name, family_name, picture } =
+      await this._verifyGmailAccount({ idToken });
+
+    if (!email || !given_name || given_name.length < 2) {
+      throw new BadRequestException(
+        StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE
+      );
+    }
+
+    const userExist = await this._userRespository.findByEmail({
+      email,
+    });
+
+    if (userExist) {
+      if (userExist.authProvider === ProvidersEnum.google) {
+        return await this.logInWithGmail(req, res);
+      }
+      throw new ConflictException(
+        StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE
+      );
+    }
+
+    const objectToCreate: {
+      profilePicture?: IProfilePicture;
+    } = {};
+    if (picture && picture.length != 0) {
+      objectToCreate.profilePicture = {
+        url: picture,
+        provider: ProvidersEnum.google,
+      };
+    }
+
+    const [user] = await this._userRespository.create({
+      data: [
+        {
+          firstName: given_name,
+          lastName:
+            family_name || `${IdSecurityUtil.generateNumericId({ size: 3 })}`,
+          email,
+          confirmedAt: new Date(),
+          authProvider: ProvidersEnum.google,
+          ...objectToCreate,
+        },
+      ],
+    });
+
+    const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
+      user: user!,
+    });
+
+    return successHandler<ISignUpLogInGmailResponse>({
+      res,
+      statusCode: 201,
+      message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
+      body: {
+        accessToken,
+        user: user!,
+      },
+    });
+  };
+
+  logInWithGmail = async (req: Request, res: Response): Promise<Response> => {
+    const { idToken } = req.body as SignUpLogInGmailBodyDtoType;
+
+    const { email } = await this._verifyGmailAccount({ idToken });
+
+    if (!email) {
+      throw new BadRequestException(
+        StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE
+      );
+    }
+
+    const user = await this._userRespository.findOne({
+      filter: {
+        email,
+        authProvider: ProvidersEnum.google,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        StringConstants.INVALID_USER_ACCOUNT_MESSAGE +
+          " or " +
+          StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE
+      );
+    }
+
+    const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
+      user,
+    });
+
+    return successHandler<ISignUpLogInGmailResponse>({
       res,
       message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
       body: {

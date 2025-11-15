@@ -15,7 +15,9 @@ const generalValidationConstants = {
         .regex(AppRegex.passwordRegex, StringConstants.PASSWORD_VALIDATION_MESSAGE),
     otp: z
         .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("otp") })
-        .regex(AppRegex.otpRegex, { error: StringConstants.INVALID_OTP_VALIDATION_MESSAGE }),
+        .regex(AppRegex.otpRegex, {
+        error: StringConstants.INVALID_OTP_VALIDATION_MESSAGE,
+    }),
     confirmPasswordChecker: (data, ctx) => {
         if (data.confirmPassword !== data.password) {
             ctx.addIssue({
@@ -25,14 +27,22 @@ const generalValidationConstants = {
             });
         }
     },
-    requiredObjectCheker: (objectName, data, ctx) => {
-        if (data == undefined) {
-            ctx.addIssue({
-                code: "custom",
-                path: [""],
-                message: StringConstants.MISMATCH_CONFIRM_PASSWORD_MESSAGE,
-            });
-        }
-    },
+    phoneNumber: z
+        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("phoneNumber") })
+        .regex(AppRegex.phoneNumberRegex, {
+        error: StringConstants.PHONE_NUMBER_VALIDATION_MESSAGE,
+    }),
+    token: z
+        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("token") })
+        .regex(AppRegex.tokenRegex, {
+        error: StringConstants.INVALID_VALIDATION_TOKEN_MESSAGE,
+    }),
+    bearerWithToken: z
+        .string({
+        error: StringConstants.PATH_REQUIRED_MESSAGE("token"),
+    })
+        .regex(AppRegex.bearerWithTokenRegex, {
+        error: StringConstants.INVALID_VALIDATION_BEARER_TOKEN_MESSAGE,
+    }),
 };
 export default generalValidationConstants;

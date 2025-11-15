@@ -1,6 +1,6 @@
 import type { Response } from "express";
 
-function successHtmlHandler({
+function responseHtmlHandler({
   res,
   statusCode = 200,
   htmlContent,
@@ -21,7 +21,7 @@ function successHtmlHandler({
   return res.status(statusCode).send(htmlContent);
 }
 
-export default successHtmlHandler;
+export default responseHtmlHandler;
 
 /*
 res.setHeader(

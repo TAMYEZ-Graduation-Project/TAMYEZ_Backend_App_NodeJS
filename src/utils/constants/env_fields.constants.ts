@@ -45,6 +45,9 @@ abstract class EnvFields {
   // Forget Password
   static readonly TIME_ELAPSED_TO_RESET_PASSWORD_IN_MILLISECONDS =
     "TIME_ELAPSED_TO_RESET_PASSWORD_IN_MILLISECONDS";
+
+  // gmail verification
+  static readonly WEB_CLIENT_IDS = "WEB_CLIENT_IDS";
 }
 
 export default EnvFields;

@@ -6,6 +6,14 @@ const OtpOrLinkObjectSchema = new mongoose.Schema({
     expiresAt: { type: Date, required: true },
     count: { type: Number, required: true },
 }, { _id: false });
+const ProfilePictureSchema = new mongoose.Schema({
+    url: { type: String, requird: true },
+    provider: {
+        type: String,
+        enum: Object.values(ProvidersEnum),
+        default: ProvidersEnum.local,
+    },
+}, { _id: false });
 const userSchema = new mongoose.Schema({
     firstName: { type: String, required: true, minlength: 2, maxlength: 25 },
     lastName: { type: String, required: true, minlength: 2, maxlength: 25 },
@@ -19,14 +27,25 @@ const userSchema = new mongoose.Schema({
     confirmEmailLink: {
         type: OtpOrLinkObjectSchema,
     },
-    password: { type: String, required: true },
+    password: {
+        type: String,
+        required: function () {
+            return this.authProvider === ProvidersEnum.local;
+        },
+    },
     forgetPasswordOtp: {
         type: OtpOrLinkObjectSchema,
     },
     forgetPasswordVerificationExpiresAt: { type: Date },
     lastResetPasswordAt: { type: Date },
     changeCredentialsTime: { type: Date },
-    gender: { type: String, enum: Object.values(GenderEnum), required: true },
+    gender: {
+        type: String,
+        enum: Object.values(GenderEnum),
+        required: function () {
+            return this.authProvider === ProvidersEnum.local;
+        },
+    },
     role: {
         type: String,
         enum: Object.values(RolesEnum),
@@ -37,15 +56,17 @@ const userSchema = new mongoose.Schema({
         enum: Object.values(ProvidersEnum),
         default: ProvidersEnum.local,
     },
-    phoneNumber: { type: String },
-    dateOfBirth: { type: Date },
-    profilePicture: {
-        url: { type: String },
-        provider: {
-            type: String,
-            enum: Object.values(ProvidersEnum),
+    phoneNumber: {
+        type: String,
+        required: function () {
+            return this.authProvider === ProvidersEnum.local;
         },
     },
+    dateOfBirth: { type: Date },
+    profilePicture: {
+        type: ProfilePictureSchema,
+    },
+    coverImages: [String],
     education: { type: String },
     skills: { type: [String], default: [] },
     coursesAndCertifications: { type: [String], default: [] },

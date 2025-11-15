@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
-import type { IUser } from "../interfaces/user.interface.ts";
+import type {
+  IOtpOrLinkObject,
+  IProfilePicture,
+  IUser,
+} from "../interfaces/user.interface.ts";
 import {
   GenderEnum,
   ProvidersEnum,
@@ -7,11 +11,23 @@ import {
 } from "../../utils/constants/enum.constants.ts";
 import ModelsNames from "../../utils/constants/models.names.ts";
 
-const OtpOrLinkObjectSchema = new mongoose.Schema(
+const OtpOrLinkObjectSchema = new mongoose.Schema<IOtpOrLinkObject>(
   {
     code: { type: String, required: true },
     expiresAt: { type: Date, required: true },
     count: { type: Number, required: true },
+  },
+  { _id: false }
+);
+
+const ProfilePictureSchema = new mongoose.Schema<IProfilePicture>(
+  {
+    url: { type: String, requird: true },
+    provider: {
+      type: String,
+      enum: Object.values(ProvidersEnum),
+      default: ProvidersEnum.local,
+    },
   },
   { _id: false }
 );
@@ -32,7 +48,12 @@ const userSchema = new mongoose.Schema<IUser>(
       type: OtpOrLinkObjectSchema,
     },
 
-    password: { type: String, required: true },
+    password: {
+      type: String,
+      required: function (this: IUser) {
+        return this.authProvider === ProvidersEnum.local;
+      },
+    },
     forgetPasswordOtp: {
       type: OtpOrLinkObjectSchema,
     },
@@ -41,7 +62,14 @@ const userSchema = new mongoose.Schema<IUser>(
 
     changeCredentialsTime: { type: Date },
 
-    gender: { type: String, enum: Object.values(GenderEnum), required: true },
+    gender: {
+      type: String,
+      enum: Object.values(GenderEnum),
+      required: function (this: IUser) {
+        return this.authProvider === ProvidersEnum.local;
+      },
+    },
+
     role: {
       type: String,
       enum: Object.values(RolesEnum),
@@ -54,17 +82,19 @@ const userSchema = new mongoose.Schema<IUser>(
       default: ProvidersEnum.local,
     },
 
-    phoneNumber: { type: String },
+    phoneNumber: {
+      type: String,
+      required: function (this: IUser) {
+        return this.authProvider === ProvidersEnum.local;
+      },
+    },
 
     dateOfBirth: { type: Date },
 
     profilePicture: {
-      url: { type: String },
-      provider: {
-        type: String,
-        enum: Object.values(ProvidersEnum),
-      },
+      type: ProfilePictureSchema,
     },
+    coverImages: [String],
 
     // Acadamic Info
     education: { type: String },

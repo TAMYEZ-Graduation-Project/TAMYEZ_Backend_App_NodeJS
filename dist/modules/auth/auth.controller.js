@@ -7,6 +7,8 @@ const authRouter = Router();
 authRouter.post(RoutePaths.signUp, validationMiddleware({ schema: AuthValidator.signUp }), authService.signUp);
 authRouter.post(RoutePaths.logIn, validationMiddleware({ schema: AuthValidator.logIn }), authService.logIn);
 authRouter.post(RoutePaths.resendEmailVerificationLink, validationMiddleware({ schema: AuthValidator.resendEmailVerificationLink }), authService.resendEmailVerificationLink);
+authRouter.post(RoutePaths.signUpGmail, validationMiddleware({ schema: AuthValidator.signUpLogInGamil }), authService.signUpWithGmail);
+authRouter.post(RoutePaths.logInGmail, validationMiddleware({ schema: AuthValidator.signUpLogInGamil }), authService.logInWithGmail);
 authRouter.post(RoutePaths.forgetPassword, validationMiddleware({ schema: AuthValidator.forgetPassword }), authService.forgetPassword);
 authRouter.post(RoutePaths.verifyForgetPassowrd, validationMiddleware({ schema: AuthValidator.verifyForgetPassword }), authService.verifyForgetPassword);
 authRouter.post(RoutePaths.resetForgetPassword, validationMiddleware({ schema: AuthValidator.resetForgetPassword }), authService.resetForgetPassword);
