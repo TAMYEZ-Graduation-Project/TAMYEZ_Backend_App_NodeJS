@@ -77,3 +77,9 @@ export enum LogoutFlagsEnum {
   one = "One",
   stay = "Stay",
 }
+
+export enum QuestionTypesEnum {
+  mcqSingle = "mcq-single",
+  mcqMulti = "mcq-multi",
+  written = "written",
+}

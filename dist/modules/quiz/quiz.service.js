@@ -1,15 +1,14 @@
-import { QuizModel } from "../../db/models/index.js";
-import { QuizRepository } from "../../db/repositories/index.js";
+import { QuizModel, QuizQuestionsModel } from "../../db/models/index.js";
+import { QuizQuestionsRepository, QuizRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
-import { QuizTypesEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
-import { BadRequestException, ConflictException, NotFoundException, ValidationException, } from "../../utils/exceptions/custom.exceptions.js";
+import { QuestionTypesEnum, QuizTypesEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
+import { BadRequestException, ConflictException, NotFoundException, ServerException, ValidationException, } from "../../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import QuizUtil from "../../utils/quiz/utils.quiz.js";
 import UpdateUtil from "../../utils/update/util.update.js";
-import QuizApisManager from "./quiz.apis.js";
 class QuizService {
     _quizRepository = new QuizRepository(QuizModel);
-    _quizApisManager = new QuizApisManager();
+    _quizQuestionsRepository = new QuizQuestionsRepository(QuizQuestionsModel);
     createQuiz = async (req, res) => {
         const { title, description, aiPrompt, type, duration, tags } = req
             .validationResult.body;
@@ -116,6 +115,82 @@ class QuizService {
         }
         return successHandler({ res, body: { quiz } });
     };
+    _generateQuestions = async ({ title, aiPrompt, }) => {
+        return {
+            title,
+            questions: [
+                {
+                    type: "mcq-single",
+                    text: "Which data structure uses LIFO (Last In, First Out) principle?",
+                    options: ["Queue", "Stack", "Array", "Linked List"],
+                    correctAnswer: "Stack",
+                },
+                {
+                    type: "mcq-single",
+                    text: "What is the time complexity of binary search in a sorted array?",
+                    options: ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
+                    correctAnswer: "O(log n)",
+                },
+                {
+                    type: "mcq-multi",
+                    text: "Which of the following are programming paradigms?",
+                    options: [
+                        "Object-Oriented",
+                        "Functional",
+                        "Procedural",
+                        "Relational",
+                    ],
+                    correctAnswer: ["Object-Oriented", "Functional", "Procedural"],
+                },
+                {
+                    type: "written",
+                    text: "Explain the difference between TCP and UDP.",
+                },
+                {
+                    type: "mcq-single",
+                    text: "Which algorithm is commonly used for shortest path in a graph?",
+                    options: [
+                        "Dijkstra's Algorithm",
+                        "Merge Sort",
+                        "DFS",
+                        "Bellman-Ford",
+                    ],
+                    correctAnswer: "Dijkstra's Algorithm",
+                },
+                {
+                    type: "mcq-single",
+                    text: "What does SQL stand for?",
+                    options: [
+                        "Structured Query Language",
+                        "Simple Query Language",
+                        "Sequential Query Language",
+                        "Standard Query Language",
+                    ],
+                    correctAnswer: "Structured Query Language",
+                },
+                {
+                    type: "mcq-multi",
+                    text: "Which of the following are NoSQL databases?",
+                    options: ["MongoDB", "PostgreSQL", "Cassandra", "Redis"],
+                    correctAnswer: ["MongoDB", "Cassandra", "Redis"],
+                },
+                {
+                    type: "written",
+                    text: "Describe the concept of polymorphism in object-oriented programming.",
+                },
+                {
+                    type: "mcq-single",
+                    text: "Which of these is NOT a valid HTTP method?",
+                    options: ["GET", "POST", "FETCH", "DELETE"],
+                    correctAnswer: "FETCH",
+                },
+                {
+                    type: "written",
+                    text: "What is the difference between supervised and unsupervised learning in machine learning?",
+                },
+            ],
+        };
+    };
     getQuizQuestions = async (req, res) => {
         const { quizId } = req.params;
         const filter = {};
@@ -134,13 +209,41 @@ class QuizService {
         if (!quiz) {
             throw new NotFoundException(StringConstants.INVALID_PARAMETER_MESSAGE("quizId"));
         }
+        const generatedQuestions = await this._generateQuestions({
+            title: quiz.title,
+            aiPrompt: quiz.aiPrompt,
+        });
+        const writtenQuestionsIndexes = [];
+        generatedQuestions.questions.forEach((value, index) => {
+            if (value.type === QuestionTypesEnum.written)
+                writtenQuestionsIndexes.push(index);
+        });
+        let [quizQuestions] = await this._quizQuestionsRepository.create({
+            data: [
+                {
+                    quizId: quiz._id,
+                    userId: req.user._id,
+                    writtenQuestionsIndexes,
+                    questions: generatedQuestions.questions,
+                    expiresAt: new Date(Date.now() + quiz.duration * 1000),
+                },
+            ],
+        });
+        if (!quizQuestions) {
+            throw new ServerException("Failed to generate quiz questions ❓");
+        }
         return successHandler({
             res,
             body: {
-                quiz: await this._quizApisManager.getQuizQustions({
-                    title: quiz.title,
-                    aiPrompt: quiz.aiPrompt,
-                }),
+                quiz: {
+                    ...quizQuestions.toJSON(),
+                    questions: quizQuestions.questions.map((value, index) => {
+                        return {
+                            id: value.id,
+                            ...generatedQuestions.questions[index],
+                        };
+                    }),
+                },
             },
         });
     };

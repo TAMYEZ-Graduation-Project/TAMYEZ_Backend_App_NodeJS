@@ -1,3 +1,4 @@
 export { default as UserModel } from "./user.model.js";
 export { default as RevokedTokenModel } from "./revoked_token.model.js";
 export { default as QuizModel } from "./quiz.model.js";
+export { default as QuizQuestionsModel } from "./quiz_questions.model.js";

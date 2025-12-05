@@ -78,3 +78,9 @@ export var LogoutFlagsEnum;
     LogoutFlagsEnum["one"] = "One";
     LogoutFlagsEnum["stay"] = "Stay";
 })(LogoutFlagsEnum || (LogoutFlagsEnum = {}));
+export var QuestionTypesEnum;
+(function (QuestionTypesEnum) {
+    QuestionTypesEnum["mcqSingle"] = "mcq-single";
+    QuestionTypesEnum["mcqMulti"] = "mcq-multi";
+    QuestionTypesEnum["written"] = "written";
+})(QuestionTypesEnum || (QuestionTypesEnum = {}));
