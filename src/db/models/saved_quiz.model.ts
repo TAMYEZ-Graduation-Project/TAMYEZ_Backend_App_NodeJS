@@ -11,6 +11,7 @@ import { validateIfValidQuestionAnswer } from "../../utils/question/validate_opt
 import ModelsNames from "../../utils/constants/models.names.ts";
 import { questionOptionSchema } from "./common_schemas.model.ts";
 import type { IQuizQuestionOption } from "../interfaces/common.interface.ts";
+import type { FullIQuiz } from "../interfaces/quiz.interface.ts";
 
 const savedQuestionSchema = new mongoose.Schema<ISavedQuestion>(
   {
@@ -35,7 +36,8 @@ const savedQuestionSchema = new mongoose.Schema<ISavedQuestion>(
       minlength: 2,
       maxlength: 4,
 
-      set: (v:IQuizQuestionOption[]) => (Array.isArray(v) && v.length === 0 ? undefined : v),
+      set: (v: IQuizQuestionOption[]) =>
+        Array.isArray(v) && v.length === 0 ? undefined : v,
     },
 
     userAnswer: {
@@ -149,12 +151,19 @@ savedQuizSchema.virtual("id").get(function () {
 savedQuizSchema.methods.toJSON = function () {
   const { _id, quizId, score, userId, takenAt, createdAt, updatedAt } =
     this.toObject() as FullISavedQuiz;
+
+  let quiz;
+  if (typeof quizId === "object" && (quizId as unknown as FullIQuiz)._id) {
+    const { _id, ...restObj } = quizId as unknown as FullIQuiz;
+    quiz = { id: _id, ...restObj };
+  }
+
   return {
     id: _id,
-    quizId,
+    quizId: quiz || quizId,
     userId,
     score,
-    questions: (this.questions as HISavedQuestion[]).map((question) => {
+    questions: (this.questions as HISavedQuestion[])?.map((question) => {
       return (question as HISavedQuestion).toJSON();
     }),
     takenAt,

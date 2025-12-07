@@ -20,7 +20,7 @@ const savedQuestionSchema = new mongoose.Schema({
         },
         minlength: 2,
         maxlength: 4,
-        set: (v) => (Array.isArray(v) && v.length === 0 ? undefined : v),
+        set: (v) => Array.isArray(v) && v.length === 0 ? undefined : v,
     },
     userAnswer: {
         type: mongoose.Schema.Types.Mixed,
@@ -106,12 +106,17 @@ savedQuizSchema.virtual("id").get(function () {
 });
 savedQuizSchema.methods.toJSON = function () {
     const { _id, quizId, score, userId, takenAt, createdAt, updatedAt } = this.toObject();
+    let quiz;
+    if (typeof quizId === "object" && quizId._id) {
+        const { _id, ...restObj } = quizId;
+        quiz = { id: _id, ...restObj };
+    }
     return {
         id: _id,
-        quizId,
+        quizId: quiz || quizId,
         userId,
         score,
-        questions: this.questions.map((question) => {
+        questions: this.questions?.map((question) => {
             return question.toJSON();
         }),
         takenAt,

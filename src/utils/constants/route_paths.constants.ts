@@ -32,6 +32,8 @@ class RoutePaths {
   static readonly quiz = "/quiz";
   static readonly getQuizDetails = "/:quizId";
   static readonly getQuizQuestions = "/questions/:quizId";
+  static readonly getSavedQuizzes = "/saved";
+  static readonly getSavedQuiz = "/saved/:savedQuizId";
   static readonly checkQuizAnswers = "/:quizId";
   static readonly createQuiz = "/admin/";
   static readonly updateQuiz = "/admin/:quizId";

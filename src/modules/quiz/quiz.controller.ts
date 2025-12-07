@@ -11,24 +11,31 @@ const quizRouter = Router();
 const quizService = new QuizService();
 
 quizRouter.get(
-  RoutePaths.getQuizDetails,
+  RoutePaths.getSavedQuizzes,
   Auths.authenticationMiddleware(),
-  validationMiddleware({schema: QuizValidators.getQuiz}),
-  quizService.getQuizDetails
-)
+  validationMiddleware({ schema: QuizValidators.getSavedQuizzes }),
+  quizService.getSavedQuizzes
+);
+
+quizRouter.get(
+  RoutePaths.getSavedQuiz,
+  Auths.authenticationMiddleware(),
+  validationMiddleware({ schema: QuizValidators.getSavedQuiz }),
+  quizService.getSavedQuiz
+);
 
 quizRouter.get(
   RoutePaths.getQuizQuestions,
   Auths.authenticationMiddleware(),
-  validationMiddleware({schema: QuizValidators.getQuiz}),
+  validationMiddleware({ schema: QuizValidators.getQuiz }),
   quizService.getQuizQuestions
-)
+);
 
-quizRouter.post(
-  RoutePaths.checkQuizAnswers,
+quizRouter.get(
+  RoutePaths.getQuizDetails,
   Auths.authenticationMiddleware(),
-  validationMiddleware({ schema: QuizValidators.checkQuizAnswers }),
-  quizService.checkQuizAnswers
+  validationMiddleware({ schema: QuizValidators.getQuiz }),
+  quizService.getQuizDetails
 );
 
 quizRouter.post(
@@ -36,6 +43,13 @@ quizRouter.post(
   Auths.combined({ accessRoles: endpointsAuthorization.createQuiz }),
   validationMiddleware({ schema: QuizValidators.createQuiz }),
   quizService.createQuiz
+);
+
+quizRouter.post(
+  RoutePaths.checkQuizAnswers,
+  Auths.authenticationMiddleware(),
+  validationMiddleware({ schema: QuizValidators.checkQuizAnswers }),
+  quizService.checkQuizAnswers
 );
 
 quizRouter.patch(

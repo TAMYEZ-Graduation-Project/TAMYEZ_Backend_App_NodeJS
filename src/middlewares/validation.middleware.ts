@@ -50,7 +50,7 @@ const validationMiddleware = ({ schema }: { schema: ZodSchemaType }) => {
               );
             return {
               key,
-              path: issue.path.join(","),
+              path: issue.path.join("."),
               message: issue.message,
             };
           })

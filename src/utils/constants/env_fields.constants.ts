@@ -65,6 +65,7 @@ abstract class EnvFields {
     "CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS";
   static readonly QUIZ_QUESTIONS_EXPIRES_IN_SECONDS =
     "QUIZ_QUESTIONS_EXPIRES_IN_SECONDS";
+  static readonly QUIZ_COOLDOWN_IN_SECONDS = "QUIZ_COOLDOWN_IN_SECONDS";
 }
 
 export default EnvFields;

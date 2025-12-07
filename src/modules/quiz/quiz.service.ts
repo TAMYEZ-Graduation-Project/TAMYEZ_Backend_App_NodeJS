@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import {
+  QuizCooldownModel,
   QuizModel,
   QuizQuestionsModel,
   SavedQuizModel,
@@ -14,6 +15,8 @@ import type {
   CheckQuizAnswersParamsDtoType,
   CreateQuizBodyDtoType,
   GetQuizParamsDtoType,
+  GetSavedQuizParamsDtoType,
+  GetSavedQuizzesQueryDtoType,
   UpdateQuizBodyDtoType,
   UpdateQuizParamsDtoType,
 } from "./quiz.dto.ts";
@@ -46,9 +49,14 @@ import type {
   IAIModelGeneratedQuestionsResponse,
 } from "../../utils/constants/interface.constants.ts";
 import makeCompleter from "../../utils/completer/make.completer.ts";
-import type { HIQuestion } from "../../db/interfaces/quiz_questions.interface.ts";
+import type {
+  FullIQuestion,
+  HIQuestion,
+  IQuestion,
+} from "../../db/interfaces/quiz_questions.interface.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
 import type { ISavedQuestion } from "../../db/interfaces/saved_quiz.interface.ts";
+import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.ts";
 
 class QuizService {
   private _quizRepository = new QuizRepository(QuizModel);
@@ -56,6 +64,9 @@ class QuizService {
     QuizQuestionsModel
   );
   private _savedQuizRepository = new SavedQuizRepository(SavedQuizModel);
+  private _quizCooldownRepository = new QuizCooldownRepository(
+    QuizCooldownModel
+  );
   //private _quizApisManager = new QuizApisManager();
 
   createQuiz = async (req: Request, res: Response): Promise<Response> => {
@@ -162,6 +173,7 @@ class QuizService {
       uniqueKey:
         updateObject.title || updateObject.tags?.length ? uniqueKey : undefined,
       ...updateObject,
+      __v: { $inc: 1 },
     });
 
     return successHandler({
@@ -345,6 +357,16 @@ class QuizService {
       );
     }
 
+    if (
+      await this._quizCooldownRepository.findOne({
+        filter: { quizId: quiz._id, userId: req.user!._id! },
+      })
+    ) {
+      throw new BadRequestException(
+        `You are in cooldown period for this quiz. Please try again later ❌`
+      );
+    }
+
     const [_, generatedQuestions] = await Promise.all([
       this._quizQuestionsRepository.deleteOne({
         filter: { quizId: quiz._id, userId: req.user!._id! },
@@ -406,28 +428,29 @@ class QuizService {
     title,
     aiPrompt,
     writtenAnswers,
-  }: IAIModelCheckWrittenQuestionsRequest & { resolve: () => void }): Promise<
-    IAIModelCheckWrittenQuestionsResponse[]
-  > => {
+  }: IAIModelCheckWrittenQuestionsRequest & {
+    resolve: (data: IAIModelCheckWrittenQuestionsResponse[]) => void;
+  }): Promise<IAIModelCheckWrittenQuestionsResponse[]> => {
     return new Promise((res) => {
-      const response = [];
-      for (const answer of writtenAnswers) {
-        if (answer.userAnswer.includes("correct")) {
-          response.push({
-            questionId: answer.questionId,
-            isCorrect: true,
-          });
-        } else {
-          response.push({
-            questionId: answer.questionId,
-            isCorrect: false,
-            correction: "This is the correction of user answer",
-            explenation: "This is the explanation of user answer",
-          });
+      setTimeout(() => {
+        const response = [];
+        for (const answer of writtenAnswers) {
+          if (answer.userAnswer.includes("correct")) {
+            response.push({
+              questionId: answer.questionId,
+              isCorrect: true,
+            });
+          } else {
+            response.push({
+              questionId: answer.questionId,
+              isCorrect: false,
+              correction: "This is the correction of user answer",
+              explenation: "This is the explanation of user answer",
+            });
+          }
         }
-      }
-      res(response);
-      resolve();
+        resolve(response);
+      }, 1500);
     });
   };
 
@@ -455,16 +478,36 @@ class QuizService {
       );
     }
 
+    if (
+      (quizQuestions.quizId as unknown as HIQuiz).title ===
+      StringConstants.CAREER_ASSESSMENT
+    ) {
+      throw new BadRequestException(
+        `Answers of ${StringConstants.CAREER_ASSESSMENT} quiz, use get suggested careers API 🚫`
+      );
+    }
+
     if (answers.length !== quizQuestions.questions.length) {
       throw new ValidationException(
         "Number of answers provided does not match number of questions ❌"
       );
     }
 
+    // ---- Build maps once (O(n)) ----
+    const questions = quizQuestions.questions as HIQuestion[];
+    const qById = new Map<string, { index: number } & FullIQuestion>();
+    for (let i = 0; i < questions.length; i++) {
+      const qid = questions[i]!.id?.toString()!;
+      qById.set(qid, { index: i, ...questions[i]?.toObject()! } as {
+        index: number;
+      } & HIQuestion);
+    }
+
     const writtenAnswers: IAIModelCheckWrittenQuestionsRequest["writtenAnswers"] =
       [];
     for (const answer of answers) {
-      const question = quizQuestions.answersMap.get(answer.questionId);
+      const question = qById.get(answer.questionId);
+
       if (!question) {
         throw new NotFoundException(
           `Not found questionId in the quiz questions ${answer.questionId} ❌`
@@ -485,7 +528,7 @@ class QuizService {
 
     // send written questions to AI model for checking
     const gate = makeCompleter();
-    const writtenAnswersResults = await this._checkWrittenQuestionsAnswers({
+    this._checkWrittenQuestionsAnswers({
       resolve: gate.resolve as unknown as () => void,
       title: (quizQuestions.quizId as unknown as HIQuiz).title,
       aiPrompt: (quizQuestions.quizId as unknown as HIQuiz).aiPrompt!,
@@ -496,15 +539,13 @@ class QuizService {
     let wrongAnswersCount = 0;
     // check non-written questions answers
     for (const answer of answers) {
-      const question = quizQuestions.questions.find((value) => {
-        return value.id?.equals(answer.questionId);
-      })! as HIQuestion;
+      const question = qById.get(answer.questionId)! as IQuestion;
 
       if (question.type === QuestionTypesEnum.written) continue;
 
       const selectedAnswer = answer.answer;
 
-      const { correctAnswer, explanation, ...rest } = question.toObject();
+      const { correctAnswer, explanation, ...rest } = question;
       if (selectedAnswer.toString() == question.correctAnswer?.toString()) {
         checkedAnswers.push({
           ...rest,
@@ -523,18 +564,15 @@ class QuizService {
       }
     }
 
-    await gate.promise;
+    const writtenAnswersResults =
+      (await gate.promise) as IAIModelCheckWrittenQuestionsResponse[];
 
     // integrate written answers results
     for (const writtenAnswerResult of writtenAnswersResults) {
-      let index;
-      const question = quizQuestions.questions.find((value, i) => {
-        index = i;
-        return value.id?.equals(writtenAnswerResult.questionId);
-      })! as HIQuestion;
+      const question = qById.get(writtenAnswerResult.questionId)!;
       if (writtenAnswerResult.isCorrect) {
-        checkedAnswers.splice(index!, 0, {
-          ...question.toObject(),
+        checkedAnswers.splice(question.index!, 0, {
+          ...question,
           isCorrect: true,
           userAnswer: writtenAnswers.find(
             (wa) => wa.questionId === writtenAnswerResult.questionId
@@ -542,8 +580,8 @@ class QuizService {
         });
       } else {
         wrongAnswersCount++;
-        checkedAnswers.splice(index!, 0, {
-          ...question.toObject(),
+        checkedAnswers.splice(question.index!, 0, {
+          ...question,
           isCorrect: false,
           userAnswer: writtenAnswers.find(
             (wa) => wa.questionId === writtenAnswerResult.questionId
@@ -562,16 +600,7 @@ class QuizService {
 
     if (scoreNumber >= 50) {
       if (
-        await this._savedQuizRepository.findOne({
-          filter: {
-            quizId: quizQuestions.quizId!._id!,
-            userId: req.user!._id!,
-          },
-        })
-      ) {
-        console.log("inside updateone");
-
-        await this._savedQuizRepository.updateOne({
+        !(await this._savedQuizRepository.findOneAndUpdate({
           filter: {
             quizId: quizQuestions.quizId!._id!,
             userId: req.user!._id!,
@@ -581,10 +610,8 @@ class QuizService {
             score: `${scoreNumber}%`,
             takenAt: new Date(),
           },
-        });
-      } else {
-        console.log("inside create");
-
+        }))
+      ) {
         await this._savedQuizRepository.create({
           data: [
             {
@@ -597,7 +624,30 @@ class QuizService {
           ],
         });
       }
+    } else {
+      await Promise.all([
+        this._savedQuizRepository.deleteOne({
+          filter: {
+            quizId: quizQuestions.quizId!._id!,
+            userId: req.user!._id!,
+          },
+        }),
+        this._quizCooldownRepository.create({
+          data: [
+            {
+              quizId: quizQuestions.quizId!._id!,
+              userId: req.user!._id!,
+              cooldownEndsAt: new Date(
+                Date.now() +
+                  Number(process.env[EnvFields.QUIZ_COOLDOWN_IN_SECONDS]) * 1000
+              ),
+            },
+          ],
+        }),
+      ]);
     }
+
+    await quizQuestions.deleteOne();
     return successHandler({
       res,
       message: "Quiz answers checked successfully ✅",
@@ -608,6 +658,54 @@ class QuizService {
         score: `${scoreNumber}%`,
         answers: checkedAnswers,
       },
+    });
+  };
+
+  getSavedQuizzes = async (req: Request, res: Response): Promise<Response> => {
+    const { page, size } = req.validationResult
+      .query as GetSavedQuizzesQueryDtoType;
+
+    console.log({ page, size });
+
+    const savedQuizzes = await this._savedQuizRepository.paginate({
+      filter: { userId: req.user!._id! },
+      options: {
+        populate: [{ path: "quizId", select: "title type duration" }],
+      },
+      projection: { quizId: 1, score: 1, takenAt: 1 },
+      page,
+      size,
+    });
+
+    if (!savedQuizzes.data?.length) {
+      throw new NotFoundException("No saved quizzes found 🚫");
+    }
+
+    return successHandler({
+      res,
+      message: "Saved quizzes fetched successfully ✅",
+      body: { savedQuizzes },
+    });
+  };
+
+  getSavedQuiz = async (req: Request, res: Response): Promise<Response> => {
+    const { savedQuizId } = req.params as GetSavedQuizParamsDtoType;
+
+    const savedQuiz = await this._savedQuizRepository.findOne({
+      filter: { _id: savedQuizId, userId: req.user!._id! },
+      options: {
+        populate: [{ path: "quizId", select: "title type duration" }],
+      },
+    });
+
+    if (!savedQuiz) {
+      throw new NotFoundException("Saved quiz not found 🚫");
+    }
+
+    return successHandler({
+      res,
+      message: "Saved quiz fetched successfully ✅",
+      body: { savedQuiz },
     });
   };
 }

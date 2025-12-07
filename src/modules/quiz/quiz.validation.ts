@@ -143,13 +143,15 @@ class QuizValidators {
             error: StringConstants.PATH_REQUIRED_MESSAGE("description"),
           })
           .min(3)
-          .max(50_000).optional(),
+          .max(50_000)
+          .optional(),
         aiPrompt: z
           .string({
             error: StringConstants.PATH_REQUIRED_MESSAGE("aiPrompt"),
           })
           .min(3)
-          .max(50_000).optional(),
+          .max(50_000)
+          .optional(),
         type: z
           .enum(Object.values(QuizTypesEnum), {
             error: StringConstants.INVALID_ENUM_VALUE_MESSAGE({
@@ -219,10 +221,16 @@ class QuizValidators {
             .strictObject({
               questionId: generalValidationConstants.objectId,
               type: z.enum(Object.values(QuestionTypesEnum)),
-              answer: z.union([
-                z.string().min(1).max(5_000),
-                z.array(z.enum(Object.values(OptionIdsEnum))),
-              ]),
+              answer: z.union(
+                [
+                  z.string().min(1).max(5_000),
+                  z
+                    .array(z.enum(Object.values(OptionIdsEnum)))
+                    .min(1)
+                    .max(10),
+                ],
+                { error: "Answer format is invalid ❌" }
+              ),
             })
             .superRefine((data, ctx) => {
               if (data.type === QuestionTypesEnum.written) {
@@ -234,7 +242,12 @@ class QuizValidators {
                   });
                 }
               } else {
-                if (!Array.isArray(data.answer)) {
+                if (
+                  !Array.isArray(data.answer) ||
+                  data.answer.some(
+                    (ans) => !Object.values(OptionIdsEnum).includes(ans)
+                  )
+                ) {
                   ctx.addIssue({
                     code: "custom",
                     path: ["answer"],
@@ -261,6 +274,19 @@ class QuizValidators {
         )
         .min(2)
         .max(200),
+    }),
+  };
+
+  static getSavedQuizzes = {
+    query: z.strictObject({
+      page: z.coerce.number().int().min(1).max(100).optional().default(1),
+      size: z.coerce.number().int().min(5).max(50).optional().default(10),
+    }),
+  };
+
+  static getSavedQuiz = {
+    params: z.strictObject({
+      savedQuizId: generalValidationConstants.objectId,
     }),
   };
 }

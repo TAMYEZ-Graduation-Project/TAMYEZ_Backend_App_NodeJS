@@ -24,3 +24,10 @@ export type CheckQuizAnswersParamsDtoType = z.infer<
 export type CheckQuizAnswersBodyDtoType = z.infer<
   typeof QuizValidators.checkQuizAnswers.body
 >;
+
+export type GetSavedQuizzesQueryDtoType = z.infer<
+  typeof QuizValidators.getSavedQuizzes.query
+>;
+export type GetSavedQuizParamsDtoType = z.infer<
+  typeof QuizValidators.getSavedQuiz.params
+>;

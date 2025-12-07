@@ -5,7 +5,6 @@ import type {
   HIQuestion,
   IQuestion,
   IQuizQuestions,
-  QuizQuestionsAnswersMapValueType,
 } from "../interfaces/quiz_questions.interface.ts";
 import ModelsNames from "../../utils/constants/models.names.ts";
 import { QuestionTypesEnum } from "../../utils/constants/enum.constants.ts";
@@ -95,21 +94,6 @@ const quizQuestionsSchema = new mongoose.Schema<IQuizQuestions>(
       ref: ModelsNames.userModel,
     },
 
-    answersMap: {
-      type: Map,
-      validate: {
-        validator: function (val: QuizQuestionsAnswersMapValueType) {
-          return Object.values(QuestionTypesEnum).includes(val.type)
-            ? val.type !== QuestionTypesEnum.written
-              ? true
-              : typeof val.text !== "undefined"
-              ? true
-              : false
-            : false;
-        },
-        message: "Invalid answer type ❌",
-      },
-    },
     questions: {
       type: [questionSchema],
       required: true,
@@ -147,28 +131,6 @@ quizQuestionsSchema.methods.toJSON = function () {
     }),
   };
 };
-
-quizQuestionsSchema.pre("save", function (next) {
-  if (!this.isModified("questions")) return next();
-
-  // Build a map keyed by question _id (string)
-  const entries: [string, QuizQuestionsAnswersMapValueType][] = [];
-  for (const question of this.questions) {
-    entries.push([
-      (question as FullIQuestion)._id.toString(),
-      {
-        text:
-          question.type === QuestionTypesEnum.written
-            ? question.text
-            : undefined,
-        type: question.type!,
-      },
-    ]);
-  }
-
-  this.answersMap = new Map(entries);
-  next();
-});
 
 const QuizQuestionsModel =
   (mongoose.models.QuizQuestions as Model<IQuizQuestions>) ||

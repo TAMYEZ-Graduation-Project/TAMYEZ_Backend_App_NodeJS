@@ -1,4 +1,4 @@
-import { QuizModel, QuizQuestionsModel, SavedQuizModel, } from "../../db/models/index.js";
+import { QuizCooldownModel, QuizModel, QuizQuestionsModel, SavedQuizModel, } from "../../db/models/index.js";
 import { QuizQuestionsRepository, QuizRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
 import { OptionIdsEnum, QuestionTypesEnum, QuizTypesEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
@@ -9,10 +9,12 @@ import UpdateUtil from "../../utils/update/util.update.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
 import makeCompleter from "../../utils/completer/make.completer.js";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.js";
+import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.js";
 class QuizService {
     _quizRepository = new QuizRepository(QuizModel);
     _quizQuestionsRepository = new QuizQuestionsRepository(QuizQuestionsModel);
     _savedQuizRepository = new SavedQuizRepository(SavedQuizModel);
+    _quizCooldownRepository = new QuizCooldownRepository(QuizCooldownModel);
     createQuiz = async (req, res) => {
         const { title, description, aiPrompt, type, duration, tags } = req
             .validationResult.body;
@@ -87,6 +89,7 @@ class QuizService {
         await quiz.updateOne({
             uniqueKey: updateObject.title || updateObject.tags?.length ? uniqueKey : undefined,
             ...updateObject,
+            __v: { $inc: 1 },
         });
         return successHandler({
             res,
@@ -243,6 +246,11 @@ class QuizService {
         if (!quiz) {
             throw new NotFoundException(StringConstants.INVALID_PARAMETER_MESSAGE("quizId"));
         }
+        if (await this._quizCooldownRepository.findOne({
+            filter: { quizId: quiz._id, userId: req.user._id },
+        })) {
+            throw new BadRequestException(`You are in cooldown period for this quiz. Please try again later ❌`);
+        }
         const [_, generatedQuestions] = await Promise.all([
             this._quizQuestionsRepository.deleteOne({
                 filter: { quizId: quiz._id, userId: req.user._id },
@@ -283,25 +291,26 @@ class QuizService {
     };
     _checkWrittenQuestionsAnswers = async ({ resolve, title, aiPrompt, writtenAnswers, }) => {
         return new Promise((res) => {
-            const response = [];
-            for (const answer of writtenAnswers) {
-                if (answer.userAnswer.includes("correct")) {
-                    response.push({
-                        questionId: answer.questionId,
-                        isCorrect: true,
-                    });
+            setTimeout(() => {
+                const response = [];
+                for (const answer of writtenAnswers) {
+                    if (answer.userAnswer.includes("correct")) {
+                        response.push({
+                            questionId: answer.questionId,
+                            isCorrect: true,
+                        });
+                    }
+                    else {
+                        response.push({
+                            questionId: answer.questionId,
+                            isCorrect: false,
+                            correction: "This is the correction of user answer",
+                            explenation: "This is the explanation of user answer",
+                        });
+                    }
                 }
-                else {
-                    response.push({
-                        questionId: answer.questionId,
-                        isCorrect: false,
-                        correction: "This is the correction of user answer",
-                        explenation: "This is the explanation of user answer",
-                    });
-                }
-            }
-            res(response);
-            resolve();
+                resolve(response);
+            }, 1500);
         });
     };
     checkQuizAnswers = async (req, res) => {
@@ -323,12 +332,22 @@ class QuizService {
         if (!quizQuestions || !quizQuestions.quizId) {
             throw new NotFoundException("Quiz questions not found for the given quizId and user 🚫");
         }
+        if (quizQuestions.quizId.title ===
+            StringConstants.CAREER_ASSESSMENT) {
+            throw new BadRequestException(`Answers of ${StringConstants.CAREER_ASSESSMENT} quiz, use get suggested careers API 🚫`);
+        }
         if (answers.length !== quizQuestions.questions.length) {
             throw new ValidationException("Number of answers provided does not match number of questions ❌");
         }
+        const questions = quizQuestions.questions;
+        const qById = new Map();
+        for (let i = 0; i < questions.length; i++) {
+            const qid = questions[i].id?.toString();
+            qById.set(qid, { index: i, ...questions[i]?.toObject() });
+        }
         const writtenAnswers = [];
         for (const answer of answers) {
-            const question = quizQuestions.answersMap.get(answer.questionId);
+            const question = qById.get(answer.questionId);
             if (!question) {
                 throw new NotFoundException(`Not found questionId in the quiz questions ${answer.questionId} ❌`);
             }
@@ -344,7 +363,7 @@ class QuizService {
             }
         }
         const gate = makeCompleter();
-        const writtenAnswersResults = await this._checkWrittenQuestionsAnswers({
+        this._checkWrittenQuestionsAnswers({
             resolve: gate.resolve,
             title: quizQuestions.quizId.title,
             aiPrompt: quizQuestions.quizId.aiPrompt,
@@ -353,13 +372,11 @@ class QuizService {
         const checkedAnswers = [];
         let wrongAnswersCount = 0;
         for (const answer of answers) {
-            const question = quizQuestions.questions.find((value) => {
-                return value.id?.equals(answer.questionId);
-            });
+            const question = qById.get(answer.questionId);
             if (question.type === QuestionTypesEnum.written)
                 continue;
             const selectedAnswer = answer.answer;
-            const { correctAnswer, explanation, ...rest } = question.toObject();
+            const { correctAnswer, explanation, ...rest } = question;
             if (selectedAnswer.toString() == question.correctAnswer?.toString()) {
                 checkedAnswers.push({
                     ...rest,
@@ -378,24 +395,20 @@ class QuizService {
                 });
             }
         }
-        await gate.promise;
+        const writtenAnswersResults = (await gate.promise);
         for (const writtenAnswerResult of writtenAnswersResults) {
-            let index;
-            const question = quizQuestions.questions.find((value, i) => {
-                index = i;
-                return value.id?.equals(writtenAnswerResult.questionId);
-            });
+            const question = qById.get(writtenAnswerResult.questionId);
             if (writtenAnswerResult.isCorrect) {
-                checkedAnswers.splice(index, 0, {
-                    ...question.toObject(),
+                checkedAnswers.splice(question.index, 0, {
+                    ...question,
                     isCorrect: true,
                     userAnswer: writtenAnswers.find((wa) => wa.questionId === writtenAnswerResult.questionId).userAnswer,
                 });
             }
             else {
                 wrongAnswersCount++;
-                checkedAnswers.splice(index, 0, {
-                    ...question.toObject(),
+                checkedAnswers.splice(question.index, 0, {
+                    ...question,
                     isCorrect: false,
                     userAnswer: writtenAnswers.find((wa) => wa.questionId === writtenAnswerResult.questionId).userAnswer,
                     correction: writtenAnswerResult.correction,
@@ -406,27 +419,17 @@ class QuizService {
         const scoreNumber = Math.round(((checkedAnswers.length - wrongAnswersCount) / checkedAnswers.length) *
             100);
         if (scoreNumber >= 50) {
-            if (await this._savedQuizRepository.findOne({
+            if (!(await this._savedQuizRepository.findOneAndUpdate({
                 filter: {
                     quizId: quizQuestions.quizId._id,
                     userId: req.user._id,
                 },
-            })) {
-                console.log("inside updateone");
-                await this._savedQuizRepository.updateOne({
-                    filter: {
-                        quizId: quizQuestions.quizId._id,
-                        userId: req.user._id,
-                    },
-                    update: {
-                        questions: checkedAnswers,
-                        score: `${scoreNumber}%`,
-                        takenAt: new Date(),
-                    },
-                });
-            }
-            else {
-                console.log("inside create");
+                update: {
+                    questions: checkedAnswers,
+                    score: `${scoreNumber}%`,
+                    takenAt: new Date(),
+                },
+            }))) {
                 await this._savedQuizRepository.create({
                     data: [
                         {
@@ -440,6 +443,27 @@ class QuizService {
                 });
             }
         }
+        else {
+            await Promise.all([
+                this._savedQuizRepository.deleteOne({
+                    filter: {
+                        quizId: quizQuestions.quizId._id,
+                        userId: req.user._id,
+                    },
+                }),
+                this._quizCooldownRepository.create({
+                    data: [
+                        {
+                            quizId: quizQuestions.quizId._id,
+                            userId: req.user._id,
+                            cooldownEndsAt: new Date(Date.now() +
+                                Number(process.env[EnvFields.QUIZ_COOLDOWN_IN_SECONDS]) * 1000),
+                        },
+                    ],
+                }),
+            ]);
+        }
+        await quizQuestions.deleteOne();
         return successHandler({
             res,
             message: "Quiz answers checked successfully ✅",
@@ -450,6 +474,45 @@ class QuizService {
                 score: `${scoreNumber}%`,
                 answers: checkedAnswers,
             },
+        });
+    };
+    getSavedQuizzes = async (req, res) => {
+        const { page, size } = req.validationResult
+            .query;
+        console.log({ page, size });
+        const savedQuizzes = await this._savedQuizRepository.paginate({
+            filter: { userId: req.user._id },
+            options: {
+                populate: [{ path: "quizId", select: "title type duration" }],
+            },
+            projection: { quizId: 1, score: 1, takenAt: 1 },
+            page,
+            size,
+        });
+        if (!savedQuizzes.data?.length) {
+            throw new NotFoundException("No saved quizzes found 🚫");
+        }
+        return successHandler({
+            res,
+            message: "Saved quizzes fetched successfully ✅",
+            body: { savedQuizzes },
+        });
+    };
+    getSavedQuiz = async (req, res) => {
+        const { savedQuizId } = req.params;
+        const savedQuiz = await this._savedQuizRepository.findOne({
+            filter: { _id: savedQuizId, userId: req.user._id },
+            options: {
+                populate: [{ path: "quizId", select: "title type duration" }],
+            },
+        });
+        if (!savedQuiz) {
+            throw new NotFoundException("Saved quiz not found 🚫");
+        }
+        return successHandler({
+            res,
+            message: "Saved quiz fetched successfully ✅",
+            body: { savedQuiz },
         });
     };
 }

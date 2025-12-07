@@ -25,8 +25,6 @@ export interface IQuizQuestions {
 
   userId: Types.ObjectId;
 
-  answersMap: Map<string, QuizQuestionsAnswersMapValueType>;
-
   questions: IQuestion[];
 
   expiresAt: Date;
