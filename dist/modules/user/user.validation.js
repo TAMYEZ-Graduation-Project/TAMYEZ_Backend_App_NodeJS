@@ -4,6 +4,7 @@ import fileValidation from "../../utils/multer/file_validation.multer.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
 import { GenderEnum, LogoutFlagsEnum, } from "../../utils/constants/enum.constants.js";
+import AppRegex from "../../utils/constants/regex.constants.js";
 class UserValidators {
     static uploadProfilePicture = {
         body: z.strictObject({
@@ -59,6 +60,12 @@ class UserValidators {
     };
     static logout = {
         body: z.strictObject({
+            deviceId: z
+                .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("deviceId") })
+                .regex(AppRegex.deviceIdRegex, {
+                error: "Invalid deviceId, it should be a valid UUID ❌",
+            })
+                .optional(),
             flag: z
                 .enum(Object.values(LogoutFlagsEnum))
                 .optional()

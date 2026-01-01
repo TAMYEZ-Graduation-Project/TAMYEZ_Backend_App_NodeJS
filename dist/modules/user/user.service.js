@@ -5,10 +5,13 @@ import { LogoutFlagsEnum, ProvidersEnum, } from "../../utils/constants/enum.cons
 import DocumentFromat from "../../utils/formats/document.format.js";
 import UpdateUtil from "../../utils/update/util.update.js";
 import HashingSecurityUtil from "../../utils/security/hash.security.js";
-import { BadRequestException } from "../../utils/exceptions/custom.exceptions.js";
+import { BadRequestException, NotFoundException, } from "../../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import TokenSecurityUtil from "../../utils/security/token.security.js";
+import { NotificationPushDeviceRepository } from "../../db/repositories/index.js";
+import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.js";
 class UserService {
+    _notificationPushDeviceRepository = new NotificationPushDeviceRepository(NotificationPushDeviceModel);
     getProfile = async (req, res) => {
         return successHandler({ res, body: { user: req.user } });
     };
@@ -83,7 +86,19 @@ class UserService {
         return successHandler({ res });
     };
     logout = async (req, res) => {
-        const { flag } = req.validationResult.body;
+        const { flag, deviceId } = req.validationResult.body;
+        if (deviceId) {
+            const pushDeviceResult = await this._notificationPushDeviceRepository.updateOne({
+                filter: { userId: req.user._id, deviceId },
+                update: {
+                    isActive: false,
+                    $unset: { fcmToken: true },
+                },
+            });
+            if (!pushDeviceResult?.matchedCount) {
+                throw new NotFoundException("Invalid deviceId, or notification is disabled ❌");
+            }
+        }
         await TokenSecurityUtil.revoke({
             flag,
             userId: req.user._id,
