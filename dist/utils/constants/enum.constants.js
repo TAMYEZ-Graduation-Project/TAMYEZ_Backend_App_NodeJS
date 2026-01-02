@@ -16,11 +16,15 @@ export var ErrorCodesEnum;
     ErrorCodesEnum["TOO_MANY_RQUESTS"] = "TOO_MANY_REQUESTS";
     ErrorCodesEnum["ASSET_ERROR"] = "ASSET_ERROR";
 })(ErrorCodesEnum || (ErrorCodesEnum = {}));
-export var EventsEnum;
-(function (EventsEnum) {
-    EventsEnum["emailVerification"] = "EmailVerification";
-    EventsEnum["forgetPassword"] = "ForgetPassword";
-})(EventsEnum || (EventsEnum = {}));
+export var EmailEventsEnum;
+(function (EmailEventsEnum) {
+    EmailEventsEnum["emailVerification"] = "EmailVerification";
+    EmailEventsEnum["forgetPassword"] = "ForgetPassword";
+})(EmailEventsEnum || (EmailEventsEnum = {}));
+export var NotificationEventsEnum;
+(function (NotificationEventsEnum) {
+    NotificationEventsEnum["mutlipleNotifications"] = "MultipleNotifications";
+})(NotificationEventsEnum || (NotificationEventsEnum = {}));
 export var GenderEnum;
 (function (GenderEnum) {
     GenderEnum["male"] = "Male";

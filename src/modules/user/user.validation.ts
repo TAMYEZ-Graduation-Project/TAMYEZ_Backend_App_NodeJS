@@ -7,7 +7,6 @@ import {
   GenderEnum,
   LogoutFlagsEnum,
 } from "../../utils/constants/enum.constants.ts";
-import AppRegex from "../../utils/constants/regex.constants.ts";
 
 class UserValidators {
   static uploadProfilePicture = {
@@ -71,12 +70,7 @@ class UserValidators {
 
   static logout = {
     body: z.strictObject({
-      deviceId: z
-        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("deviceId") })
-        .regex(AppRegex.deviceIdRegex, {
-          error: "Invalid deviceId, it should be a valid UUID ❌",
-        })
-        .optional(),
+      deviceId: generalValidationConstants.deviceId.optional(),
       flag: z
         .enum(Object.values(LogoutFlagsEnum))
         .optional()

@@ -91,7 +91,7 @@ abstract class DatabaseRepository<TDocument> {
       totalPages,
       currentPage: page !== "all" ? page : undefined,
       size: page !== "all" ? size : undefined,
-      data: data as unknown as FindOneFunctionsReturnType<TDocument, TLean>[],
+      data: data as unknown as FindFunctionsReturnType<TDocument, TLean>,
     };
   };
 

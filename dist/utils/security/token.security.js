@@ -27,21 +27,29 @@ class TokenSecurityUtil {
                 return SignatureLevelsEnum.BearerSuperSystem;
         }
     };
-    static getSignatures = ({ signatureLevel, }) => {
-        switch (signatureLevel) {
-            case SignatureLevelsEnum.BearerUser:
-                return {
-                    accessSignature: process.env[EnvFields.ACCESS_BUSER_TOKEN_SIGNATURE],
-                };
-            case SignatureLevelsEnum.BearerSystem:
-                return {
-                    accessSignature: process.env[EnvFields.ACCESS_BSYSTEM_TOKEN_SIGNATURE],
-                };
-            case SignatureLevelsEnum.BearerSuperSystem:
-                return {
-                    accessSignature: process.env[EnvFields.ACCESS_BSUPERSYSTEM_TOKEN_SIGNATURE],
-                };
+    static getSignatures = ({ signatureLevel, userRole, }) => {
+        if ((!signatureLevel && !userRole) || (signatureLevel && userRole)) {
+            throw new ServerException("Either signatureLever or userRole should be only provided ⚠️");
         }
+        if (signatureLevel == SignatureLevelsEnum.BearerUser ||
+            userRole == RolesEnum.user) {
+            return {
+                accessSignature: process.env[EnvFields.ACCESS_BUSER_TOKEN_SIGNATURE],
+            };
+        }
+        else if (signatureLevel == SignatureLevelsEnum.BearerSystem ||
+            userRole == RolesEnum.admin) {
+            return {
+                accessSignature: process.env[EnvFields.ACCESS_BSYSTEM_TOKEN_SIGNATURE],
+            };
+        }
+        else if (signatureLevel == SignatureLevelsEnum.BearerSuperSystem ||
+            userRole == RolesEnum.superAdmin) {
+            return {
+                accessSignature: process.env[EnvFields.ACCESS_BSUPERSYSTEM_TOKEN_SIGNATURE],
+            };
+        }
+        throw new ServerException("No matching signature is a available ❌");
     };
     static getTokensBasedOnRole = ({ user, }) => {
         const signatures = this.getSignatures({
@@ -131,6 +139,21 @@ class TokenSecurityUtil {
                 break;
         }
         return statusCode;
+    };
+    static getTokenExpiresAt = ({ userRole, token, tokenType = TokenTypesEnum.accessToken, }) => {
+        const signatures = this.getSignatures({
+            userRole,
+        });
+        const payload = this.verifyToken({
+            token,
+            secretKey: tokenType === TokenTypesEnum.accessToken
+                ? signatures.accessSignature
+                : "",
+        });
+        if (!payload.id || !payload.iat || !payload.jti || !payload.exp) {
+            throw new BadRequestException(StringConstants.INVALID_TOKEN_PAYLOAD_MESSAGE);
+        }
+        return payload.exp;
     };
 }
 export default TokenSecurityUtil;

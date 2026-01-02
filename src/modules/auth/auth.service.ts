@@ -1,6 +1,12 @@
 import type { Request, Response } from "express";
-import { UserModel } from "../../db/models/index.ts";
-import { UserRepository } from "../../db/repositories/index.ts";
+import {
+  NotificationPushDeviceModel,
+  UserModel,
+} from "../../db/models/index.ts";
+import {
+  NotificationPushDeviceRepository,
+  UserRepository,
+} from "../../db/repositories/index.ts";
 import successHandler from "../../utils/handlers/success.handler.ts";
 import type {
   ForgetPasswordBodyDtoType,
@@ -16,13 +22,14 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  ServerException,
 } from "../../utils/exceptions/custom.exceptions.ts";
 import IdSecurityUtil from "../../utils/security/id.security.ts";
 import EnvFields from "../../utils/constants/env_fields.constants.ts";
 import emailEvent from "../../utils/events/email.events.ts";
 import {
   EmailStatusEnum,
-  EventsEnum,
+  EmailEventsEnum,
   OTPsOrLinksEnum,
   ProvidersEnum,
 } from "../../utils/constants/enum.constants.ts";
@@ -40,9 +47,12 @@ import type {
 } from "./auth.entity.ts";
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import type { IProfilePictureObject } from "../../db/interfaces/common.interface.ts";
+import type { Types } from "mongoose";
 
 class AuthService {
   private _userRepository = new UserRepository(UserModel);
+  private readonly _notificationPushDeviceRepository =
+    new NotificationPushDeviceRepository(NotificationPushDeviceModel);
 
   private _sendTokenToUser = ({
     email,
@@ -57,7 +67,7 @@ class AuthService {
     });
 
     emailEvent.publish({
-      eventName: EventsEnum.emailVerification,
+      eventName: EmailEventsEnum.emailVerification,
       payload: {
         to: email,
         otpOrLink: `${process.env[EnvFields.PROTOCOL]}://${
@@ -214,8 +224,35 @@ class AuthService {
     });
   };
 
+  private _checkNotificationsForPushDevice = async ({
+    userId,
+    jwtTokenExpiresAt,
+    deviceId,
+    fcmToken,
+  }: {
+    userId: Types.ObjectId;
+    jwtTokenExpiresAt: Date;
+    deviceId: string;
+    fcmToken: string;
+  }): Promise<boolean> => {
+    const result = await this._notificationPushDeviceRepository.updateOne({
+      filter: {
+        userId,
+        deviceId,
+      },
+      update: { fcmToken, isActive: true, jwtTokenExpiresAt },
+    });
+
+    if (!result.matchedCount) {
+      return false;
+    }
+
+    return true;
+  };
+
   logIn = async (req: Request, res: Response): Promise<Response> => {
-    const { email, password } = req.body as LogInBodyDtoType;
+    const { email, password, deviceId, fcmToken } =
+      req.body as LogInBodyDtoType;
 
     const user = await this._userRepository.findOne({
       filter: {
@@ -241,11 +278,26 @@ class AuthService {
     }
     const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({ user });
 
+    let notificationsEnabled;
+    if (deviceId && fcmToken)
+      notificationsEnabled = await this._checkNotificationsForPushDevice({
+        userId: user._id,
+        jwtTokenExpiresAt: new Date(
+          TokenSecurityUtil.getTokenExpiresAt({
+            userRole: user.role,
+            token: accessToken,
+          }) * 1000
+        ),
+        deviceId,
+        fcmToken,
+      });
+
     return successHandler<ILogInResponse>({
       res,
       message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
       body: {
         accessToken,
+        notificationsEnabled,
         user,
       },
     });
@@ -258,27 +310,34 @@ class AuthService {
   }: {
     idToken: string;
   }): Promise<TokenPayload> => {
-    const client = new OAuth2Client();
-    const ticket = await client.verifyIdToken({
-      idToken,
-      audience: process.env[EnvFields.WEB_CLIENT_IDS]?.split(",") || [], // Specify the WEB_CLIENT_ID of the app that accesses the backend
-      // Or, if multiple clients access the backend:
-      //[WEB_CLIENT_ID_1, WEB_CLIENT_ID_2, WEB_CLIENT_ID_3]
-    });
-    const payload = ticket.getPayload();
-    // This ID is unique to each Google Account, making it suitable for use as a primary key
-    // during account lookup. Email is not a good choice because it can be changed by the user.
+    try {
+      const client = new OAuth2Client();
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: process.env[EnvFields.WEB_CLIENT_IDS]?.split(",") || [], // Specify the WEB_CLIENT_ID of the app that accesses the backend
+        // Or, if multiple clients access the backend:
+        //[WEB_CLIENT_ID_1, WEB_CLIENT_ID_2, WEB_CLIENT_ID_3]
+      });
+      const payload = ticket.getPayload();
+      // This ID is unique to each Google Account, making it suitable for use as a primary key
+      // during account lookup. Email is not a good choice because it can be changed by the user.
 
-    if (!payload?.email_verified) {
+      if (!payload?.email_verified) {
+        throw new BadRequestException(
+          StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE
+        );
+      }
+      return payload;
+    } catch (error: any) {
       throw new BadRequestException(
-        StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE
+        `Failed to verify idToken ❌. Error: ${error?.message}`
       );
     }
-    return payload;
   };
 
   signUpWithGmail = async (req: Request, res: Response): Promise<Response> => {
-    const { idToken } = req.body as SignUpLogInGmailBodyDtoType;
+    const { idToken, deviceId, fcmToken } =
+      req.body as SignUpLogInGmailBodyDtoType;
 
     const { email, given_name, family_name, picture } =
       await this._verifyGmailAccount({ idToken });
@@ -326,9 +385,29 @@ class AuthService {
       ],
     });
 
+    if (!user) {
+      throw new ServerException(
+        "Failed to create user account, please try again later ☹️"
+      );
+    }
+
     const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
-      user: user!,
+      user: user,
     });
+
+    let notificationsEnabled;
+    if (deviceId && fcmToken)
+      notificationsEnabled = await this._checkNotificationsForPushDevice({
+        userId: user._id,
+        jwtTokenExpiresAt: new Date(
+          TokenSecurityUtil.getTokenExpiresAt({
+            userRole: user.role,
+            token: accessToken,
+          }) * 1000
+        ),
+        deviceId,
+        fcmToken,
+      });
 
     return successHandler<ISignUpLogInGmailResponse>({
       res,
@@ -336,13 +415,15 @@ class AuthService {
       message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
       body: {
         accessToken,
+        notificationsEnabled,
         user: user!,
       },
     });
   };
 
   logInWithGmail = async (req: Request, res: Response): Promise<Response> => {
-    const { idToken } = req.body as SignUpLogInGmailBodyDtoType;
+    const { idToken, deviceId, fcmToken } =
+      req.body as SignUpLogInGmailBodyDtoType;
 
     const { email } = await this._verifyGmailAccount({ idToken });
 
@@ -371,11 +452,26 @@ class AuthService {
       user,
     });
 
+    let notificationsEnabled;
+    if (deviceId && fcmToken)
+      notificationsEnabled = await this._checkNotificationsForPushDevice({
+        userId: user._id,
+        jwtTokenExpiresAt: new Date(
+          TokenSecurityUtil.getTokenExpiresAt({
+            userRole: user.role,
+            token: accessToken,
+          }) * 1000
+        ),
+        deviceId,
+        fcmToken,
+      });
+
     return successHandler<ISignUpLogInGmailResponse>({
       res,
       message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
       body: {
         accessToken,
+        notificationsEnabled,
         user,
       },
     });
@@ -438,7 +534,7 @@ class AuthService {
     });
 
     emailEvent.publish({
-      eventName: EventsEnum.forgetPassword,
+      eventName: EmailEventsEnum.forgetPassword,
       payload: { to: email, otpOrLink: otp },
     });
 

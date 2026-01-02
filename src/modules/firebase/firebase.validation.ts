@@ -2,9 +2,10 @@ import { z } from "zod";
 import AppRegex from "../../utils/constants/regex.constants.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import { PlatformsEnum } from "../../utils/constants/enum.constants.ts";
+import generalValidationConstants from "../../utils/constants/validation.constants.ts";
 
 class FirebaseValidators {
-  static readonly sendNotification = {
+  static readonly sendNotificationsToAllUsers = {
     body: z.strictObject({
       title: z
         .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("title") })
@@ -15,46 +16,30 @@ class FirebaseValidators {
         .min(5)
         .max(1000),
       imageUrl: z.url().optional(),
-      fcmToken: z
-        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("fcmToken") })
-        .regex(AppRegex.fcmTokenRegex, { error: "Invalid FCM Token" }),
+    }),
+  };
+
+  static readonly sendNotification = {
+    body: this.sendNotificationsToAllUsers.body.extend({
+      fcmToken: generalValidationConstants.fcmToken,
     }),
   };
 
   static readonly sendMultiNotifications = {
-    body: z.strictObject({
-      title: z
-        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("title") })
-        .min(3)
-        .max(200),
-      body: z
-        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("body") })
-        .min(5)
-        .max(1000),
-      imageUrl: z.url().optional(),
-      fcmTokens: z.array(
-        z
-          .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("fcmToken") })
-          .regex(AppRegex.fcmTokenRegex, { error: "Invalid FCM Token ❌" })
-      ),
+    body: this.sendNotificationsToAllUsers.body.extend({
+      fcmTokens: z.array(generalValidationConstants.fcmToken),
     }),
   };
 
   static readonly disableNotifications = {
     body: z.strictObject({
-      deviceId: z
-        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("deviceId") })
-        .regex(AppRegex.deviceIdRegex, {
-          error: "Invalid deviceId, it should be a valid UUID ❌",
-        }),
+      deviceId: generalValidationConstants.deviceId,
     }),
   };
 
   static readonly refreshFcmToken = {
     body: this.disableNotifications.body.extend({
-      fcmToken: z
-        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("fcmToken") })
-        .regex(AppRegex.fcmTokenRegex, { error: "Invalid fcmToken format ❌" }),
+      fcmToken: generalValidationConstants.fcmToken,
     }),
   };
 
@@ -66,9 +51,6 @@ class FirebaseValidators {
           error: "Invalid deviceId, it should be a valid UUID ❌",
         })
         .optional(),
-      fcmToken: z
-        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("fcmToken") })
-        .regex(AppRegex.fcmTokenRegex, { error: "Invalid fcmToken format ❌" }),
 
       appVersion: z
         .string({

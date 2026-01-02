@@ -9,7 +9,7 @@ import type { JwtPayload } from "jsonwebtoken";
 import type { Types } from "mongoose";
 import type Stream from "node:stream";
 import type {
-  FindOneFunctionsReturnType,
+  FindFunctionsReturnType,
   LeanType,
 } from "../types/find_functions.type.ts";
 
@@ -22,6 +22,12 @@ export interface IAppError extends Error {
 export interface IExtendedMailOptions extends MailOptions {
   otpOrLink: string;
   to: string;
+}
+
+export interface INotificationParams {
+  title: string;
+  body: string;
+  imageUrl?: string | undefined;
 }
 
 export interface ITokenPayload extends JwtPayload {
@@ -48,7 +54,7 @@ export interface IMulterFile {
 
 export interface IPaginationResult<TDocument, TLean extends LeanType = false>
   extends IPaginationMetaData {
-  data?: FindOneFunctionsReturnType<TDocument, TLean>[];
+  data?: FindFunctionsReturnType<TDocument, TLean>;
 }
 
 export interface IPaginationMetaData {

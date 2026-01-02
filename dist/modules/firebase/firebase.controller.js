@@ -13,6 +13,9 @@ firebaseRouter.post(RoutePaths.sendNotification, Auths.combined({
 firebaseRouter.post(RoutePaths.sendMultipleNotifications, Auths.combined({
     accessRoles: firebaseAuthorizationEndpoints.sendNotification,
 }), validationMiddleware({ schema: FirebaseValidators.sendMultiNotifications }), firebaseService.sendMultipleFirebaseNotifications);
+firebaseRouter.post(RoutePaths.sendNotificationsToAllUsers, Auths.combined({
+    accessRoles: firebaseAuthorizationEndpoints.sendNotification,
+}), validationMiddleware({ schema: FirebaseValidators.sendNotificationsToAllUsers }), firebaseService.sendNotificationsToAllUsers);
 firebaseRouter.post(RoutePaths.enableNotifications, Auths.authenticationMiddleware(), validationMiddleware({ schema: FirebaseValidators.enableNotifications }), firebaseService.enableNotifications);
 firebaseRouter.post(RoutePaths.refreshFcmToken, Auths.authenticationMiddleware(), validationMiddleware({ schema: FirebaseValidators.refreshFcmToken }), firebaseService.refreshFcmToken);
 firebaseRouter.post(RoutePaths.disableNotifications, Auths.authenticationMiddleware(), validationMiddleware({ schema: FirebaseValidators.disableNotifications }), firebaseService.disableNotifications);

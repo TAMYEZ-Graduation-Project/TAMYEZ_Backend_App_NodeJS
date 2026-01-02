@@ -3,6 +3,8 @@ import successHandler from "../../utils/handlers/success.handler.js";
 import { NotificationPushDeviceRepository } from "../../db/repositories/index.js";
 import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.js";
 import { BadRequestException, ConflictException, NotFoundException, ServerException, } from "../../utils/exceptions/custom.exceptions.js";
+import notificationEvents from "../../utils/events/notifications.events.js";
+import { NotificationEventsEnum } from "../../utils/constants/enum.constants.js";
 class FirebaseService {
     _notificationService = new NotificationService();
     _notificationPushDeviceRepository = new NotificationPushDeviceRepository(NotificationPushDeviceModel);
@@ -21,7 +23,7 @@ class FirebaseService {
     };
     sendMultipleFirebaseNotifications = async (req, res) => {
         const { title, body, imageUrl, fcmTokens } = req.body;
-        const response = await this._notificationService.sendMultipleNotifications({
+        const { successCount, failureCount } = await this._notificationService.sendMultipleNotifications({
             title,
             body,
             imageUrl,
@@ -30,7 +32,18 @@ class FirebaseService {
         return successHandler({
             res,
             message: "Notifications Sent Successfully 🔔",
-            body: { response },
+            body: { response: { successCount, failureCount } },
+        });
+    };
+    sendNotificationsToAllUsers = async (req, res) => {
+        const body = req.body;
+        notificationEvents.publish({
+            eventName: NotificationEventsEnum.mutlipleNotifications,
+            payload: body,
+        });
+        return successHandler({
+            res,
+            message: "Your notification will be sent shortly ✅ 🔔",
         });
     };
     enableNotifications = async (req, res) => {

@@ -30,8 +30,9 @@ class RoutePaths {
     static createQuiz = "/admin/";
     static updateQuiz = "/admin/:quizId";
     static firebase = "/firebase";
-    static sendNotification = "/send-notification";
-    static sendMultipleNotifications = "/send-multiple-notifications";
+    static sendNotification = "/test-send-notification";
+    static sendMultipleNotifications = "/test-send-multiple-notifications";
+    static sendNotificationsToAllUsers = "/send-notifications-all";
     static enableNotifications = "/enable-notifications";
     static disableNotifications = "/disable-notifications";
     static refreshFcmToken = "/refresh-fcm-token";

@@ -1,11 +1,11 @@
-import { UserModel } from "../../db/models/index.js";
-import { UserRepository } from "../../db/repositories/index.js";
+import { NotificationPushDeviceModel, UserModel, } from "../../db/models/index.js";
+import { NotificationPushDeviceRepository, UserRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
-import { BadRequestException, ConflictException, NotFoundException, } from "../../utils/exceptions/custom.exceptions.js";
+import { BadRequestException, ConflictException, NotFoundException, ServerException, } from "../../utils/exceptions/custom.exceptions.js";
 import IdSecurityUtil from "../../utils/security/id.security.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
 import emailEvent from "../../utils/events/email.events.js";
-import { EmailStatusEnum, EventsEnum, OTPsOrLinksEnum, ProvidersEnum, } from "../../utils/constants/enum.constants.js";
+import { EmailStatusEnum, EmailEventsEnum, OTPsOrLinksEnum, ProvidersEnum, } from "../../utils/constants/enum.constants.js";
 import RoutePaths from "../../utils/constants/route_paths.constants.js";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
@@ -17,13 +17,14 @@ import TokenSecurityUtil from "../../utils/security/token.security.js";
 import { OAuth2Client } from "google-auth-library";
 class AuthService {
     _userRepository = new UserRepository(UserModel);
+    _notificationPushDeviceRepository = new NotificationPushDeviceRepository(NotificationPushDeviceModel);
     _sendTokenToUser = ({ email, otp, }) => {
         const fullToken = EncryptionSecurityUtil.encryptText({
             plainText: decodeURIComponent(`${email} ${otp}`),
             secretKey: process.env[EnvFields.EMAIL_VERIFICATION_TOKEN_ENC_KEY],
         });
         emailEvent.publish({
-            eventName: EventsEnum.emailVerification,
+            eventName: EmailEventsEnum.emailVerification,
             payload: {
                 to: email,
                 otpOrLink: `${process.env[EnvFields.PROTOCOL]}://${process.env[EnvFields.HOST]}${RoutePaths.API_V1_PATH}${RoutePaths.auth}${RoutePaths.verifyEmail}?token=${encodeURIComponent(fullToken)}`,
@@ -136,8 +137,21 @@ class AuthService {
             message: StringConstants.RESENT_EMAIL_VERIFICATION_LINK_MESSAGE,
         });
     };
+    _checkNotificationsForPushDevice = async ({ userId, jwtTokenExpiresAt, deviceId, fcmToken, }) => {
+        const result = await this._notificationPushDeviceRepository.updateOne({
+            filter: {
+                userId,
+                deviceId,
+            },
+            update: { fcmToken, isActive: true, jwtTokenExpiresAt },
+        });
+        if (!result.matchedCount) {
+            return false;
+        }
+        return true;
+    };
     logIn = async (req, res) => {
-        const { email, password } = req.body;
+        const { email, password, deviceId, fcmToken } = req.body;
         const user = await this._userRepository.findOne({
             filter: {
                 email,
@@ -155,29 +169,46 @@ class AuthService {
             throw new BadRequestException(StringConstants.INVALID_LOGIN_CREDENTIALS_MESSAGE);
         }
         const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({ user });
+        let notificationsEnabled;
+        if (deviceId && fcmToken)
+            notificationsEnabled = await this._checkNotificationsForPushDevice({
+                userId: user._id,
+                jwtTokenExpiresAt: new Date(TokenSecurityUtil.getTokenExpiresAt({
+                    userRole: user.role,
+                    token: accessToken,
+                }) * 1000),
+                deviceId,
+                fcmToken,
+            });
         return successHandler({
             res,
             message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
             body: {
                 accessToken,
+                notificationsEnabled,
                 user,
             },
         });
     };
     _verifyGmailAccount = async ({ idToken, }) => {
-        const client = new OAuth2Client();
-        const ticket = await client.verifyIdToken({
-            idToken,
-            audience: process.env[EnvFields.WEB_CLIENT_IDS]?.split(",") || [],
-        });
-        const payload = ticket.getPayload();
-        if (!payload?.email_verified) {
-            throw new BadRequestException(StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE);
+        try {
+            const client = new OAuth2Client();
+            const ticket = await client.verifyIdToken({
+                idToken,
+                audience: process.env[EnvFields.WEB_CLIENT_IDS]?.split(",") || [],
+            });
+            const payload = ticket.getPayload();
+            if (!payload?.email_verified) {
+                throw new BadRequestException(StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE);
+            }
+            return payload;
         }
-        return payload;
+        catch (error) {
+            throw new BadRequestException(`Failed to verify idToken ❌. Error: ${error?.message}`);
+        }
     };
     signUpWithGmail = async (req, res) => {
-        const { idToken } = req.body;
+        const { idToken, deviceId, fcmToken } = req.body;
         const { email, given_name, family_name, picture } = await this._verifyGmailAccount({ idToken });
         if (!email || !given_name || given_name.length < 2) {
             throw new BadRequestException(StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE);
@@ -210,21 +241,36 @@ class AuthService {
                 },
             ],
         });
+        if (!user) {
+            throw new ServerException("Failed to create user account, please try again later ☹️");
+        }
         const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
             user: user,
         });
+        let notificationsEnabled;
+        if (deviceId && fcmToken)
+            notificationsEnabled = await this._checkNotificationsForPushDevice({
+                userId: user._id,
+                jwtTokenExpiresAt: new Date(TokenSecurityUtil.getTokenExpiresAt({
+                    userRole: user.role,
+                    token: accessToken,
+                }) * 1000),
+                deviceId,
+                fcmToken,
+            });
         return successHandler({
             res,
             statusCode: 201,
             message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
             body: {
                 accessToken,
+                notificationsEnabled,
                 user: user,
             },
         });
     };
     logInWithGmail = async (req, res) => {
-        const { idToken } = req.body;
+        const { idToken, deviceId, fcmToken } = req.body;
         const { email } = await this._verifyGmailAccount({ idToken });
         if (!email) {
             throw new BadRequestException(StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE);
@@ -243,11 +289,23 @@ class AuthService {
         const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
             user,
         });
+        let notificationsEnabled;
+        if (deviceId && fcmToken)
+            notificationsEnabled = await this._checkNotificationsForPushDevice({
+                userId: user._id,
+                jwtTokenExpiresAt: new Date(TokenSecurityUtil.getTokenExpiresAt({
+                    userRole: user.role,
+                    token: accessToken,
+                }) * 1000),
+                deviceId,
+                fcmToken,
+            });
         return successHandler({
             res,
             message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
             body: {
                 accessToken,
+                notificationsEnabled,
                 user,
             },
         });
@@ -292,7 +350,7 @@ class AuthService {
             },
         });
         emailEvent.publish({
-            eventName: EventsEnum.forgetPassword,
+            eventName: EmailEventsEnum.forgetPassword,
             payload: { to: email, otpOrLink: otp },
         });
         return successHandler({ res, message: StringConstants.OTP_SENT_MESSAGE });

@@ -40,8 +40,9 @@ class RoutePaths {
 
   // firebase route
   static readonly firebase = "/firebase";
-  static readonly sendNotification = "/send-notification";
-  static readonly sendMultipleNotifications = "/send-multiple-notifications";
+  static readonly sendNotification = "/test-send-notification";
+  static readonly sendMultipleNotifications = "/test-send-multiple-notifications";
+  static readonly sendNotificationsToAllUsers = "/send-notifications-all"
   static readonly enableNotifications = "/enable-notifications";
   static readonly disableNotifications = "/disable-notifications";
   static readonly refreshFcmToken = "/refresh-fcm-token"

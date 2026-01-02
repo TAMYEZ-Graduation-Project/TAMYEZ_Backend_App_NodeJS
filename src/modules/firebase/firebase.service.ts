@@ -7,6 +7,7 @@ import type {
   RefreshFcmTokenBodyDtoType,
   SendMultipleNotificationsBodyDtoType,
   SendNotificationBodyDtoType,
+  SendNotificationsToAllUsersBodyDtoType,
 } from "./firebase.dto.ts";
 import { NotificationPushDeviceRepository } from "../../db/repositories/index.ts";
 import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.ts";
@@ -16,6 +17,8 @@ import {
   NotFoundException,
   ServerException,
 } from "../../utils/exceptions/custom.exceptions.ts";
+import notificationEvents from "../../utils/events/notifications.events.ts";
+import { NotificationEventsEnum } from "../../utils/constants/enum.constants.ts";
 
 class FirebaseService {
   private readonly _notificationService = new NotificationService();
@@ -49,17 +52,35 @@ class FirebaseService {
     const { title, body, imageUrl, fcmTokens } =
       req.body as SendMultipleNotificationsBodyDtoType;
 
-    const response = await this._notificationService.sendMultipleNotifications({
-      title,
-      body,
-      imageUrl,
-      deviceTokens: fcmTokens,
-    });
+    const { successCount, failureCount } =
+      await this._notificationService.sendMultipleNotifications({
+        title,
+        body,
+        imageUrl,
+        deviceTokens: fcmTokens,
+      });
 
     return successHandler({
       res,
       message: "Notifications Sent Successfully 🔔",
-      body: { response },
+      body: { response: { successCount, failureCount } },
+    });
+  };
+
+  sendNotificationsToAllUsers = async (
+    req: Request,
+    res: Response
+  ): Promise<Response> => {
+    const body = req.body as SendNotificationsToAllUsersBodyDtoType;
+
+    notificationEvents.publish({
+      eventName: NotificationEventsEnum.mutlipleNotifications,
+      payload: body,
+    });
+
+    return successHandler({
+      res,
+      message: "Your notification will be sent shortly ✅ 🔔",
     });
   };
 

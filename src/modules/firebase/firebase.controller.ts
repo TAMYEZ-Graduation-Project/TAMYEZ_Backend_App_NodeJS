@@ -29,6 +29,15 @@ firebaseRouter.post(
 );
 
 firebaseRouter.post(
+  RoutePaths.sendNotificationsToAllUsers,
+  Auths.combined({
+    accessRoles: firebaseAuthorizationEndpoints.sendNotification,
+  }),
+  validationMiddleware({ schema: FirebaseValidators.sendNotificationsToAllUsers }),
+  firebaseService.sendNotificationsToAllUsers
+);
+
+firebaseRouter.post(
   RoutePaths.enableNotifications,
   Auths.authenticationMiddleware(),
   validationMiddleware({ schema: FirebaseValidators.enableNotifications }),

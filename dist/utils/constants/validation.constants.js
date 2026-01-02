@@ -127,5 +127,15 @@ const generalValidationConstants = {
             }
         });
     },
+    deviceId: z
+        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("deviceId") })
+        .regex(AppRegex.deviceIdRegex, {
+        error: "Invalid deviceId, it should be a valid UUID ❌",
+    }),
+    fcmToken: z
+        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("fcmToken") })
+        .regex(AppRegex.fcmTokenRegex, {
+        error: "Invalid fcmToken format ❌",
+    }),
 };
 export default generalValidationConstants;

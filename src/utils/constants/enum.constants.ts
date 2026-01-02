@@ -16,9 +16,13 @@ export enum ErrorCodesEnum {
   ASSET_ERROR = "ASSET_ERROR",
 }
 
-export enum EventsEnum {
+export enum EmailEventsEnum {
   emailVerification = "EmailVerification",
   forgetPassword = "ForgetPassword",
+}
+
+export enum NotificationEventsEnum {
+  mutlipleNotifications = "MultipleNotifications",
 }
 
 export enum GenderEnum {
