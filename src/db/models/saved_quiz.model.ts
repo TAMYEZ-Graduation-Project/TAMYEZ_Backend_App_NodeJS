@@ -8,7 +8,7 @@ import type {
 } from "../interfaces/saved_quiz.interface.ts";
 import { QuestionTypesEnum } from "../../utils/constants/enum.constants.ts";
 import { validateIfValidQuestionAnswer } from "../../utils/question/validate_options.question.ts";
-import ModelsNames from "../../utils/constants/models.names.ts";
+import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import { questionOptionSchema } from "./common_schemas.model.ts";
 import type { IQuizQuestionOption } from "../interfaces/common.interface.ts";
 import type { FullIQuiz } from "../interfaces/quiz.interface.ts";

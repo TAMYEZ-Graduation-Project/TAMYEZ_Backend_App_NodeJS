@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import ModelsNames from "../../utils/constants/models.names.js";
+import ModelsNames from "../../utils/constants/models.names.constants.js";
 import { OptionIdsEnum, ProvidersEnum, } from "../../utils/constants/enum.constants.js";
 export const atByObjectSchema = new mongoose.Schema({
     at: { type: Date, required: true },

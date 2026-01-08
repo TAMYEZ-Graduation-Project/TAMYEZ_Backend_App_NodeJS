@@ -41,7 +41,7 @@ class StringConstants {
     static RESET_PASSWORD_RECENTLY_MESSAGE = "You have reset your password recenty please try after 24 hours from last time ⏳";
     static TRY_AFTER_A_WHILE_MESSAGE = "Please try after a while 🕰️";
     static INVALID_VALIDATION_TOKEN_MESSAGE = `Token must consist of three parts having any characters accept line terimantors, each part seperated with dot ❌`;
-    static INVALID_VALIDATION_BEARER_TOKEN_MESSAGE = `Token and start with one of ${Object.values(SignatureLevelsEnum)}. ${this.INVALID_VALIDATION_TOKEN_MESSAGE}`;
+    static INVALID_VALIDATION_BEARER_TOKEN_MESSAGE = `Token must start with one of ${Object.values(SignatureLevelsEnum)} followed by a space, and ${this.INVALID_VALIDATION_TOKEN_MESSAGE}`;
     static FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE = "Failed to verify this gmail account 🇬✉️";
     static INVALID_GMAIL_CREDENTIALS_MESSAGE = "Invaild gmail account credentials 🇬🪪";
     static EMAIL_EXISTS_PROVIDER_MESSAGE = "Email exists with another provider ✉️❌";

@@ -16,11 +16,19 @@ import {
 import DocumentFromat from "../../utils/formats/document.format.ts";
 import UpdateUtil from "../../utils/update/util.update.ts";
 import HashingSecurityUtil from "../../utils/security/hash.security.ts";
-import { BadRequestException } from "../../utils/exceptions/custom.exceptions.ts";
+import {
+  BadRequestException,
+  NotFoundException,
+} from "../../utils/exceptions/custom.exceptions.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import TokenSecurityUtil from "../../utils/security/token.security.ts";
+import { NotificationPushDeviceRepository } from "../../db/repositories/index.ts";
+import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.ts";
 
 class UserService {
+  private readonly _notificationPushDeviceRepository =
+    new NotificationPushDeviceRepository(NotificationPushDeviceModel);
+
   getProfile = async (req: Request, res: Response): Promise<Response> => {
     return successHandler<IProfileReponse>({ res, body: { user: req.user! } });
   };
@@ -126,13 +134,30 @@ class UserService {
   };
 
   logout = async (req: Request, res: Response): Promise<Response> => {
-    const { flag } = req.validationResult.body as LogoutBodyDtoType;
+    const { flag, deviceId } = req.validationResult.body as LogoutBodyDtoType;
+
+    if (deviceId) {
+      const pushDeviceResult =
+        await this._notificationPushDeviceRepository.updateOne({
+          filter: { userId: req.user!._id!, deviceId },
+          update: {
+            isActive: false,
+            $unset: { fcmToken: true },
+          },
+        });
+      if (!pushDeviceResult?.matchedCount) {
+        throw new NotFoundException(
+          "Invalid deviceId, or notification is disabled ❌"
+        );
+      }
+    }
 
     await TokenSecurityUtil.revoke({
       flag,
       userId: req.user!._id,
       tokenPayload: req.tokenPayload!,
     });
+
     return successHandler({ res });
   };
 }

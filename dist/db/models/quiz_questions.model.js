@@ -61,7 +61,7 @@ questionSchema.methods.toJSON = function () {
         options: options?.length ? options : undefined,
     };
 };
-const quizQuestionsSchema = new mongoose.Schema({
+const quizAttemptSchema = new mongoose.Schema({
     quizId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
@@ -85,11 +85,11 @@ const quizQuestionsSchema = new mongoose.Schema({
     toJSON: { virtuals: true },
     id: false,
 });
-quizQuestionsSchema.index({ quizId: 1, userId: 1 }, { unique: true });
-quizQuestionsSchema.virtual("id").get(function () {
+quizAttemptSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+quizAttemptSchema.virtual("id").get(function () {
     return this._id;
 });
-quizQuestionsSchema.methods.toJSON = function () {
+quizAttemptSchema.methods.toJSON = function () {
     const { _id, quizId, userId, createdAt, updatedAt } = this.toObject();
     return {
         id: _id,
@@ -103,5 +103,5 @@ quizQuestionsSchema.methods.toJSON = function () {
     };
 };
 const QuizQuestionsModel = mongoose.models.QuizQuestions ||
-    mongoose.model(ModelsNames.quizQuestionsModel, quizQuestionsSchema);
+    mongoose.model(ModelsNames.quizAttemptModel, quizAttemptSchema);
 export default QuizQuestionsModel;

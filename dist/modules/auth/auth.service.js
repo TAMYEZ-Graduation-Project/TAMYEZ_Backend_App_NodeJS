@@ -1,11 +1,11 @@
-import { UserModel } from "../../db/models/index.js";
-import { UserRepository } from "../../db/repositories/index.js";
+import { NotificationPushDeviceModel, UserModel, } from "../../db/models/index.js";
+import { NotificationPushDeviceRepository, UserRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
-import { BadRequestException, ConflictException, NotFoundException, } from "../../utils/exceptions/custom.exceptions.js";
+import { BadRequestException, ConflictException, NotFoundException, ServerException, } from "../../utils/exceptions/custom.exceptions.js";
 import IdSecurityUtil from "../../utils/security/id.security.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
 import emailEvent from "../../utils/events/email.events.js";
-import { EmailStatusEnum, EventsEnum, OTPsOrLinksEnum, ProvidersEnum, } from "../../utils/constants/enum.constants.js";
+import { EmailStatusEnum, EmailEventsEnum, OTPsOrLinksEnum, ProvidersEnum, } from "../../utils/constants/enum.constants.js";
 import RoutePaths from "../../utils/constants/route_paths.constants.js";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
@@ -16,14 +16,15 @@ import HashingSecurityUtil from "../../utils/security/hash.security.js";
 import TokenSecurityUtil from "../../utils/security/token.security.js";
 import { OAuth2Client } from "google-auth-library";
 class AuthService {
-    _userRespository = new UserRepository(UserModel);
+    _userRepository = new UserRepository(UserModel);
+    _notificationPushDeviceRepository = new NotificationPushDeviceRepository(NotificationPushDeviceModel);
     _sendTokenToUser = ({ email, otp, }) => {
         const fullToken = EncryptionSecurityUtil.encryptText({
             plainText: decodeURIComponent(`${email} ${otp}`),
             secretKey: process.env[EnvFields.EMAIL_VERIFICATION_TOKEN_ENC_KEY],
         });
         emailEvent.publish({
-            eventName: EventsEnum.emailVerification,
+            eventName: EmailEventsEnum.emailVerification,
             payload: {
                 to: email,
                 otpOrLink: `${process.env[EnvFields.PROTOCOL]}://${process.env[EnvFields.HOST]}${RoutePaths.API_V1_PATH}${RoutePaths.auth}${RoutePaths.verifyEmail}?token=${encodeURIComponent(fullToken)}`,
@@ -32,12 +33,12 @@ class AuthService {
     };
     signUp = async (req, res) => {
         const { fullName, email, password, gender, phoneNumber, } = req.body;
-        const emailExists = await this._userRespository.findByEmail({ email });
+        const emailExists = await this._userRepository.findByEmail({ email });
         if (emailExists) {
             throw new ConflictException("email already exists!");
         }
         const otp = IdSecurityUtil.generateAlphaNumericId();
-        await this._userRespository.create({
+        await this._userRepository.create({
             data: [
                 {
                     fullName,
@@ -70,7 +71,7 @@ class AuthService {
                 secretKey: process.env[EnvFields.EMAIL_VERIFICATION_TOKEN_ENC_KEY],
             });
             const [email, otp] = tokenAfterDecryption.split(" ");
-            const user = await this._userRespository.findOne({
+            const user = await this._userRepository.findOne({
                 filter: {
                     email,
                     confirmEmailLink: { $exists: true },
@@ -114,7 +115,7 @@ class AuthService {
     };
     resendEmailVerificationLink = async (req, res) => {
         const { email } = req.body;
-        const user = await this._userRespository.findOne({
+        const user = await this._userRepository.findOne({
             filter: {
                 email,
                 freezed: { $exists: false },
@@ -136,9 +137,22 @@ class AuthService {
             message: StringConstants.RESENT_EMAIL_VERIFICATION_LINK_MESSAGE,
         });
     };
+    _checkNotificationsForPushDevice = async ({ userId, jwtTokenExpiresAt, deviceId, fcmToken, }) => {
+        const result = await this._notificationPushDeviceRepository.updateOne({
+            filter: {
+                userId,
+                deviceId,
+            },
+            update: { fcmToken, isActive: true, jwtTokenExpiresAt },
+        });
+        if (!result.matchedCount) {
+            return false;
+        }
+        return true;
+    };
     logIn = async (req, res) => {
-        const { email, password } = req.body;
-        const user = await this._userRespository.findOne({
+        const { email, password, deviceId, fcmToken } = req.body;
+        const user = await this._userRepository.findOne({
             filter: {
                 email,
                 freezed: { $exists: false },
@@ -155,34 +169,51 @@ class AuthService {
             throw new BadRequestException(StringConstants.INVALID_LOGIN_CREDENTIALS_MESSAGE);
         }
         const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({ user });
+        let notificationsEnabled;
+        if (deviceId && fcmToken)
+            notificationsEnabled = await this._checkNotificationsForPushDevice({
+                userId: user._id,
+                jwtTokenExpiresAt: new Date(TokenSecurityUtil.getTokenExpiresAt({
+                    userRole: user.role,
+                    token: accessToken,
+                }) * 1000),
+                deviceId,
+                fcmToken,
+            });
         return successHandler({
             res,
             message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
             body: {
                 accessToken,
+                notificationsEnabled,
                 user,
             },
         });
     };
     _verifyGmailAccount = async ({ idToken, }) => {
-        const client = new OAuth2Client();
-        const ticket = await client.verifyIdToken({
-            idToken,
-            audience: process.env[EnvFields.WEB_CLIENT_IDS]?.split(",") || [],
-        });
-        const payload = ticket.getPayload();
-        if (!payload?.email_verified) {
-            throw new BadRequestException(StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE);
+        try {
+            const client = new OAuth2Client();
+            const ticket = await client.verifyIdToken({
+                idToken,
+                audience: process.env[EnvFields.WEB_CLIENT_IDS]?.split(",") || [],
+            });
+            const payload = ticket.getPayload();
+            if (!payload?.email_verified) {
+                throw new BadRequestException(StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE);
+            }
+            return payload;
         }
-        return payload;
+        catch (error) {
+            throw new BadRequestException(`Failed to verify idToken ❌. Error: ${error?.message}`);
+        }
     };
     signUpWithGmail = async (req, res) => {
-        const { idToken } = req.body;
+        const { idToken, deviceId, fcmToken } = req.body;
         const { email, given_name, family_name, picture } = await this._verifyGmailAccount({ idToken });
         if (!email || !given_name || given_name.length < 2) {
             throw new BadRequestException(StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE);
         }
-        const userExist = await this._userRespository.findByEmail({
+        const userExist = await this._userRepository.findByEmail({
             email,
         });
         if (userExist) {
@@ -198,7 +229,7 @@ class AuthService {
                 provider: ProvidersEnum.google,
             };
         }
-        const [user] = await this._userRespository.create({
+        const [user] = await this._userRepository.create({
             data: [
                 {
                     firstName: given_name,
@@ -210,26 +241,41 @@ class AuthService {
                 },
             ],
         });
+        if (!user) {
+            throw new ServerException("Failed to create user account, please try again later ☹️");
+        }
         const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
             user: user,
         });
+        let notificationsEnabled;
+        if (deviceId && fcmToken)
+            notificationsEnabled = await this._checkNotificationsForPushDevice({
+                userId: user._id,
+                jwtTokenExpiresAt: new Date(TokenSecurityUtil.getTokenExpiresAt({
+                    userRole: user.role,
+                    token: accessToken,
+                }) * 1000),
+                deviceId,
+                fcmToken,
+            });
         return successHandler({
             res,
             statusCode: 201,
             message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
             body: {
                 accessToken,
+                notificationsEnabled,
                 user: user,
             },
         });
     };
     logInWithGmail = async (req, res) => {
-        const { idToken } = req.body;
+        const { idToken, deviceId, fcmToken } = req.body;
         const { email } = await this._verifyGmailAccount({ idToken });
         if (!email) {
             throw new BadRequestException(StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE);
         }
-        const user = await this._userRespository.findOne({
+        const user = await this._userRepository.findOne({
             filter: {
                 email,
                 authProvider: ProvidersEnum.google,
@@ -243,18 +289,30 @@ class AuthService {
         const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
             user,
         });
+        let notificationsEnabled;
+        if (deviceId && fcmToken)
+            notificationsEnabled = await this._checkNotificationsForPushDevice({
+                userId: user._id,
+                jwtTokenExpiresAt: new Date(TokenSecurityUtil.getTokenExpiresAt({
+                    userRole: user.role,
+                    token: accessToken,
+                }) * 1000),
+                deviceId,
+                fcmToken,
+            });
         return successHandler({
             res,
             message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
             body: {
                 accessToken,
+                notificationsEnabled,
                 user,
             },
         });
     };
     forgetPassword = async (req, res) => {
         const { email } = req.body;
-        const user = await this._userRespository.findOne({
+        const user = await this._userRepository.findOne({
             filter: {
                 email,
                 freezed: { $exists: false },
@@ -275,7 +333,7 @@ class AuthService {
             checkEmailStatus: EmailStatusEnum.confirmed,
         });
         const otp = IdSecurityUtil.generateNumericId();
-        await this._userRespository.updateOne({
+        await this._userRepository.updateOne({
             filter: {
                 _id: user._id,
             },
@@ -292,14 +350,14 @@ class AuthService {
             },
         });
         emailEvent.publish({
-            eventName: EventsEnum.forgetPassword,
+            eventName: EmailEventsEnum.forgetPassword,
             payload: { to: email, otpOrLink: otp },
         });
         return successHandler({ res, message: StringConstants.OTP_SENT_MESSAGE });
     };
     verifyForgetPassword = async (req, res) => {
         const { email, otp } = req.body;
-        const user = await this._userRespository.findOne({
+        const user = await this._userRepository.findOne({
             filter: {
                 email,
                 freezed: { $exists: false },
@@ -316,7 +374,7 @@ class AuthService {
             }))) {
             throw new BadRequestException(StringConstants.INVALID_OTP_MESSAGE);
         }
-        await this._userRespository.updateOne({
+        await this._userRepository.updateOne({
             filter: {
                 _id: user._id,
             },
@@ -335,7 +393,7 @@ class AuthService {
     };
     resetForgetPassword = async (req, res) => {
         const { email, password } = req.body;
-        const user = await this._userRespository.findOne({
+        const user = await this._userRepository.findOne({
             filter: {
                 email,
                 freezed: { $exists: false },

@@ -109,9 +109,9 @@ class StringConstants {
 
   static readonly INVALID_VALIDATION_TOKEN_MESSAGE = `Token must consist of three parts having any characters accept line terimantors, each part seperated with dot ❌`;
 
-  static readonly INVALID_VALIDATION_BEARER_TOKEN_MESSAGE = `Token and start with one of ${Object.values(
+  static readonly INVALID_VALIDATION_BEARER_TOKEN_MESSAGE = `Token must start with one of ${Object.values(
     SignatureLevelsEnum
-  )}. ${this.INVALID_VALIDATION_TOKEN_MESSAGE}`;
+  )} followed by a space, and ${this.INVALID_VALIDATION_TOKEN_MESSAGE}`;
 
   static readonly FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE =
     "Failed to verify this gmail account 🇬✉️";

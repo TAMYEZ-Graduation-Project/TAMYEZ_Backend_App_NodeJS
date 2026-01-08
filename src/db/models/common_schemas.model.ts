@@ -6,7 +6,7 @@ import type {
   IProfilePictureObject,
   IQuizQuestionOption,
 } from "../interfaces/common.interface.ts";
-import ModelsNames from "../../utils/constants/models.names.ts";
+import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import {
   OptionIdsEnum,
   ProvidersEnum,

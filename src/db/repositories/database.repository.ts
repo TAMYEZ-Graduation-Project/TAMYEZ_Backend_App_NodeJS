@@ -18,6 +18,7 @@ import StringConstants from "../../utils/constants/strings.constants.ts";
 import type {
   FindFunctionOptionsType,
   FindFunctionsReturnType,
+  FindOneFunctionsReturnType,
   LeanType,
 } from "../../utils/types/find_functions.type.ts";
 import type { IPaginationResult } from "../../utils/constants/interface.constants.ts";
@@ -56,7 +57,7 @@ abstract class DatabaseRepository<TDocument> {
     filter?: RootFilterQuery<TDocument>;
     projection?: ProjectionType<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
-  } = {}): Promise<FindFunctionsReturnType<TDocument, TLean>[]> => {
+  } = {}): Promise<FindFunctionsReturnType<TDocument, TLean>> => {
     return this.model.find(filter, projection, options);
   };
 
@@ -90,7 +91,7 @@ abstract class DatabaseRepository<TDocument> {
       totalPages,
       currentPage: page !== "all" ? page : undefined,
       size: page !== "all" ? size : undefined,
-      data: data as unknown as FindFunctionsReturnType<TDocument, TLean>[],
+      data: data as unknown as FindFunctionsReturnType<TDocument, TLean>,
     };
   };
 
@@ -102,7 +103,7 @@ abstract class DatabaseRepository<TDocument> {
     filter?: RootFilterQuery<TDocument>;
     projection?: ProjectionType<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
-  }): Promise<FindFunctionsReturnType<TDocument, TLean>> => {
+  }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
     return this.model.findOne(filter, projection, options);
   };
 
@@ -114,7 +115,7 @@ abstract class DatabaseRepository<TDocument> {
     id: Types.ObjectId | string;
     projection?: ProjectionType<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
-  }): Promise<FindFunctionsReturnType<TDocument, TLean>> => {
+  }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
     return this.model.findById(id, projection, options);
   };
 
@@ -181,7 +182,7 @@ abstract class DatabaseRepository<TDocument> {
     filter?: RootFilterQuery<TDocument>;
     update: UpdateQuery<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
-  }): Promise<FindFunctionsReturnType<TDocument, TLean>> => {
+  }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
     return this.model.findOneAndUpdate(
       filter,
       { ...update, $inc: { __v: 1 } },
@@ -197,7 +198,7 @@ abstract class DatabaseRepository<TDocument> {
     id: Types.ObjectId | string;
     update: UpdateQuery<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
-  }): Promise<FindFunctionsReturnType<TDocument, TLean>> => {
+  }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
     return this.model.findByIdAndUpdate(
       id,
       { ...update, $inc: { __v: 1 } },
@@ -231,7 +232,7 @@ abstract class DatabaseRepository<TDocument> {
   }: {
     filter?: RootFilterQuery<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
-  }): Promise<FindFunctionsReturnType<TDocument, TLean>> => {
+  }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
     return this.model.findOneAndDelete(filter, options);
   };
 

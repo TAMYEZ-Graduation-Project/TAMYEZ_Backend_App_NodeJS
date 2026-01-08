@@ -2,7 +2,7 @@ class ModelsNames {
     static userModel = "User";
     static revokedTokenModel = "RevokedToken";
     static quizModel = "Quiz";
-    static quizQuestionsModel = "QuizQuestions";
+    static quizAttemptModel = "QuizAttempt";
     static savedQuizModel = "SavedQuiz";
     static quizCooldownModel = "QuizCooldown";
 }

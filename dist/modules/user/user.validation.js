@@ -59,6 +59,7 @@ class UserValidators {
     };
     static logout = {
         body: z.strictObject({
+            deviceId: generalValidationConstants.deviceId.optional(),
             flag: z
                 .enum(Object.values(LogoutFlagsEnum))
                 .optional()

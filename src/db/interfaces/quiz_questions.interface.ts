@@ -18,7 +18,7 @@ export type FullIQuestion = Require_id<Default__v<IQuestion>>;
 
 export type HIQuestion = HydratedDocument<IQuestion>;
 
-export interface IQuizQuestions {
+export interface IQuizAttempt {
   id?: Types.ObjectId | undefined;
 
   quizId: Types.ObjectId;
@@ -32,11 +32,7 @@ export interface IQuizQuestions {
   createdAt: Date;
   updatedAt: Date;
 }
-export type QuizQuestionsAnswersMapValueType = {
-  text?: string | undefined;
-  type: QuestionTypesEnum;
-};
 
-export type FullIQuizQuestions = Require_id<Default__v<IQuizQuestions>>;
+export type FullIQuizAttempt = Require_id<Default__v<IQuizAttempt>>;
 
-export type HIQuizQuestions = HydratedDocument<IQuizQuestions>;
+export type HIQuizAttempt = HydratedDocument<IQuizAttempt>;

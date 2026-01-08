@@ -1,6 +1,6 @@
 import mongoose, { Model } from "mongoose";
 import type { IQuizCooldown } from "../interfaces/quiz_cooldown.interface.ts";
-import ModelsNames from "../../utils/constants/models.names.ts";
+import ModelsNames from "../../utils/constants/models.names.constants.ts";
 
 const quizCooldownSchema = new mongoose.Schema<IQuizCooldown>(
   {

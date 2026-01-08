@@ -1,7 +1,7 @@
 import mongoose, { Model } from "mongoose";
 import { QuestionTypesEnum } from "../../utils/constants/enum.constants.js";
 import { validateIfValidQuestionAnswer } from "../../utils/question/validate_options.question.js";
-import ModelsNames from "../../utils/constants/models.names.js";
+import ModelsNames from "../../utils/constants/models.names.constants.js";
 import { questionOptionSchema } from "./common_schemas.model.js";
 const savedQuestionSchema = new mongoose.Schema({
     text: { type: String, required: true },

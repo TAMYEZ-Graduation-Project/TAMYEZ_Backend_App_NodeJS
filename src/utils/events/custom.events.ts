@@ -1,15 +1,14 @@
 import { EventEmitter } from "node:events";
-import type { EventsEnum } from "../constants/enum.constants.ts";
 import StringConstants from "../constants/strings.constants.ts";
 
-class CustomEvents<T> {
+class CustomEvents<T, E extends string> {
   constructor(protected emitter: EventEmitter) {}
 
   subscribe = ({
     eventName,
     bgFunction,
   }: {
-    eventName: EventsEnum;
+    eventName: E;
     bgFunction: (payload: T) => Promise<void>;
   }) => {
     this.emitter.on(eventName, async (args) => {
@@ -23,7 +22,7 @@ class CustomEvents<T> {
     });
   };
 
-  publish = ({ eventName, payload }: { eventName: EventsEnum; payload: T }) => {
+  publish = ({ eventName, payload }: { eventName: E; payload: T }) => {
     this.emitter.emit(eventName, payload);
   };
 }

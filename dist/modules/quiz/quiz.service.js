@@ -1,5 +1,5 @@
-import { QuizCooldownModel, QuizModel, QuizQuestionsModel, SavedQuizModel, } from "../../db/models/index.js";
-import { QuizQuestionsRepository, QuizRepository, } from "../../db/repositories/index.js";
+import { QuizCooldownModel, QuizModel, QuizAttemptModel, SavedQuizModel, } from "../../db/models/index.js";
+import { QuizAttemptRepository, QuizRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
 import { OptionIdsEnum, QuestionTypesEnum, QuizTypesEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
 import { BadRequestException, ConflictException, NotFoundException, ServerException, TooManyRequestsException, ValidationException, } from "../../utils/exceptions/custom.exceptions.js";
@@ -13,7 +13,7 @@ import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.reposito
 import pause from "../../utils/pause/code.pause.js";
 class QuizService {
     _quizRepository = new QuizRepository(QuizModel);
-    _quizQuestionsRepository = new QuizQuestionsRepository(QuizQuestionsModel);
+    _quizQuestionsRepository = new QuizAttemptRepository(QuizAttemptModel);
     _savedQuizRepository = new SavedQuizRepository(SavedQuizModel);
     _quizCooldownRepository = new QuizCooldownRepository(QuizCooldownModel);
     createQuiz = async (req, res) => {

@@ -13,11 +13,13 @@ class Auths {
                     .string({
                     error: StringConstants.PATH_REQUIRED_MESSAGE("Authorization"),
                 })
-                    .regex(AppRegex.bearerWithTokenRegex),
+                    .regex(AppRegex.bearerWithTokenRegex, {
+                    error: StringConstants.INVALID_VALIDATION_BEARER_TOKEN_MESSAGE,
+                }),
             })
                 .safeParseAsync(req.headers);
             if (!result.success) {
-                throw new ValidationException("Authorization field is required", result.error.issues.map((issue) => {
+                throw new ValidationException(result.error.issues[0]?.message ?? "", result.error.issues.map((issue) => {
                     return {
                         key: "headers",
                         path: issue.path.join("."),

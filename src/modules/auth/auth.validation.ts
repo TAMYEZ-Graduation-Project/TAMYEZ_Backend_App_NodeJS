@@ -4,16 +4,38 @@ import StringConstants from "../../utils/constants/strings.constants.ts";
 import { GenderEnum } from "../../utils/constants/enum.constants.ts";
 
 class AuthValidators {
+  static checkNotificationStatus = {
+    body: z
+      .strictObject({
+        deviceId: generalValidationConstants.deviceId.optional(),
+        fcmToken: generalValidationConstants.fcmToken.optional(),
+      })
+      .superRefine((data, ctx) => {
+        if (
+          (!data.deviceId || !data.fcmToken) &&
+          !(!data.deviceId && !data.fcmToken)
+        ) {
+          ctx.addIssue({
+            code: "custom",
+            path: [!data.deviceId ? "deviceId" : "fcmToken"],
+            message:
+              "For checking notifcations status both deviceId and fcmToken must be provided 🚫",
+          });
+        }
+      }),
+  };
+
   static logIn = {
-    body: z.strictObject({
+    body: this.checkNotificationStatus.body.safeExtend({
       email: generalValidationConstants.email,
       password: generalValidationConstants.password(),
     }),
   };
   static signUp = {
-    body: this.logIn.body
-      .extend({
+    body: z.strictObject({
         fullName: generalValidationConstants.fullName,
+        email: generalValidationConstants.email,
+        password: generalValidationConstants.password(),
         confirmPassword: z.string({
           error: StringConstants.PATH_REQUIRED_MESSAGE("confirmPassword"),
         }),
@@ -28,7 +50,7 @@ class AuthValidators {
   };
 
   static signUpLogInGamil = {
-    body: z.strictObject({
+    body: this.checkNotificationStatus.body.safeExtend({
       idToken: generalValidationConstants.token,
     }),
   };

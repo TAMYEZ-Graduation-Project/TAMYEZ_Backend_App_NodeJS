@@ -1,6 +1,6 @@
 import mongoose, { Model } from "mongoose";
 import type { IQuiz } from "../interfaces/quiz.interface.ts";
-import ModelsNames from "../../utils/constants/models.names.ts";
+import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import { atByObjectSchema } from "./common_schemas.model.ts";
 import { QuizTypesEnum } from "../../utils/constants/enum.constants.ts";
 import DocumentFormat from "../../utils/formats/document.format.ts";

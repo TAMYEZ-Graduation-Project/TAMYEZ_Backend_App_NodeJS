@@ -1,6 +1,6 @@
 import mongoose, { Model } from "mongoose";
 import type { IRevokedToken } from "../interfaces/revoked_token.interface.ts";
-import ModelsNames from "../../utils/constants/models.names.ts";
+import ModelsNames from "../../utils/constants/models.names.constants.ts";
 
 const revokedTokenSchema = new mongoose.Schema<IRevokedToken>(
   {

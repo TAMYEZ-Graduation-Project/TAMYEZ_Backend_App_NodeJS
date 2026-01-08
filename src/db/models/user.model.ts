@@ -5,7 +5,7 @@ import {
   ProvidersEnum,
   RolesEnum,
 } from "../../utils/constants/enum.constants.ts";
-import ModelsNames from "../../utils/constants/models.names.ts";
+import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import { softDeleteFunction } from "../../utils/soft_delete/soft_delete.ts";
 import DocumentFormat from "../../utils/formats/document.format.ts";
 import {

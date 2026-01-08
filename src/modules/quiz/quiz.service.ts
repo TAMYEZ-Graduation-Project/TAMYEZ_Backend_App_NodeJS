@@ -2,11 +2,11 @@ import type { Request, Response } from "express";
 import {
   QuizCooldownModel,
   QuizModel,
-  QuizQuestionsModel,
+  QuizAttemptModel,
   SavedQuizModel,
 } from "../../db/models/index.ts";
 import {
-  QuizQuestionsRepository,
+  QuizAttemptRepository,
   QuizRepository,
 } from "../../db/repositories/index.ts";
 import successHandler from "../../utils/handlers/success.handler.ts";
@@ -62,8 +62,8 @@ import pause from "../../utils/pause/code.pause.ts";
 
 class QuizService {
   private _quizRepository = new QuizRepository(QuizModel);
-  private _quizQuestionsRepository = new QuizQuestionsRepository(
-    QuizQuestionsModel
+  private _quizQuestionsRepository = new QuizAttemptRepository(
+    QuizAttemptModel
   );
   private _savedQuizRepository = new SavedQuizRepository(SavedQuizModel);
   private _quizCooldownRepository = new QuizCooldownRepository(

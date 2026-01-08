@@ -24,6 +24,12 @@ export interface IExtendedMailOptions extends MailOptions {
   to: string;
 }
 
+export interface INotificationParams {
+  title: string;
+  body: string;
+  imageUrl?: string | undefined;
+}
+
 export interface ITokenPayload extends JwtPayload {
   id: Types.ObjectId;
   jti: string;
@@ -48,7 +54,7 @@ export interface IMulterFile {
 
 export interface IPaginationResult<TDocument, TLean extends LeanType = false>
   extends IPaginationMetaData {
-  data?: FindFunctionsReturnType<TDocument, TLean>[];
+  data?: FindFunctionsReturnType<TDocument, TLean>;
 }
 
 export interface IPaginationMetaData {

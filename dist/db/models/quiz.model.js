@@ -1,5 +1,5 @@
 import mongoose, { Model } from "mongoose";
-import ModelsNames from "../../utils/constants/models.names.js";
+import ModelsNames from "../../utils/constants/models.names.constants.js";
 import { atByObjectSchema } from "./common_schemas.model.js";
 import { QuizTypesEnum } from "../../utils/constants/enum.constants.js";
 import DocumentFormat from "../../utils/formats/document.format.js";

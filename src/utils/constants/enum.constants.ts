@@ -16,9 +16,13 @@ export enum ErrorCodesEnum {
   ASSET_ERROR = "ASSET_ERROR",
 }
 
-export enum EventsEnum {
+export enum EmailEventsEnum {
   emailVerification = "EmailVerification",
   forgetPassword = "ForgetPassword",
+}
+
+export enum NotificationEventsEnum {
+  mutlipleNotifications = "MultipleNotifications",
 }
 
 export enum GenderEnum {
@@ -90,4 +94,15 @@ export enum OptionIdsEnum {
   optionB = "optB",
   optionC = "optC",
   optionD = "optD",
+}
+
+export enum PlatformsEnum {
+  flutterAndroid = "flutter-android",
+  flutterIos = "flutter-ios",
+  web = "web",
+}
+
+export enum AdminNotificationTypesEnum {
+  allUsers = "AllUsers",
+  careerSpecific = "CareerSpecific",
 }

@@ -19,6 +19,17 @@ class AppRegex {
     /^(users)\/[0-9a-f]{24}\/.+\.(jpeg|jpg|png|gif)/;
 
   static readonly quizTitleRegex = /^(?=.{3,200}$)[A-Z][a-z]+(\s[A-Z][a-z]+)*$/;
+
+  static readonly fcmTokenRegex = /^[A-Za-z0-9_:\-]{20,4096}$/;
+
+  static readonly deviceIdRegex =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+
+  static readonly appVersionRegex = /^\d+(?:\.\d+){1,3}$/;
+
+  static readonly osRegex = /^(Android|IOS|Web)\s\d{1,2}(\.\d{1,2})*$/
+
+  static readonly deviceModelRegex = /^[A-Za-z0-9][A-Za-z0-9\-_ ]{1,49}$/
 }
 
 export default AppRegex;

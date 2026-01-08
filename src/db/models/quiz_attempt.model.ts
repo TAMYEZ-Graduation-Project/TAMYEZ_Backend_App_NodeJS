@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 import type {
   FullIQuestion,
-  FullIQuizQuestions,
+  FullIQuizAttempt,
   HIQuestion,
   IQuestion,
-  IQuizQuestions,
+  IQuizAttempt,
 } from "../interfaces/quiz_questions.interface.ts";
-import ModelsNames from "../../utils/constants/models.names.ts";
+import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import { QuestionTypesEnum } from "../../utils/constants/enum.constants.ts";
 import type { Model } from "mongoose";
 import { questionOptionSchema } from "./common_schemas.model.ts";
@@ -80,7 +80,7 @@ questionSchema.methods.toJSON = function () {
   };
 };
 
-const quizQuestionsSchema = new mongoose.Schema<IQuizQuestions>(
+const quizAttemptSchema = new mongoose.Schema<IQuizAttempt>(
   {
     quizId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -111,15 +111,15 @@ const quizQuestionsSchema = new mongoose.Schema<IQuizQuestions>(
   }
 );
 
-quizQuestionsSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+quizAttemptSchema.index({ quizId: 1, userId: 1 }, { unique: true });
 
-quizQuestionsSchema.virtual("id").get(function () {
+quizAttemptSchema.virtual("id").get(function () {
   return this._id;
 });
 
-quizQuestionsSchema.methods.toJSON = function () {
+quizAttemptSchema.methods.toJSON = function () {
   const { _id, quizId, userId, createdAt, updatedAt } =
-    this.toObject() as FullIQuizQuestions;
+    this.toObject() as FullIQuizAttempt;
   return {
     id: _id,
     quizId,
@@ -133,10 +133,10 @@ quizQuestionsSchema.methods.toJSON = function () {
 };
 
 const QuizQuestionsModel =
-  (mongoose.models.QuizQuestions as Model<IQuizQuestions>) ||
-  mongoose.model<IQuizQuestions>(
-    ModelsNames.quizQuestionsModel,
-    quizQuestionsSchema
+  (mongoose.models.QuizQuestions as Model<IQuizAttempt>) ||
+  mongoose.model<IQuizAttempt>(
+    ModelsNames.quizAttemptModel,
+    quizAttemptSchema
   );
 
 export default QuizQuestionsModel;

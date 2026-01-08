@@ -1,5 +1,5 @@
 import mongoose, { Model } from "mongoose";
-import ModelsNames from "../../utils/constants/models.names.js";
+import ModelsNames from "../../utils/constants/models.names.constants.js";
 const quizCooldownSchema = new mongoose.Schema({
     quizId: {
         type: mongoose.Schema.Types.ObjectId,
