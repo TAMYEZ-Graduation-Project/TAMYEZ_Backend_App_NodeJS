@@ -1,30 +1,15 @@
 import { z } from "zod";
-import {
-  CareerResourceAppliesToEnum,
-  LanguagesEnum,
-  RoadmapStepPricingTypesEnum,
-} from "../../utils/constants/enum.constants.ts";
+import { CareerResourceAppliesToEnum } from "../../utils/constants/enum.constants.ts";
 import generalValidationConstants from "../../utils/constants/validation.constants.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import AppRegex from "../../utils/constants/regex.constants.ts";
 import fileValidation from "../../utils/multer/file_validation.multer.ts";
 import EnvFields from "../../utils/constants/env_fields.constants.ts";
+import { RoadmapValidators } from "../roadmap/index.ts";
 
 class CareerValidators {
-  static roadmapStepResource = {
-    body: z.strictObject({
-      title: z
-        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("title") })
-        .min(3)
-        .max(300),
-      url: z.url(),
-      pricingType: z.enum(RoadmapStepPricingTypesEnum),
-      language: z.enum(LanguagesEnum),
-    }),
-  };
-
   static careerResource = {
-    body: this.roadmapStepResource.body
+    body: RoadmapValidators.roadmapStepResource.body
       .extend({
         appliesTo: z.enum(CareerResourceAppliesToEnum),
         specifiedSteps: z.array(generalValidationConstants.objectId).optional(),
@@ -68,68 +53,35 @@ class CareerValidators {
         books: z.array(this.careerResource.body).max(5).optional().default([]),
       })
       .superRefine((data, ctx) => {
-        if (
-          data.courses?.length &&
-          data.courses.findIndex(
-            (c) => c.url.includes("youtube.com") || c.url.includes("youtu.be")
-          ) !== -1
-        ) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["courses"],
-            message: "Some courses have YouTube URLs ❌",
-          });
-        }
+        generalValidationConstants.checkCoureseUrls({
+          data: { courses: data.courses },
+          ctx,
+        });
 
-        if (
-          data.youtubePlaylists?.length &&
-          data.youtubePlaylists.findIndex(
-            (c) =>
-              !(c.url.includes("youtube.com") || c.url.includes("youtu.be"))
-          ) !== -1
-        ) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["youtubePlaylists"],
-            message: "Some youtube playlists have non-YouTube URLs ❌",
-          });
-        }
+        generalValidationConstants.checkYoutubePlaylistsUrls({
+          data: { youtubePlaylists: data.youtubePlaylists },
+          ctx,
+        });
 
-        if (
-          new Set(data.courses.map((c) => c.title)).size !==
-            data.courses.length ||
-          new Set(data.courses.map((c) => c.url)).size !== data.courses.length
-        ) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["courses"],
-            message: "Duplicate titles or urls found in courses ❌",
-          });
-        }
+        generalValidationConstants.checkBooksUrls({
+          data: { books: data.books },
+          ctx,
+        });
 
-        if (
-          new Set(data.youtubePlaylists.map((c) => c.title)).size !==
-            data.youtubePlaylists.length ||
-          new Set(data.youtubePlaylists.map((c) => c.url)).size !==
-            data.youtubePlaylists.length
-        ) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["youtubePlaylists"],
-            message: "Duplicate titles or urls found in youtube playlists ❌",
-          });
-        }
+        generalValidationConstants.checkDuplicateCourses({
+          data: { courses: data.courses },
+          ctx,
+        });
 
-        if (
-          new Set(data.books.map((c) => c.title)).size !== data.books.length ||
-          new Set(data.books.map((c) => c.url)).size !== data.books.length
-        ) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["books"],
-            message: "Duplicate titles or urls found in books ❌",
-          });
-        }
+        generalValidationConstants.checkDuplicateYoutubePlaylists({
+          data: { youtubePlaylists: data.youtubePlaylists },
+          ctx,
+        });
+
+        generalValidationConstants.checkDuplicateBooks({
+          data: { books: data.books },
+          ctx,
+        });
       }),
   };
 

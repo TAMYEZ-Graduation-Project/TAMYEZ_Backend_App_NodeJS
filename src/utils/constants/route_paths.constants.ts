@@ -33,6 +33,9 @@ class RoutePaths {
   static readonly createCareer = "/";
   static readonly uploadCareerPicture = "/:careerId/picture";
 
+  // roadmap routes
+  static readonly roadmap = "/roadmap";
+
   // quiz routes
   static readonly quiz = "/quiz";
   static readonly getQuizDetails = "/:quizId";

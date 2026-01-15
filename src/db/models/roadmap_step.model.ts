@@ -51,7 +51,7 @@ const roadmapStepSchema = new mongoose.Schema<IRoadmapStep>(
         message: "{VALUE} is not an integer value",
       },
     },
-    title: { type: String, unique: true, required: true, min: 3, max: 300 },
+    title: { type: String, required: true, min: 3, max: 100 },
 
     description: { type: String, min: 5, max: 10_000, required: true },
 
@@ -93,6 +93,7 @@ const roadmapStepSchema = new mongoose.Schema<IRoadmapStep>(
 );
 
 roadmapStepSchema.index({ careerId: 1, order: 1 }, { unique: true });
+roadmapStepSchema.index({ careerId: 1, title: 1 }, { unique: true });
 
 roadmapStepSchema.virtual("id").get(function (this) {
   return this._id.toHexString();

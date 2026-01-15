@@ -4,7 +4,8 @@ import RoutePaths from "../utils/constants/route_paths.constants.ts";
 import { userRouter } from "./user/index.ts";
 import { quizRouter } from "./quiz/index.ts";
 import { firebaseRouter } from "./firebase/index.ts";
-import careerRouter from "./career/career.controller.ts";
+import { careerRouter } from "./career/index.ts";
+import { roadmapRouter } from "./roadmap/index.ts";
 
 const modulesRouter: Router = Router();
 
@@ -17,6 +18,7 @@ modulesRouter.get("/", (req, res) => {
 modulesRouter.use(RoutePaths.auth, authRouter);
 modulesRouter.use(RoutePaths.user, userRouter);
 modulesRouter.use(RoutePaths.career, careerRouter);
+modulesRouter.use(RoutePaths.roadmap, roadmapRouter);
 modulesRouter.use(RoutePaths.quiz, quizRouter);
 modulesRouter.use(RoutePaths.firebase, firebaseRouter);
 

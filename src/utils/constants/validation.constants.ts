@@ -1,9 +1,13 @@
-import z from "zod";
+import z, { check } from "zod";
 import StringConstants from "./strings.constants.ts";
 import AppRegex from "./regex.constants.ts";
 import { Types } from "mongoose";
 import { StorageTypesEnum } from "./enum.constants.ts";
 import Stream from "node:stream";
+import type {
+  ICareerResource,
+  IRoadmapStepResource,
+} from "../../db/interfaces/common.interface.ts";
 
 const generalValidationConstants = {
   objectId: z.string().refine(
@@ -194,6 +198,140 @@ const generalValidationConstants = {
     .regex(AppRegex.fcmTokenRegex, {
       error: "Invalid fcmToken format ❌",
     }),
+
+  checkCoureseUrls: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      courses: IRoadmapStepResource[];
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.courses?.length &&
+      data.courses.findIndex(
+        (c) => c.url.includes("youtube.com") || c.url.includes("youtu.be")
+      ) !== -1
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["courses"],
+        message: "Some courses have YouTube URLs ❌",
+      });
+    }
+  },
+
+  checkYoutubePlaylistsUrls: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      youtubePlaylists: IRoadmapStepResource[];
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.youtubePlaylists?.length &&
+      data.youtubePlaylists.findIndex(
+        (c) => !(c.url.includes("youtube.com") || c.url.includes("youtu.be"))
+      ) !== -1
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["youtubePlaylists"],
+        message: "Some youtube playlists have non-YouTube URLs ❌",
+      });
+    }
+  },
+
+  checkBooksUrls: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      books: IRoadmapStepResource[];
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.books?.length &&
+      data.books.findIndex(
+        (c) => c.url.includes("youtube.com") || c.url.includes("youtu.be")
+      ) !== -1
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["books"],
+        message: "Some books have YouTube URLs ❌",
+      });
+    }
+  },
+
+  checkDuplicateCourses: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      courses: IRoadmapStepResource[];
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      new Set(data.courses.map((c) => c.title)).size !== data.courses.length ||
+      new Set(data.courses.map((c) => c.url)).size !== data.courses.length
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["courses"],
+        message: "Duplicate titles or urls found in courses ❌",
+      });
+    }
+  },
+
+  checkDuplicateYoutubePlaylists: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      youtubePlaylists: IRoadmapStepResource[];
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      new Set(data.youtubePlaylists.map((c) => c.title)).size !==
+        data.youtubePlaylists.length ||
+      new Set(data.youtubePlaylists.map((c) => c.url)).size !==
+        data.youtubePlaylists.length
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["youtubePlaylists"],
+        message: "Duplicate titles or urls found in youtube playlists ❌",
+      });
+    }
+  },
+
+  checkDuplicateBooks: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      books: IRoadmapStepResource[];
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      new Set(data.books.map((c) => c.title)).size !== data.books.length ||
+      new Set(data.books.map((c) => c.url)).size !== data.books.length
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["books"],
+        message: "Duplicate titles or urls found in books ❌",
+      });
+    }
+  },
 };
 
 export default generalValidationConstants;
