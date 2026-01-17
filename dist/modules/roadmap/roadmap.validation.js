@@ -9,7 +9,7 @@ class RoadmapValidators {
             title: z
                 .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("title") })
                 .min(3)
-                .max(300),
+                .max(100),
             url: z.url(),
             pricingType: z.enum(RoadmapStepPricingTypesEnum),
             language: z.enum(LanguagesEnum),

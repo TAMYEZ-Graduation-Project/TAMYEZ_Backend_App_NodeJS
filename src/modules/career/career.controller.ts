@@ -10,6 +10,7 @@ import EnvFields from "../../utils/constants/env_fields.constants.ts";
 import fileValidation from "../../utils/multer/file_validation.multer.ts";
 import { StorageTypesEnum } from "../../utils/constants/enum.constants.js";
 import StringConstants from "../../utils/constants/strings.constants.ts";
+import { rateLimit } from "express-rate-limit";
 
 const careerRouter = Router();
 
@@ -33,6 +34,19 @@ careerRouter.patch(
   }),
   validationMiddleware({ schema: CareerValidators.uploadCareerPicture }),
   careerService.uploadCareerPicture
+);
+
+careerRouter.patch(
+  RoutePaths.updateCareer,
+  Auths.combined({ accessRoles: careerAuthorizationEndpoints.createCareer }),
+  rateLimit({
+    limit: 10,
+    windowMs: 10 * 60 * 1000,
+    message:
+      "Too many update career requests, please try after a while.",
+  }),
+  validationMiddleware({ schema: CareerValidators.updateCareer }),
+  careerService.updateCareer
 );
 
 export default careerRouter;

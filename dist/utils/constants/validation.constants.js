@@ -170,8 +170,9 @@ const generalValidationConstants = {
         }
     },
     checkDuplicateCourses: ({ data, ctx, }) => {
-        if (new Set(data.courses.map((c) => c.title)).size !== data.courses.length ||
-            new Set(data.courses.map((c) => c.url)).size !== data.courses.length) {
+        if (data.courses?.length &&
+            (new Set(data.courses.map((c) => c.title)).size !== data.courses.length ||
+                new Set(data.courses.map((c) => c.url)).size !== data.courses.length)) {
             ctx.addIssue({
                 code: "custom",
                 path: ["courses"],
@@ -180,10 +181,11 @@ const generalValidationConstants = {
         }
     },
     checkDuplicateYoutubePlaylists: ({ data, ctx, }) => {
-        if (new Set(data.youtubePlaylists.map((c) => c.title)).size !==
-            data.youtubePlaylists.length ||
-            new Set(data.youtubePlaylists.map((c) => c.url)).size !==
-                data.youtubePlaylists.length) {
+        if (data.youtubePlaylists?.length &&
+            (new Set(data.youtubePlaylists.map((c) => c.title)).size !==
+                data.youtubePlaylists.length ||
+                new Set(data.youtubePlaylists.map((c) => c.url)).size !==
+                    data.youtubePlaylists.length)) {
             ctx.addIssue({
                 code: "custom",
                 path: ["youtubePlaylists"],
@@ -192,8 +194,9 @@ const generalValidationConstants = {
         }
     },
     checkDuplicateBooks: ({ data, ctx, }) => {
-        if (new Set(data.books.map((c) => c.title)).size !== data.books.length ||
-            new Set(data.books.map((c) => c.url)).size !== data.books.length) {
+        if (data.books?.length &&
+            (new Set(data.books.map((c) => c.title)).size !== data.books.length ||
+                new Set(data.books.map((c) => c.url)).size !== data.books.length)) {
             ctx.addIssue({
                 code: "custom",
                 path: ["books"],

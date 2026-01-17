@@ -7,7 +7,7 @@ import slugify from "slugify";
 import { CareerResourceAppliesToEnum, LanguagesEnum, RoadmapStepPricingTypesEnum, } from "../../utils/constants/enum.constants.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
 const careerResourceSchema = new mongoose.Schema({
-    title: { type: String, required: true, min: 3, max: 300 },
+    title: { type: String, required: true, min: 3, max: 100 },
     url: { type: String, required: true },
     pricingType: {
         type: String,

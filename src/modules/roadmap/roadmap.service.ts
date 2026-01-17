@@ -50,8 +50,6 @@ class RoadmapService {
     }
 
     if (order && order > 0) {
-      console.log({ order });
-
       if (order <= career.stepsCount && career.stepsCount > 0) {
         await this._roadmapStepRepository.updateMany({
           filter: {

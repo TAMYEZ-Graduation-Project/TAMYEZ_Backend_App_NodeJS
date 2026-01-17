@@ -5,10 +5,18 @@ export type CreateCareerBodyDto = z.infer<
   typeof CareerValidators.createCareer.body
 >;
 
-export type uploadCareerPictureParamsDto = z.infer<
+export type UploadCareerPictureParamsDto = z.infer<
   typeof CareerValidators.uploadCareerPicture.params
 >;
 
-export type uploadCareerPictureBodyDto = z.infer<
+export type UploadCareerPictureBodyDto = z.infer<
   typeof CareerValidators.uploadCareerPicture.body
+>;
+
+export type UpdateCareerParamsDto = z.infer<
+  typeof CareerValidators.updateCareer.params
+>;
+
+export type UpdateCareerBodyDto = z.infer<
+  typeof CareerValidators.updateCareer.body
 >;

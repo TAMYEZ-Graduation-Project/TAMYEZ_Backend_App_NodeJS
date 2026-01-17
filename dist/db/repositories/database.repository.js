@@ -51,12 +51,24 @@ class DatabaseRepository {
         }, options);
     };
     updateOne = async ({ filter = {}, update, options = {}, }) => {
-        return this.model.updateOne(filter, {
-            ...update,
-            $inc: Object.assign(update["$inc"] ?? {}, {
-                __v: 1,
-            }),
-        }, options);
+        let toUpdateObject;
+        if (Array.isArray(update)) {
+            update.push({
+                $set: {
+                    __v: { $add: ["$__v", 1] },
+                },
+            });
+            toUpdateObject = update;
+        }
+        else {
+            toUpdateObject = {
+                ...update,
+                $inc: Object.assign(update["$inc"] ?? {}, {
+                    __v: 1,
+                }),
+            };
+        }
+        return this.model.updateOne(filter, toUpdateObject, options);
     };
     updateById = async ({ id, update, options = {}, }) => {
         let toUpdateObject;

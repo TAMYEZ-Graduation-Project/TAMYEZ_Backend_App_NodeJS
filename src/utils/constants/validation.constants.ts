@@ -203,7 +203,7 @@ const generalValidationConstants = {
     ctx,
   }: {
     data: {
-      courses: IRoadmapStepResource[];
+      courses: IRoadmapStepResource[] | undefined;
     };
     ctx: z.core.$RefinementCtx;
   }) => {
@@ -226,7 +226,7 @@ const generalValidationConstants = {
     ctx,
   }: {
     data: {
-      youtubePlaylists: IRoadmapStepResource[];
+      youtubePlaylists: IRoadmapStepResource[] | undefined;
     };
     ctx: z.core.$RefinementCtx;
   }) => {
@@ -249,7 +249,7 @@ const generalValidationConstants = {
     ctx,
   }: {
     data: {
-      books: IRoadmapStepResource[];
+      books: IRoadmapStepResource[] | undefined;
     };
     ctx: z.core.$RefinementCtx;
   }) => {
@@ -272,13 +272,14 @@ const generalValidationConstants = {
     ctx,
   }: {
     data: {
-      courses: IRoadmapStepResource[];
+      courses: IRoadmapStepResource[] | undefined;
     };
     ctx: z.core.$RefinementCtx;
   }) => {
     if (
-      new Set(data.courses.map((c) => c.title)).size !== data.courses.length ||
-      new Set(data.courses.map((c) => c.url)).size !== data.courses.length
+      data.courses?.length &&
+      (new Set(data.courses.map((c) => c.title)).size !== data.courses.length ||
+        new Set(data.courses.map((c) => c.url)).size !== data.courses.length)
     ) {
       ctx.addIssue({
         code: "custom",
@@ -293,15 +294,16 @@ const generalValidationConstants = {
     ctx,
   }: {
     data: {
-      youtubePlaylists: IRoadmapStepResource[];
+      youtubePlaylists: IRoadmapStepResource[] | undefined;
     };
     ctx: z.core.$RefinementCtx;
   }) => {
     if (
-      new Set(data.youtubePlaylists.map((c) => c.title)).size !==
+      data.youtubePlaylists?.length &&
+      (new Set(data.youtubePlaylists.map((c) => c.title)).size !==
         data.youtubePlaylists.length ||
-      new Set(data.youtubePlaylists.map((c) => c.url)).size !==
-        data.youtubePlaylists.length
+        new Set(data.youtubePlaylists.map((c) => c.url)).size !==
+          data.youtubePlaylists.length)
     ) {
       ctx.addIssue({
         code: "custom",
@@ -316,13 +318,14 @@ const generalValidationConstants = {
     ctx,
   }: {
     data: {
-      books: IRoadmapStepResource[];
+      books: IRoadmapStepResource[] | undefined;
     };
     ctx: z.core.$RefinementCtx;
   }) => {
     if (
-      new Set(data.books.map((c) => c.title)).size !== data.books.length ||
-      new Set(data.books.map((c) => c.url)).size !== data.books.length
+      data.books?.length &&
+      (new Set(data.books.map((c) => c.title)).size !== data.books.length ||
+        new Set(data.books.map((c) => c.url)).size !== data.books.length)
     ) {
       ctx.addIssue({
         code: "custom",

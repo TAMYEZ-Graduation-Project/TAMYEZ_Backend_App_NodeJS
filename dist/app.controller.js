@@ -23,8 +23,8 @@ async function bootstrap() {
     app.use(helmet());
     app.use(morgan(process.env.MOOD === ProjectMoodsEnum.dev ? "dev" : "combined"));
     app.use(rateLimit({
-        limit: 200,
-        windowMs: 15 * 60 * 60 * 1000,
+        limit: 300,
+        windowMs: 15 * 60 * 1000,
     }));
     if (!(await connnectToDB())) {
         app.use(RoutePaths.ALL_PATH, (req, res) => {

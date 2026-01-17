@@ -57,7 +57,7 @@ export interface ICareerResource extends IRoadmapStepResource {
   specifiedSteps?: Types.ObjectId[];
 }
 
-export type FullICareerStepResource = Require_id<
+export type FullICareerResource = Require_id<
   Default__v<ICareerResource>
 >;
-export type HICareerStepResource = HydratedDocument<ICareerResource>;
+export type HICareerResource = HydratedDocument<ICareerResource>;

@@ -150,16 +150,23 @@ abstract class DatabaseRepository<TDocument> {
     update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
     options?: MongooseUpdateQueryOptions<TDocument>;
   }): Promise<UpdateWriteOpResult> => {
-    return this.model.updateOne(
-      filter,
-      {
+    let toUpdateObject;
+    if (Array.isArray(update)) {
+      update.push({
+        $set: {
+          __v: { $add: ["$__v", 1] },
+        },
+      });
+      toUpdateObject = update;
+    } else {
+      toUpdateObject = {
         ...update,
         $inc: Object.assign((update as Record<string, any>)["$inc"] ?? {}, {
           __v: 1,
         }),
-      },
-      options
-    );
+      };
+    }
+    return this.model.updateOne(filter, toUpdateObject, options);
   };
 
   updateById = async <TUpdate extends UpdateType>({

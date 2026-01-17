@@ -13,7 +13,10 @@ class CareerValidators {
             appliesTo: z
                 .enum(CareerResourceAppliesToEnum)
                 .default(CareerResourceAppliesToEnum.all),
-            specifiedSteps: z.array(generalValidationConstants.objectId).optional(),
+            specifiedSteps: z
+                .array(generalValidationConstants.objectId)
+                .default([])
+                .optional(),
         })
             .superRefine((data, ctx) => {
             if (data.appliesTo == CareerResourceAppliesToEnum.specific &&
@@ -90,6 +93,62 @@ class CareerValidators {
                 maxSize: Number(process.env[EnvFields.CAREER_PICTURE_SIZE]),
                 mimetype: fileValidation.image,
             }),
+        }),
+    };
+    static updateCareer = {
+        params: this.uploadCareerPicture.params,
+        body: z
+            .strictObject({
+            title: z
+                .string()
+                .regex(AppRegex.careerTitleRegex, {
+                error: "Career title must follow this format: [Domain Words] [Role Type] (Optional Focus), e.g., Mobile Developer (iOS) or Data Scientist (NLP).",
+            })
+                .min(3)
+                .max(100)
+                .optional(),
+            description: z.string().min(5).max(10_000).optional(),
+            courses: z.array(this.careerResource.body).max(5).optional(),
+            youtubePlaylists: z.array(this.careerResource.body).max(5).optional(),
+            books: z.array(this.careerResource.body).max(5).optional(),
+            removeCourses: z
+                .array(generalValidationConstants.objectId)
+                .max(5)
+                .optional(),
+            removeYoutubePlaylists: z
+                .array(generalValidationConstants.objectId)
+                .max(5)
+                .optional(),
+            removeBooks: z
+                .array(generalValidationConstants.objectId)
+                .max(5)
+                .optional(),
+        })
+            .superRefine((data, ctx) => {
+            generalValidationConstants.checkCoureseUrls({
+                data: { courses: data.courses },
+                ctx,
+            });
+            generalValidationConstants.checkYoutubePlaylistsUrls({
+                data: { youtubePlaylists: data.youtubePlaylists },
+                ctx,
+            });
+            generalValidationConstants.checkBooksUrls({
+                data: { books: data.books },
+                ctx,
+            });
+            generalValidationConstants.checkDuplicateCourses({
+                data: { courses: data.courses },
+                ctx,
+            });
+            generalValidationConstants.checkDuplicateYoutubePlaylists({
+                data: { youtubePlaylists: data.youtubePlaylists },
+                ctx,
+            });
+            generalValidationConstants.checkDuplicateBooks({
+                data: { books: data.books },
+                ctx,
+            });
         }),
     };
 }

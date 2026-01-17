@@ -23,6 +23,7 @@ class RoutePaths {
     static logout = "/logout";
     static career = "/career";
     static createCareer = "/";
+    static updateCareer = "/:careerId";
     static uploadCareerPicture = "/:careerId/picture";
     static roadmap = "/roadmap";
     static createRoadmapStep = "/";
