@@ -17,7 +17,7 @@ import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
 const careerResourceSchema = new mongoose.Schema<ICareerResource>(
   {
     title: { type: String, required: true, min: 3, max: 100 },
-    url: { type: String, required: true },
+    url: { type: String, min: 5, required: true },
     pricingType: {
       type: String,
       enum: Object.values(RoadmapStepPricingTypesEnum),
@@ -46,7 +46,7 @@ const careerResourceSchema = new mongoose.Schema<ICareerResource>(
   },
   {
     timestamps: false,
-  }
+  },
 );
 
 const careerSchema = new mongoose.Schema<ICareer>(
@@ -84,7 +84,7 @@ const careerSchema = new mongoose.Schema<ICareer>(
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
     id: false,
-  }
+  },
 );
 
 careerSchema.virtual("id").get(function (this) {
@@ -101,7 +101,7 @@ careerSchema.virtual("roadmapSteps", {
 
 careerSchema.methods.toJSON = function () {
   const userObject: ICareer = DocumentFormat.getIdFrom_Id<ICareer>(
-    this.toObject()
+    this.toObject(),
   );
 
   return {
@@ -141,7 +141,7 @@ careerSchema.pre(
     softDeleteFunction(this);
 
     next();
-  }
+  },
 );
 
 const CareerModel =

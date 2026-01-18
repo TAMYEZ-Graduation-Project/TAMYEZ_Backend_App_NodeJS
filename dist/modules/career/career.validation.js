@@ -125,6 +125,13 @@ class CareerValidators {
                 .optional(),
         })
             .superRefine((data, ctx) => {
+            if (!Object.values(data).length) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: [""],
+                    message: "All fields are empty ⚠️",
+                });
+            }
             generalValidationConstants.checkCoureseUrls({
                 data: { courses: data.courses },
                 ctx,

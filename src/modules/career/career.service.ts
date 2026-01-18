@@ -28,33 +28,15 @@ import IdSecurityUtil from "../../utils/security/id.security.ts";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.ts";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
 import { CareerResourceAppliesToEnum } from "../../utils/constants/enum.constants.ts";
-import { Types, type UpdateAggregationStage } from "mongoose";
+import { Types } from "mongoose";
 import type { ICareer } from "../../db/interfaces/career.interface.ts";
+import { RoadmapService } from "../roadmap/index.ts";
 
 class CareerService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
   private readonly _roadmapStepRepository = new RoadmapStepRepository(
-    RoadmapStepModel
+    RoadmapStepModel,
   );
-
-  private getResourceSpecifiedStepsIds = (
-    resources: ICareerResource[]
-  ): Set<string> => {
-    const specifiedStepsIdsSet = new Set<string>();
-    if (resources?.length) {
-      for (const resource of resources) {
-        if (
-          resource.appliesTo === CareerResourceAppliesToEnum.specific &&
-          resource.specifiedSteps?.length
-        ) {
-          resource.specifiedSteps.forEach((stepId) =>
-            specifiedStepsIdsSet.add(stepId.toString())
-          );
-        }
-      }
-    }
-    return specifiedStepsIdsSet;
-  };
 
   createCareer = async (req: Request, res: Response): Promise<Response> => {
     const { title, description, courses, youtubePlaylists, books } = req
@@ -67,7 +49,7 @@ class CareerService {
       throw new ConflictException(
         `Career title conflicts with another ${
           careerExists.freezed?.at ? "archived " : ""
-        }career ❌`
+        }career ❌`,
       );
     }
 
@@ -89,7 +71,7 @@ class CareerService {
 
     if (!newCareer) {
       throw new ServerException(
-        `Failed to create career, please try again later ☹️`
+        `Failed to create career, please try again later ☹️`,
       );
     }
 
@@ -98,7 +80,7 @@ class CareerService {
 
   uploadCareerPicture = async (
     req: Request,
-    res: Response
+    res: Response,
   ): Promise<Response> => {
     const { careerId } = req.params as UploadCareerPictureParamsDto;
     const { attachment } = req.body as UploadCareerPictureBodyDto;
@@ -147,13 +129,13 @@ class CareerService {
     // check on specfiedSteps existence
     const specifiedStepsIdsSet = new Set<string>([
       ...this.getResourceSpecifiedStepsIds(
-        body.courses as unknown as ICareerResource[]
+        body.courses as unknown as ICareerResource[],
       ).values(),
       ...this.getResourceSpecifiedStepsIds(
-        body.youtubePlaylists as unknown as ICareerResource[]
+        body.youtubePlaylists as unknown as ICareerResource[],
       ).values(),
       ...this.getResourceSpecifiedStepsIds(
-        body.books as unknown as ICareerResource[]
+        body.books as unknown as ICareerResource[],
       ).values(),
     ]);
 
@@ -165,30 +147,30 @@ class CareerService {
 
       if (existingStepsCount !== specifiedStepsIdsSet.size) {
         throw new NotFoundException(
-          `One or more specifiedSteps do not exist ❌`
+          `One or more specifiedSteps do not exist ❌`,
         );
       }
     }
 
     if (
-      this._getTotalResourceCount({
+      RoadmapService.getTotalResourceCount({
         currentResources: career.courses as FullICareerResource[],
         removeResources: body.removeCourses,
         newResourcesCount: body.courses?.length ?? 0,
       }) > 5 ||
-      this._getTotalResourceCount({
+      RoadmapService.getTotalResourceCount({
         currentResources: career.youtubePlaylists as FullICareerResource[],
         removeResources: body.removeYoutubePlaylists,
         newResourcesCount: body.youtubePlaylists?.length ?? 0,
       }) > 5 ||
-      this._getTotalResourceCount({
+      RoadmapService.getTotalResourceCount({
         currentResources: career.books as FullICareerResource[],
         removeResources: body.removeBooks,
         newResourcesCount: body.books?.length ?? 0,
       }) > 5
     ) {
       throw new BadRequestException(
-        "Each career resource list (courses | youtubePlaylists | books) must be at most 5 items length ❌"
+        "Each career resource list (courses | youtubePlaylists | books) must be at most 5 items length ❌",
       );
     }
 
@@ -200,204 +182,75 @@ class CareerService {
       filter: { _id: careerId },
       update: [
         { $set: { ...toUpdate } },
-        ...(body.courses
-          ? CareerService.buildUniqueAppendStages({
-              fieldName: "courses",
-              newItems: body.courses?.map<ICareerResource>((rs) => {
-                return {
-                  ...rs,
-                  specifiedSteps:
-                    rs.specifiedSteps?.map<Types.ObjectId>((id) =>
-                      Types.ObjectId.createFromHexString(id)
-                    ) ?? [],
-                };
-              }),
-              removeIds: body.removeCourses?.map((id) =>
-                Types.ObjectId.createFromHexString(id)
-              ),
-            })
-          : []),
-        ...(body.youtubePlaylists
-          ? CareerService.buildUniqueAppendStages({
-              fieldName: "youtubePlaylists",
-              newItems: body.youtubePlaylists?.map<ICareerResource>((rs) => {
-                return {
-                  ...rs,
-                  specifiedSteps:
-                    rs.specifiedSteps?.map<Types.ObjectId>((id) =>
-                      Types.ObjectId.createFromHexString(id)
-                    ) ?? [],
-                };
-              }),
-              removeIds: body.removeYoutubePlaylists?.map((id) =>
-                Types.ObjectId.createFromHexString(id)
-              ),
-            })
-          : []),
-        ...(body.books
-          ? CareerService.buildUniqueAppendStages({
-              fieldName: "books",
-              newItems: body.books?.map<ICareerResource>((rs) => {
-                return {
-                  ...rs,
-                  specifiedSteps:
-                    rs.specifiedSteps?.map<Types.ObjectId>((id) =>
-                      Types.ObjectId.createFromHexString(id)
-                    ) ?? [],
-                };
-              }),
-              removeIds: body.removeBooks?.map((id) =>
-                Types.ObjectId.createFromHexString(id)
-              ),
-            })
-          : []),
+        ...RoadmapService.buildUniqueAppendStages({
+          fieldName: "courses",
+          newItems: body.courses?.map<ICareerResource>((rs) => {
+            return {
+              ...rs,
+              specifiedSteps:
+                rs.specifiedSteps?.map<Types.ObjectId>((id) =>
+                  Types.ObjectId.createFromHexString(id),
+                ) ?? [],
+            };
+          }),
+          removeIds: body.removeCourses?.map((id) =>
+            Types.ObjectId.createFromHexString(id),
+          ),
+        }),
+        ...RoadmapService.buildUniqueAppendStages({
+          fieldName: "youtubePlaylists",
+          newItems: body.youtubePlaylists?.map<ICareerResource>((rs) => {
+            return {
+              ...rs,
+              specifiedSteps:
+                rs.specifiedSteps?.map<Types.ObjectId>((id) =>
+                  Types.ObjectId.createFromHexString(id),
+                ) ?? [],
+            };
+          }),
+          removeIds: body.removeYoutubePlaylists?.map((id) =>
+            Types.ObjectId.createFromHexString(id),
+          ),
+        }),
+        ...RoadmapService.buildUniqueAppendStages({
+          fieldName: "books",
+          newItems: body.books?.map<ICareerResource>((rs) => {
+            return {
+              ...rs,
+              specifiedSteps:
+                rs.specifiedSteps?.map<Types.ObjectId>((id) =>
+                  Types.ObjectId.createFromHexString(id),
+                ) ?? [],
+            };
+          }),
+          removeIds: body.removeBooks?.map((id) =>
+            Types.ObjectId.createFromHexString(id),
+          ),
+        }),
       ],
     });
 
     return successHandler({ res });
   };
 
-  private _getTotalResourceCount({
-    currentResources,
-    removeResources,
-    newResourcesCount,
-  }: {
-    currentResources: FullICareerResource[];
-    removeResources?: string[] | undefined;
-    newResourcesCount: number;
-  }) {
-    if (currentResources.length === 0) {
-      return newResourcesCount;
-    } else if (!removeResources || !removeResources.length) {
-      return currentResources.length + newResourcesCount;
-    }
-    let totalCourses: number = currentResources.length + newResourcesCount;
-    for (const removeResource of removeResources) {
-      if (
-        currentResources.findIndex((c) =>
-          (c as FullICareerResource)._id.equals(removeResource)
-        ) !== -1
-      ) {
-        totalCourses--;
+  private getResourceSpecifiedStepsIds = (
+    resources: ICareerResource[],
+  ): Set<string> => {
+    const specifiedStepsIdsSet = new Set<string>();
+    if (resources?.length) {
+      for (const resource of resources) {
+        if (
+          resource.appliesTo === CareerResourceAppliesToEnum.specific &&
+          resource.specifiedSteps?.length
+        ) {
+          resource.specifiedSteps.forEach((stepId) =>
+            specifiedStepsIdsSet.add(stepId.toString()),
+          );
+        }
       }
     }
-    return totalCourses;
-  }
-
-  static buildUniqueAppendStages({
-    fieldName,
-    removeIds = [],
-    newItems,
-  }: {
-    fieldName: string;
-    removeIds: Types.ObjectId[] | undefined;
-    newItems: ICareerResource[];
-  }): UpdateAggregationStage[] {
-    // const arrPath = `$${fieldName}`;
-    const tmpTitles = `_${fieldName}_titles`;
-    const tmpUrls = `_${fieldName}_urls`;
-    const tmpToAdd = `_${fieldName}_toAdd`;
-
-    return [
-      // 1️⃣ Remove by _id
-      {
-        $set: {
-          [fieldName]: {
-            $filter: {
-              input: `$${fieldName}`,
-              as: "it",
-              cond: { $not: { $in: ["$$it._id", removeIds] } },
-            },
-          },
-        },
-      },
-
-      // 2️⃣ Compute title/url sets FROM UPDATED ARRAY
-      {
-        $set: {
-          [tmpTitles]: {
-            $filter: {
-              input: {
-                $map: { input: `$${fieldName}`, as: "it", in: "$$it.title" },
-              },
-              as: "t",
-              cond: { $and: [{ $ne: ["$$t", null] }, { $ne: ["$$t", ""] }] },
-            },
-          },
-          [tmpUrls]: {
-            $filter: {
-              input: {
-                $map: { input: `$${fieldName}`, as: "it", in: "$$it.url" },
-              },
-              as: "u",
-              cond: { $and: [{ $ne: ["$$u", null] }, { $ne: ["$$u", ""] }] },
-            },
-          },
-        },
-      },
-
-      // 3️⃣ Filter new items
-      {
-        $set: {
-          [tmpToAdd]: {
-            $filter: {
-              input: newItems, // literal array (OK)
-              as: "ni",
-              cond: {
-                $and: [
-                  { $not: { $in: ["$$ni.title", `$${tmpTitles}`] } },
-                  { $not: { $in: ["$$ni.url", `$${tmpUrls}`] } },
-                ],
-              },
-            },
-          },
-        },
-      },
-
-      // 4️⃣ Ensure _id
-      {
-        $set: {
-          [tmpToAdd]: {
-            $map: {
-              input: `$${tmpToAdd}`,
-              as: "x",
-              in: {
-                $mergeObjects: [
-                  {
-                    _id: {
-                      $ifNull: [
-                        "$$x._id",
-                        {
-                          $function: {
-                            body: "return new ObjectId();",
-                            args: [],
-                            lang: "js",
-                          },
-                        },
-                      ],
-                    },
-                  },
-                  "$$x",
-                ],
-              },
-            },
-          },
-        },
-      },
-
-      // 5️⃣ Append to UPDATED ARRAY
-      {
-        $set: {
-          [fieldName]: {
-            $concatArrays: [`$${fieldName}`, `$${tmpToAdd}`],
-          },
-        },
-      },
-
-      // 6️⃣ Cleanup
-      { $unset: [tmpTitles, tmpUrls, tmpToAdd] },
-    ];
-  }
+    return specifiedStepsIdsSet;
+  };
 }
 
 export default CareerService;

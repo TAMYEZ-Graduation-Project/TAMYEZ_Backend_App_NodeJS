@@ -8,7 +8,7 @@ import { CareerResourceAppliesToEnum, LanguagesEnum, RoadmapStepPricingTypesEnum
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
 const careerResourceSchema = new mongoose.Schema({
     title: { type: String, required: true, min: 3, max: 100 },
-    url: { type: String, required: true },
+    url: { type: String, min: 5, required: true },
     pricingType: {
         type: String,
         enum: Object.values(RoadmapStepPricingTypesEnum),

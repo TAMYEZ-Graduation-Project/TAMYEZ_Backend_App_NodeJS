@@ -20,7 +20,7 @@ careerRouter.post(
   RoutePaths.createCareer,
   Auths.combined({ accessRoles: careerAuthorizationEndpoints.createCareer }),
   validationMiddleware({ schema: CareerValidators.createCareer }),
-  careerService.createCareer
+  careerService.createCareer,
 );
 
 careerRouter.patch(
@@ -33,20 +33,19 @@ careerRouter.patch(
     storageApproach: StorageTypesEnum.memory,
   }),
   validationMiddleware({ schema: CareerValidators.uploadCareerPicture }),
-  careerService.uploadCareerPicture
+  careerService.uploadCareerPicture,
 );
 
 careerRouter.patch(
   RoutePaths.updateCareer,
-  Auths.combined({ accessRoles: careerAuthorizationEndpoints.createCareer }),
   rateLimit({
     limit: 10,
     windowMs: 10 * 60 * 1000,
-    message:
-      "Too many update career requests, please try after a while.",
+    message: "Too many update career requests, please try after a while.",
   }),
+  Auths.combined({ accessRoles: careerAuthorizationEndpoints.createCareer }),
   validationMiddleware({ schema: CareerValidators.updateCareer }),
-  careerService.updateCareer
+  careerService.updateCareer,
 );
 
 export default careerRouter;

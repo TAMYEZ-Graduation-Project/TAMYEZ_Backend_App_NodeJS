@@ -1,7 +1,6 @@
 import type {
   DeleteResult,
   MongooseBaseQueryOptions,
-  UpdateWithAggregationPipeline,
   UpdateWriteOpResult,
 } from "mongoose";
 import type {
@@ -27,6 +26,7 @@ import type {
   UpdateType,
 } from "../../utils/types/update_functions.type.ts";
 import type { PartialUndefined } from "../../utils/types/partial_undefined.type.ts";
+import type { UpdateOptions } from "mongodb";
 
 abstract class DatabaseRepository<TDocument> {
   constructor(protected readonly model: Model<TDocument>) {}
@@ -43,7 +43,7 @@ abstract class DatabaseRepository<TDocument> {
     const resultList = await this.model.create(data, options);
     if (!resultList || resultList.length == 0) {
       throw new BadRequestException(
-        StringConstants.FAILED_CREATE_INSTANCE_MESSAGE
+        StringConstants.FAILED_CREATE_INSTANCE_MESSAGE,
       );
     }
 
@@ -120,25 +120,32 @@ abstract class DatabaseRepository<TDocument> {
     return this.model.findById(id, projection, options);
   };
 
-  updateMany = async ({
+  updateMany = async <TUpdate extends UpdateType = Record<string, any>>({
     filter = {},
     update,
     options = {},
   }: {
     filter?: RootFilterQuery<TDocument>;
-    update: UpdateQuery<TDocument> | UpdateWithAggregationPipeline;
-    options?: MongooseUpdateQueryOptions<TDocument>;
+    update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
+    options?: UpdateOptions & MongooseUpdateQueryOptions<TDocument>;
   }): Promise<UpdateWriteOpResult> => {
-    return this.model.updateMany(
-      filter,
-      {
+    let toUpdateObject;
+    if (Array.isArray(update)) {
+      update.push({
+        $set: {
+          __v: { $add: ["$__v", 1] },
+        },
+      });
+      toUpdateObject = update;
+    } else {
+      toUpdateObject = {
         ...update,
         $inc: Object.assign((update as Record<string, any>)["$inc"] ?? {}, {
           __v: 1,
         }),
-      },
-      options
-    );
+      };
+    }
+    return this.model.updateMany(filter, toUpdateObject, options);
   };
 
   updateOne = async <TUpdate extends UpdateType = Record<string, any>>({
@@ -148,7 +155,7 @@ abstract class DatabaseRepository<TDocument> {
   }: {
     filter?: RootFilterQuery<TDocument>;
     update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
-    options?: MongooseUpdateQueryOptions<TDocument>;
+    options?: UpdateOptions & MongooseUpdateQueryOptions<TDocument>;
   }): Promise<UpdateWriteOpResult> => {
     let toUpdateObject;
     if (Array.isArray(update)) {
@@ -214,7 +221,7 @@ abstract class DatabaseRepository<TDocument> {
           __v: 1,
         }),
       },
-      options
+      options,
     );
   };
 
@@ -235,7 +242,7 @@ abstract class DatabaseRepository<TDocument> {
           __v: 1,
         }),
       },
-      options
+      options,
     );
   };
 
