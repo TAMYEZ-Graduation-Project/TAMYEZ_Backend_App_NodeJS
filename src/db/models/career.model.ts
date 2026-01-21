@@ -16,6 +16,7 @@ import {
   RoadmapStepPricingTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
+import EnvFields from "../../utils/constants/env_fields.constants.ts";
 
 const careerResourceSchema = new mongoose.Schema<ICareerResource>(
   {
@@ -107,17 +108,17 @@ careerSchema.virtual("roadmapSteps", {
 });
 
 careerSchema.methods.toJSON = function () {
-  const careerObject: ICareer = DocumentFormat.getIdFrom_Id<ICareer>(
-    this.toObject(),
-  );
+  const careerObject = DocumentFormat.getIdFrom_Id<ICareer>(this.toObject());
 
   return {
     id: careerObject?.id,
     title: careerObject?.title,
     slug: careerObject?.slug,
-    pictureUrl: S3KeyUtil.generateS3UploadsUrlFromSubKey(
-      careerObject?.pictureUrl,
-    ),
+    pictureUrl:
+      careerObject.pictureUrl ===
+      process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
+        ? careerObject.pictureUrl
+        : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObject?.pictureUrl),
     description: careerObject?.description,
     isActive: careerObject?.isActive,
     roadmapSteps: careerObject?.roadmapSteps?.map((step) => {
@@ -151,6 +152,7 @@ careerSchema.methods.toJSON = function () {
     restored: careerObject?.restored,
     createdAt: careerObject?.createdAt,
     updatedAt: careerObject?.updatedAt,
+    v: careerObject?.__v,
   };
 };
 

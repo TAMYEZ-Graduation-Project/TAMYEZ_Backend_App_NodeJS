@@ -6,6 +6,7 @@ import { atByObjectSchema } from "./common_schemas.model.js";
 import slugify from "slugify";
 import { CareerResourceAppliesToEnum, LanguagesEnum, RoadmapStepPricingTypesEnum, } from "../../utils/constants/enum.constants.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
+import EnvFields from "../../utils/constants/env_fields.constants.js";
 const careerResourceSchema = new mongoose.Schema({
     title: { type: String, required: true, min: 3, max: 100 },
     url: { type: String, min: 5, required: true },
@@ -78,7 +79,10 @@ careerSchema.methods.toJSON = function () {
         id: careerObject?.id,
         title: careerObject?.title,
         slug: careerObject?.slug,
-        pictureUrl: S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObject?.pictureUrl),
+        pictureUrl: careerObject.pictureUrl ===
+            process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
+            ? careerObject.pictureUrl
+            : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObject?.pictureUrl),
         description: careerObject?.description,
         isActive: careerObject?.isActive,
         roadmapSteps: careerObject?.roadmapSteps?.map((step) => {
@@ -106,6 +110,7 @@ careerSchema.methods.toJSON = function () {
         restored: careerObject?.restored,
         createdAt: careerObject?.createdAt,
         updatedAt: careerObject?.updatedAt,
+        v: careerObject?.__v,
     };
 };
 careerSchema.pre("save", async function (next) {

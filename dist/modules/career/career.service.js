@@ -41,6 +41,44 @@ class CareerService {
         }
         return successHandler({ res, message: "Career created successfully ✅" });
     };
+    getCareers = ({ archived = false } = {}) => {
+        return async (req, res) => {
+            const { page, size, searchKey } = req.validationResult
+                .query;
+            const result = await this._careerRepository.paginate({
+                filter: {
+                    ...(searchKey
+                        ? {
+                            $or: [
+                                { name: { $regex: searchKey, $options: "i" } },
+                                {
+                                    description: { $regex: searchKey, $options: "i" },
+                                },
+                                {
+                                    slug: { $regex: searchKey, $options: "i" },
+                                },
+                            ],
+                        }
+                        : {}),
+                    ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+                },
+                page,
+                size,
+                options: {
+                    projection: {
+                        courses: 0,
+                        youtubePlaylists: 0,
+                        books: 0,
+                        assetFolderId: 0,
+                    },
+                },
+            });
+            if (!result.data || result.data.length == 0) {
+                throw new NotFoundException(archived ? "No archived careers found 🔍❌" : "No careers found 🔍❌");
+            }
+            return successHandler({ res, body: result });
+        };
+    };
     uploadCareerPicture = async (req, res) => {
         const { careerId } = req.params;
         const { attachment } = req.body;
@@ -261,7 +299,10 @@ class CareerService {
         if (!result) {
             throw new NotFoundException("Invalid resourceId ❌");
         }
-        return successHandler({ res, body: result });
+        return successHandler({
+            res,
+            body: { [`${resourceName}`]: result[resourceName] },
+        });
     };
 }
 export default CareerService;

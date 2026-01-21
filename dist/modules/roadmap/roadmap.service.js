@@ -289,10 +289,6 @@ class RoadmapService {
         if (!roadmapStep || roadmapStep.careerId.freezed) {
             throw new NotFoundException("Invalid roadmapStepId, its career freezed or invalid resourceId ❌");
         }
-        console.log({
-            roadmapStep,
-            [`${resourceName}`]: roadmapStep[resourceName],
-        });
         if (body.url || body.title) {
             const exist = await this._roadmapStepRepository.findOne({
                 filter: {
@@ -326,7 +322,6 @@ class RoadmapService {
                 }),
             ]))[1];
         }
-        console.log({ subKey });
         const result = await this._roadmapStepRepository.findOneAndUpdate({
             filter: {
                 _id: roadmapStepId,
@@ -355,7 +350,10 @@ class RoadmapService {
         if (!result) {
             throw new NotFoundException("Invalid resourceId ❌");
         }
-        return successHandler({ res, body: result });
+        return successHandler({
+            res,
+            body: { [`${resourceName}`]: result[resourceName] },
+        });
     };
 }
 export default RoadmapService;

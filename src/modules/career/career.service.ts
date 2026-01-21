@@ -7,6 +7,7 @@ import {
 import successHandler from "../../utils/handlers/success.handler.ts";
 import type {
   CreateCareerBodyDto,
+  GetCareersQueryDto,
   UpdateCareerBodyDto,
   UpdateCareerParamsDto,
   UpdateCareerResourceBodyDto,
@@ -34,6 +35,10 @@ import { Types } from "mongoose";
 import type { ICareer } from "../../db/interfaces/career.interface.ts";
 import { RoadmapService } from "../roadmap/index.ts";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.ts";
+import type {
+  UpdateCareerResourceResponse,
+  UploadCareerPictureResponse,
+} from "./career.entity.ts";
 
 class CareerService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -81,6 +86,49 @@ class CareerService {
     return successHandler({ res, message: "Career created successfully ✅" });
   };
 
+  getCareers = ({ archived = false }: { archived?: boolean } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { page, size, searchKey } = req.validationResult
+        .query as GetCareersQueryDto;
+      const result = await this._careerRepository.paginate({
+        filter: {
+          ...(searchKey
+            ? {
+                $or: [
+                  { name: { $regex: searchKey, $options: "i" } },
+                  {
+                    description: { $regex: searchKey, $options: "i" },
+                  },
+                  {
+                    slug: { $regex: searchKey, $options: "i" },
+                  },
+                ],
+              }
+            : {}),
+          ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+        },
+        page,
+        size,
+        options: {
+          projection: {
+            courses: 0,
+            youtubePlaylists: 0,
+            books: 0,
+            assetFolderId: 0,
+          },
+        },
+      });
+
+      if (!result.data || result.data.length == 0) {
+        throw new NotFoundException(
+          archived ? "No archived careers found 🔍❌" : "No careers found 🔍❌",
+        );
+      }
+
+      return successHandler({ res, body: result });
+    };
+  };
+
   uploadCareerPicture = async (
     req: Request,
     res: Response,
@@ -109,10 +157,10 @@ class CareerService {
 
     await career.updateOne({ pictureUrl: subKey });
 
-    return successHandler({
+    return successHandler<UploadCareerPictureResponse>({
       res,
       body: {
-        pictureUrl: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey),
+        pictureUrl: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey)!,
       },
     });
   };
@@ -386,7 +434,10 @@ class CareerService {
       throw new NotFoundException("Invalid resourceId ❌");
     }
 
-    return successHandler({ res, body: result });
+    return successHandler<UpdateCareerResourceResponse>({
+      res,
+      body: { [`${resourceName}`]: result[resourceName] },
+    });
   };
 }
 

@@ -120,6 +120,14 @@ class CareerValidators {
     }),
   };
 
+  static getCareers = {
+    query: z.strictObject({
+      size: z.coerce.number().int().min(2).max(100).optional().default(15),
+      page: z.coerce.number().int().min(1).max(200).optional().default(1),
+      searchKey: z.string().nonempty().min(1).optional(),
+    }),
+  };
+
   static updateCareer = {
     params: this.uploadCareerPicture.params,
     body: z
@@ -202,7 +210,7 @@ class CareerValidators {
         appliesTo: z.enum(CareerResourceAppliesToEnum).optional(),
         specifiedSteps: z.array(generalValidationConstants.objectId).optional(),
       })
-      
+
       .superRefine((data, ctx) => {
         if (
           data.appliesTo == CareerResourceAppliesToEnum.specific &&

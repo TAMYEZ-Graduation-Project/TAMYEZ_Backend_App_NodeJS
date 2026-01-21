@@ -31,6 +31,8 @@ class RoutePaths {
   // career routes
   static readonly career = "/career";
   static readonly createCareer = "/";
+  static readonly getCareers = "/";
+  static readonly getArchivedCareers = "/archives";
   static readonly updateCareer = "/:careerId";
   static readonly uploadCareerPicture = "/:careerId/picture";
   static readonly updateCareerResource = "/:careerId/:resourceName/:resourceId";
@@ -39,7 +41,8 @@ class RoutePaths {
   static readonly roadmap = "/roadmap";
   static readonly createRoadmapStep = "/";
   static readonly updateRoadmapStep = "/:roadmapStepId";
-  static readonly updateRoadmapStepResource = "/:roadmapStepId/:resourceName/:resourceId"
+  static readonly updateRoadmapStepResource =
+    "/:roadmapStepId/:resourceName/:resourceId";
 
   // quiz routes
   static readonly quiz = "/quiz";

@@ -31,6 +31,7 @@ import type { IRoadmapStep } from "../../db/interfaces/roadmap_step.interface.ts
 import S3Service from "../../utils/multer/s3.service.ts";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.ts";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.ts";
+import type { UpdateRoadmapStepResourceResponse } from "./roadmap.entity.ts";
 
 class RoadmapService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -419,11 +420,6 @@ class RoadmapService {
       );
     }
 
-    console.log({
-      roadmapStep,
-      [`${resourceName}`]: roadmapStep[resourceName],
-    });
-
     if (body.url || body.title) {
       const exist = await this._roadmapStepRepository.findOne({
         filter: {
@@ -467,7 +463,6 @@ class RoadmapService {
         ])
       )[1];
     }
-    console.log({ subKey });
 
     const result = await this._roadmapStepRepository.findOneAndUpdate({
       filter: {
@@ -499,7 +494,10 @@ class RoadmapService {
       throw new NotFoundException("Invalid resourceId ❌");
     }
 
-    return successHandler({ res, body: result });
+    return successHandler<UpdateRoadmapStepResourceResponse>({
+      res,
+      body: { [`${resourceName}`]: result[resourceName]! },
+    });
   };
 }
 

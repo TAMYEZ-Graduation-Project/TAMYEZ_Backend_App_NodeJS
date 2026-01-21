@@ -23,6 +23,19 @@ careerRouter.post(
   careerService.createCareer,
 );
 
+careerRouter.get(
+  RoutePaths.getCareers,
+  validationMiddleware({ schema: CareerValidators.getCareers }),
+  careerService.getCareers(),
+);
+
+careerRouter.get(
+  RoutePaths.getArchivedCareers,
+  Auths.combined({ accessRoles: careerAuthorizationEndpoints.createCareer }),
+  validationMiddleware({ schema: CareerValidators.getCareers }),
+  careerService.getCareers({ archived: true }),
+);
+
 careerRouter.patch(
   RoutePaths.uploadCareerPicture,
   Auths.combined({ accessRoles: careerAuthorizationEndpoints.createCareer }),
@@ -56,7 +69,7 @@ careerRouter.patch(
     message: "Too many update career requests, please try after a while.",
   }),
   Auths.combined({ accessRoles: careerAuthorizationEndpoints.createCareer }),
-   CloudMulter.handleSingleFileUpload({
+  CloudMulter.handleSingleFileUpload({
     fieldName: StringConstants.ATTACHMENT_FIELD_NAME,
     validation: fileValidation.image,
     storageApproach: StorageTypesEnum.memory,
