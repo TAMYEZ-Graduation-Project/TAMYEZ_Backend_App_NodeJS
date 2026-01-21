@@ -10,7 +10,7 @@ import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
 import { CareerResourceAppliesToEnum } from "../../utils/constants/enum.constants.js";
 import { Types } from "mongoose";
 import { RoadmapService } from "../roadmap/index.js";
-import StringConstants from "../../utils/constants/strings.constants.js";
+import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
 class CareerService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
@@ -182,6 +182,11 @@ class CareerService {
         if (!career) {
             throw new NotFoundException("Invalid careerId, career freezed or invalid resourceId ❌");
         }
+        if (career[resourceName][0]?.appliesTo ===
+            CareerResourceAppliesToEnum.specific &&
+            body.appliesTo === CareerResourceAppliesToEnum.all) {
+            body.specifiedSteps = [];
+        }
         if (body.url || body.title) {
             const exist = await this._careerRepository.findOne({
                 filter: {
@@ -228,10 +233,6 @@ class CareerService {
                 }),
             ]))[1];
         }
-        const setObj = {};
-        for (const [k, v] of Object.entries(body)) {
-            setObj[`${resourceName}.$[el].${k == StringConstants.ATTACHMENT_FIELD_NAME ? "pictureUrl" : k}`] = k == StringConstants.ATTACHMENT_FIELD_NAME ? subKey : v;
-        }
         const result = await this._careerRepository.findOneAndUpdate({
             filter: {
                 _id: careerId,
@@ -239,7 +240,11 @@ class CareerService {
                     $elemMatch: { _id: resourceId },
                 },
             },
-            update: setObj,
+            update: listUpdateFieldsHandler({
+                resourceName,
+                body,
+                attachmentSubKey: subKey,
+            }),
             options: {
                 new: true,
                 arrayFilters: [

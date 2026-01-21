@@ -39,6 +39,7 @@ class RoutePaths {
   static readonly roadmap = "/roadmap";
   static readonly createRoadmapStep = "/";
   static readonly updateRoadmapStep = "/:roadmapStepId";
+  static readonly updateRoadmapStepResource = "/:roadmapStepId/:resourceName/:resourceId"
 
   // quiz routes
   static readonly quiz = "/quiz";

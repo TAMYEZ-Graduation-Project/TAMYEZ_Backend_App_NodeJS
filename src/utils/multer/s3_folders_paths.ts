@@ -1,3 +1,5 @@
+import type { Types } from "mongoose";
+
 abstract class S3FoldersPaths {
   static userFolderPath = (userId: string): string => {
     return `users/${userId}`;
@@ -16,6 +18,14 @@ abstract class S3FoldersPaths {
     resourceName: string,
   ): string => {
     return `careers/${assetFolderId}/${resourceName}`;
+  };
+
+  static roadmapStepResourceFolderPath = (
+    assetFolderId: string,
+    resourceName: string,
+    stepId: Types.ObjectId | string,
+  ) => {
+    return `careers/${assetFolderId}/roadmap/${stepId.toString()}/${resourceName}`;
   };
 }
 

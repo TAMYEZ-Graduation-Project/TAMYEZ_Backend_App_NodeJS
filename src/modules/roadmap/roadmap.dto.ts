@@ -12,3 +12,11 @@ export type UpdateRoadmapStepParamsDto = z.infer<
 export type UpdateRoadmapStepBodyDto = z.infer<
   typeof RoadmapValidators.updateRoadmapStep.body
 >;
+
+export type UpdateRoadmapStepResourceParamsDto = z.infer<
+  typeof RoadmapValidators.updateRoadmapStepResource.params
+>;
+
+export type UpdateRoadmapResourceStepBodyDto = z.infer<
+  typeof RoadmapValidators.updateRoadmapStepResource.body
+>;

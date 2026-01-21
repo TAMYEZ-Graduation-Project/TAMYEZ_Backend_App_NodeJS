@@ -29,6 +29,7 @@ class RoutePaths {
     static roadmap = "/roadmap";
     static createRoadmapStep = "/";
     static updateRoadmapStep = "/:roadmapStepId";
+    static updateRoadmapStepResource = "/:roadmapStepId/:resourceName/:resourceId";
     static quiz = "/quiz";
     static getQuizDetails = "/:quizId";
     static getQuizQuestions = "/questions/:quizId";

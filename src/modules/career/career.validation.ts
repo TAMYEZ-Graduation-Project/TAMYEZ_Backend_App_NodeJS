@@ -2,8 +2,6 @@ import { z } from "zod";
 import {
   CareerResourceAppliesToEnum,
   CareerResourceNamesEnum,
-  LanguagesEnum,
-  RoadmapStepPricingTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import generalValidationConstants from "../../utils/constants/validation.constants.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
@@ -199,38 +197,13 @@ class CareerValidators {
       resourceId: generalValidationConstants.objectId,
     }),
 
-    body: z
-      .strictObject({
-        attachment: generalValidationConstants
-          .fileKeys({
-            fieldName: StringConstants.ATTACHMENT_FIELD_NAME,
-            maxSize: Number(process.env[EnvFields.CAREER_PICTURE_SIZE]),
-            mimetype: fileValidation.image,
-          })
-          .optional(),
-        title: z
-          .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("title") })
-          .min(3)
-          .max(100)
-          .optional(),
-        url: z.url().min(5).optional(),
-        pricingType: z.enum(RoadmapStepPricingTypesEnum).optional(),
-        language: z.enum(LanguagesEnum).optional(),
+    body: RoadmapValidators.updateRoadmapStepResource.body
+      .safeExtend({
         appliesTo: z.enum(CareerResourceAppliesToEnum).optional(),
-        specifiedSteps: z
-          .array(generalValidationConstants.objectId)
-          .default([])
-          .optional(),
+        specifiedSteps: z.array(generalValidationConstants.objectId).optional(),
       })
+      
       .superRefine((data, ctx) => {
-        if (!Object.values(data).length) {
-          ctx.addIssue({
-            code: "custom",
-            path: [""],
-            message: "All fields are empty ⚠️",
-          });
-        }
-
         if (
           data.appliesTo == CareerResourceAppliesToEnum.specific &&
           (!data.specifiedSteps?.length || !(data.specifiedSteps.length > 1))

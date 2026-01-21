@@ -3,6 +3,9 @@ import { CareerRepository, RoadmapStepRepository, } from "../../db/repositories/
 import successHandler from "../../utils/handlers/success.handler.js";
 import { BadRequestException, ConflictException, NotFoundException, ServerException, } from "../../utils/exceptions/custom.exceptions.js";
 import { startSession, Types } from "mongoose";
+import S3Service from "../../utils/multer/s3.service.js";
+import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
+import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
 class RoadmapService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
@@ -263,5 +266,96 @@ class RoadmapService {
             { $unset: [tmpTitles, tmpUrls, tmpToAdd] },
         ];
     }
+    updateRoadmapStepResource = async (req, res) => {
+        const { roadmapStepId, resourceId, resourceName } = req.params;
+        const body = req.body;
+        const roadmapStep = await this._roadmapStepRepository.findOne({
+            filter: {
+                _id: roadmapStepId,
+                [`${resourceName}`]: {
+                    $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
+                },
+            },
+            projection: {
+                careerId: 1,
+                [`${resourceName}`]: {
+                    $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
+                },
+            },
+            options: {
+                populate: [{ path: "careerId", select: "freezed assetFolderId" }],
+            },
+        });
+        if (!roadmapStep || roadmapStep.careerId.freezed) {
+            throw new NotFoundException("Invalid roadmapStepId, its career freezed or invalid resourceId ❌");
+        }
+        console.log({
+            roadmapStep,
+            [`${resourceName}`]: roadmapStep[resourceName],
+        });
+        if (body.url || body.title) {
+            const exist = await this._roadmapStepRepository.findOne({
+                filter: {
+                    _id: roadmapStepId,
+                    [`${resourceName}`]: {
+                        $elemMatch: { $or: [{ title: body.title }, { url: body.url }] },
+                    },
+                },
+                projection: {
+                    _id: 0,
+                    [`${resourceName}`]: {
+                        $elemMatch: { $or: [{ title: body.title }, { url: body.url }] },
+                    },
+                },
+            });
+            if (exist) {
+                throw new BadRequestException(`This title or url already exists in the ${resourceName} list ❌`);
+            }
+        }
+        let subKey;
+        if (body.attachment) {
+            subKey = (await Promise.all([
+                roadmapStep[resourceName][0]?.pictureUrl
+                    ? S3Service.deleteFile({
+                        SubKey: roadmapStep[resourceName][0]?.pictureUrl,
+                    })
+                    : undefined,
+                S3Service.uploadFile({
+                    File: body.attachment,
+                    Path: S3FoldersPaths.roadmapStepResourceFolderPath(roadmapStep.careerId.assetFolderId, resourceName, roadmapStepId),
+                }),
+            ]))[1];
+        }
+        console.log({ subKey });
+        const result = await this._roadmapStepRepository.findOneAndUpdate({
+            filter: {
+                _id: roadmapStepId,
+                [`${resourceName}`]: {
+                    $elemMatch: { _id: resourceId },
+                },
+            },
+            update: listUpdateFieldsHandler({
+                resourceName,
+                body,
+                attachmentSubKey: subKey,
+            }),
+            options: {
+                new: true,
+                arrayFilters: [
+                    { "el._id": Types.ObjectId.createFromHexString(resourceId) },
+                ],
+                projection: {
+                    _id: 0,
+                    [`${resourceName}`]: {
+                        $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
+                    },
+                },
+            },
+        });
+        if (!result) {
+            throw new NotFoundException("Invalid resourceId ❌");
+        }
+        return successHandler({ res, body: result });
+    };
 }
 export default RoadmapService;

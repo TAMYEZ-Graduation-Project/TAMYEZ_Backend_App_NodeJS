@@ -83,6 +83,7 @@ abstract class EnvFields {
   // Career
   static readonly CAREER_PICTURE_SIZE = "CAREER_PICTURE_SIZE";
   static readonly CAREER_DEFAULT_PICTURE_URL = "CAREER_DEFAULT_PICTURE_URL";
+  static readonly CAREER_RESOURCE_PICTURE_SIZE = "CAREER_RESOURCE_PICTURE_SIZE";
 }
 
 export default EnvFields;

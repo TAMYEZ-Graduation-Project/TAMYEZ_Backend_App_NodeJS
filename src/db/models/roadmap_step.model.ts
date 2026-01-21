@@ -12,6 +12,7 @@ import {
   LanguagesEnum,
   RoadmapStepPricingTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
+import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
 
 const roadmapStepResourceSchema = new mongoose.Schema<IRoadmapStepResource>(
   {
@@ -31,7 +32,7 @@ const roadmapStepResourceSchema = new mongoose.Schema<IRoadmapStepResource>(
   },
   {
     timestamps: false,
-  }
+  },
 );
 
 const roadmapStepSchema = new mongoose.Schema<IRoadmapStep>(
@@ -89,47 +90,63 @@ const roadmapStepSchema = new mongoose.Schema<IRoadmapStep>(
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
     id: false,
-  }
+  },
 );
 
 roadmapStepSchema.index({ careerId: 1, order: 1 }, { unique: true });
 roadmapStepSchema.index({ careerId: 1, title: 1 }, { unique: true });
+
+roadmapStepSchema.index({ _id: 1, "courses._id": 1 }, { unique: true });
+roadmapStepSchema.index(
+  { _id: 1, "youtubePlaylists._id": 1 },
+  { unique: true },
+);
+roadmapStepSchema.index({ _id: 1, "books._id": 1 }, { unique: true });
 
 roadmapStepSchema.virtual("id").get(function (this) {
   return this._id.toHexString();
 });
 
 roadmapStepSchema.methods.toJSON = function () {
-  const userObject: IRoadmapStep = DocumentFormat.getIdFrom_Id<IRoadmapStep>(
-    this.toObject()
-  );
+  const roadmapStepObject: IRoadmapStep =
+    DocumentFormat.getIdFrom_Id<IRoadmapStep>(this.toObject());
 
   return {
-    id: userObject.id,
-    order: userObject.order,
-    careerId: userObject.careerId,
-    title: userObject.title,
-    description: userObject.description,
-    courses: userObject.courses.map((course) =>
-      DocumentFormat.getIdFrom_Id<IRoadmapStepResource>(
-        course as FullIRoadmapStepResource
-      )
-    ),
-    youtubePlaylists: userObject.youtubePlaylists.map((playlist) =>
-      DocumentFormat.getIdFrom_Id<IRoadmapStepResource>(
-        playlist as FullIRoadmapStepResource
-      )
-    ),
-    books: userObject?.books?.map((book) =>
-      DocumentFormat.getIdFrom_Id<IRoadmapStepResource>(
-        book as FullIRoadmapStepResource
-      )
-    ),
-    quizzesIds: userObject.quizzesIds,
-    freezed: userObject?.freezed,
-    restored: userObject?.restored,
-    createdAt: userObject.createdAt,
-    updatedAt: userObject.updatedAt,
+    id: roadmapStepObject?.id,
+    order: roadmapStepObject?.order,
+    careerId: roadmapStepObject?.careerId,
+    title: roadmapStepObject?.title,
+    description: roadmapStepObject?.description,
+    courses: roadmapStepObject?.courses?.map((course) => {
+      course.pictureUrl = S3KeyUtil.generateS3UploadsUrlFromSubKey(
+        course.pictureUrl,
+      );
+      return DocumentFormat.getIdFrom_Id<IRoadmapStepResource>(
+        course as FullIRoadmapStepResource,
+      );
+    }),
+    youtubePlaylists: roadmapStepObject?.youtubePlaylists?.map((playlist) => {
+      playlist.pictureUrl = S3KeyUtil.generateS3UploadsUrlFromSubKey(
+        playlist.pictureUrl,
+      );
+      return DocumentFormat.getIdFrom_Id<IRoadmapStepResource>(
+        playlist as FullIRoadmapStepResource,
+      );
+    }),
+    books: roadmapStepObject?.books?.map((book) => {
+      book.pictureUrl = S3KeyUtil.generateS3UploadsUrlFromSubKey(
+        book.pictureUrl,
+      );
+
+      return DocumentFormat.getIdFrom_Id<IRoadmapStepResource>(
+        book as FullIRoadmapStepResource,
+      );
+    }),
+    quizzesIds: roadmapStepObject.quizzesIds,
+    freezed: roadmapStepObject?.freezed,
+    restored: roadmapStepObject?.restored,
+    createdAt: roadmapStepObject.createdAt,
+    updatedAt: roadmapStepObject.updatedAt,
   };
 };
 
@@ -139,7 +156,7 @@ roadmapStepSchema.pre(
     softDeleteFunction(this);
 
     next();
-  }
+  },
 );
 
 const RoadmapStepModel =

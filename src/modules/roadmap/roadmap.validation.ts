@@ -1,11 +1,14 @@
 import { z } from "zod";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import {
+  CareerResourceNamesEnum,
   LanguagesEnum,
   RoadmapStepPricingTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import generalValidationConstants from "../../utils/constants/validation.constants.ts";
 import StringFormats from "../../utils/formats/string.formats.ts";
+import fileValidation from "../../utils/multer/file_validation.multer.ts";
+import EnvFields from "../../utils/constants/env_fields.constants.ts";
 
 class RoadmapValidators {
   static roadmapStepResource = {
@@ -175,6 +178,43 @@ class RoadmapValidators {
           data: { books: data.books },
           ctx,
         });
+      }),
+  };
+
+  static updateRoadmapStepResource = {
+    params: this.updateRoadmapStep.params.extend({
+      resourceName: z.enum(Object.values(CareerResourceNamesEnum)),
+      resourceId: generalValidationConstants.objectId,
+    }),
+
+    body: z
+      .strictObject({
+        attachment: generalValidationConstants
+          .fileKeys({
+            fieldName: StringConstants.ATTACHMENT_FIELD_NAME,
+            maxSize: Number(
+              process.env[EnvFields.CAREER_RESOURCE_PICTURE_SIZE],
+            ),
+            mimetype: fileValidation.image,
+          })
+          .optional(),
+        title: z
+          .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("title") })
+          .min(3)
+          .max(100)
+          .optional(),
+        url: z.url().min(5).optional(),
+        pricingType: z.enum(RoadmapStepPricingTypesEnum).optional(),
+        language: z.enum(LanguagesEnum).optional(),
+      })
+      .superRefine((data, ctx) => {
+        if (!Object.values(data).length) {
+          ctx.addIssue({
+            code: "custom",
+            path: [""],
+            message: "All fields are empty ⚠️",
+          });
+        }
       }),
   };
 }

@@ -33,7 +33,7 @@ import { CareerResourceAppliesToEnum } from "../../utils/constants/enum.constant
 import { Types } from "mongoose";
 import type { ICareer } from "../../db/interfaces/career.interface.ts";
 import { RoadmapService } from "../roadmap/index.ts";
-import StringConstants from "../../utils/constants/strings.constants.ts";
+import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.ts";
 
 class CareerService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -283,6 +283,13 @@ class CareerService {
         "Invalid careerId, career freezed or invalid resourceId ❌",
       );
     }
+    if (
+      career[resourceName]![0]?.appliesTo ===
+        CareerResourceAppliesToEnum.specific &&
+      body.appliesTo === CareerResourceAppliesToEnum.all
+    ) {
+      body.specifiedSteps = [];
+    }
 
     if (body.url || body.title) {
       const exist = await this._careerRepository.findOne({
@@ -349,21 +356,18 @@ class CareerService {
       )[1];
     }
 
-    const setObj: any = {};
-    for (const [k, v] of Object.entries(body)) {
-      setObj[
-        `${resourceName}.$[el].${k == StringConstants.ATTACHMENT_FIELD_NAME ? "pictureUrl" : k}`
-      ] = k == StringConstants.ATTACHMENT_FIELD_NAME ? subKey : v;
-    }
-
-    const result = await this._careerRepository.findOneAndUpdate<[]>({
+    const result = await this._careerRepository.findOneAndUpdate({
       filter: {
         _id: careerId,
         [`${resourceName}`]: {
           $elemMatch: { _id: resourceId },
         },
       },
-      update: setObj,
+      update: listUpdateFieldsHandler({
+        resourceName,
+        body,
+        attachmentSubKey: subKey,
+      }),
       options: {
         new: true,
         arrayFilters: [
