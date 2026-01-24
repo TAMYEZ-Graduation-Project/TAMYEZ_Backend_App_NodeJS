@@ -44,15 +44,18 @@ class RoutePaths {
   static readonly createRoadmapStep = "/";
   static readonly getRoadmap = "/by-career/:careerId";
   static readonly getArchivedRoadmap = "/by-career/:careerId/archives";
-  static readonly getRoadmapStep = "/:roadmapStepId"
-  static readonly getArchivedRoadmapStep = "/:roadmapStepId/archives"
+  static readonly getRoadmapStep = "/:roadmapStepId";
+  static readonly getArchivedRoadmapStep = "/:roadmapStepId/archives";
   static readonly updateRoadmapStep = "/:roadmapStepId";
   static readonly updateRoadmapStepResource =
     "/:roadmapStepId/:resourceName/:resourceId";
 
   // quiz routes
   static readonly quiz = "/quiz";
-  static readonly getQuizDetails = "/:quizId";
+  static readonly getQuizzes = "/";
+  static readonly getArchivedQuizzes = "/archives";
+  static readonly getQuiz = "/:quizId";
+  static readonly getArchivedQuiz = "/:quizId/archives";
   static readonly getQuizQuestions = "/questions/:quizId";
   static readonly getSavedQuizzes = "/saved";
   static readonly getSavedQuiz = "/saved/:savedQuizId";

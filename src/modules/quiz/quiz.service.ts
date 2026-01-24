@@ -15,6 +15,7 @@ import type {
   CheckQuizAnswersParamsDtoType,
   CreateQuizBodyDtoType,
   GetQuizParamsDtoType,
+  GetQuizzesQueryDtoType,
   GetSavedQuizParamsDtoType,
   GetSavedQuizzesQueryDtoType,
   UpdateQuizBodyDtoType,
@@ -188,38 +189,80 @@ class QuizService {
     });
   };
 
-  getQuizDetails = async (req: Request, res: Response): Promise<Response> => {
-    const { quizId } = req.params as GetQuizParamsDtoType;
+  getQuizzes = ({ archived = false }: { archived?: boolean } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { page, size, searchKey } = req.validationResult
+        .query as GetQuizzesQueryDtoType;
+      const result = await this._quizRepository.paginate({
+        filter: {
+          ...(searchKey
+            ? {
+                $or: [
+                  { title: { $regex: searchKey, $options: "i" } },
+                  {
+                    description: { $regex: searchKey, $options: "i" },
+                  },
+                  {
+                    uniqueKey: { $regex: searchKey, $options: "i" },
+                  },
+                ],
+              }
+            : {}),
+          ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+        },
+        page,
+        size,
+        // options: {
+        //   projection: {
+        //     aiPrompt: 0,
+        //     uniqueKey: 0,
+        //   },
+        // },
+      });
 
-    const projection: { aiPrompt?: 1 | 0; tags?: 1 | 0 } = {};
-    if (req.user!.role === RolesEnum.user) {
-      projection.aiPrompt = 0;
-      projection.tags = 0;
-    }
+      if (!result.data || result.data.length == 0) {
+        throw new NotFoundException(
+          archived ? "No archived quizzes found 🔍❌" : "No quizzes found 🔍❌",
+        );
+      }
 
-    const filter: { _id?: string; uniqueKey?: Record<any, any> } = {};
-    quizId === QuizTypesEnum.careerAssessment
-      ? (filter.uniqueKey = {
-          $regex: StringConstants.CAREER_ASSESSMENT,
-          $options: "i",
-        })
-      : (filter._id = quizId);
+      return successHandler({ res, body: result });
+    };
+  };
 
-    const quiz = await this._quizRepository.findOne({
-      filter: {
-        ...filter,
-        paranoid: req.user!.role !== RolesEnum.user ? false : true,
-      },
-      projection,
-    });
+  getQuiz = ({ archived = false }: { archived?: boolean } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { quizId } = req.params as GetQuizParamsDtoType;
 
-    if (!quiz) {
-      throw new NotFoundException(
-        StringConstants.INVALID_PARAMETER_MESSAGE("quizId"),
-      );
-    }
+      const quiz = await this._quizRepository.findOne({
+        filter: {
+          ...(quizId === QuizTypesEnum.careerAssessment
+            ? {
+                uniqueKey: {
+                  $regex: StringConstants.CAREER_ASSESSMENT,
+                  $options: "i",
+                },
+              }
+            : { _id: quizId }),
+          ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+        },
+        projection:
+          req.user!.role === RolesEnum.user
+            ? {
+                aiPrompt: 0,
+                uniqueKey: 0,
+              }
+            : {},
+      });
 
-    return successHandler<IGetQuizDetailsResponse>({ res, body: { quiz } });
+      if (!quiz) {
+        throw new NotFoundException(
+          archived ? "No archived quiz found 🔍❌" : "No quiz found 🔍❌",
+        );
+      }
+
+      return successHandler<IGetQuizDetailsResponse>({ res, body: { quiz } });
+    };
   };
 
   private _generateQuestions = async ({

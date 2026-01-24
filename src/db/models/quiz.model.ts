@@ -72,19 +72,20 @@ quizSchema.methods.toJSON = function () {
   const quizObject = DocumentFormat.getIdFrom_Id<IQuiz>(this.toObject());
 
   return {
-    id: quizObject.id,
-    title: quizObject.title,
-    description: quizObject.description,
-    aiPrompt: quizObject.aiPrompt,
-    type: quizObject.type,
-    duration: quizObject.duration,
-    tags: quizObject.tags,
-    createdBy: quizObject.createdBy,
-    createdAt: quizObject.createdAt,
-    updatedAt: quizObject.updatedAt,
-    freezed: quizObject.freezed,
-    restored: quizObject.restored,
-    v: quizObject.v,
+    id: quizObject?.id,
+    title: quizObject?.title,
+    description: quizObject?.description,
+    aiPrompt: quizObject?.aiPrompt,
+    uniqueKey: quizObject?.uniqueKey,
+    type: quizObject?.type,
+    duration: quizObject?.duration,
+    tags: quizObject?.tags,
+    createdBy: quizObject?.createdBy,
+    createdAt: quizObject?.createdAt,
+    updatedAt: quizObject?.updatedAt,
+    freezed: quizObject?.freezed,
+    restored: quizObject?.restored,
+    v: quizObject?.v,
   };
 };
 

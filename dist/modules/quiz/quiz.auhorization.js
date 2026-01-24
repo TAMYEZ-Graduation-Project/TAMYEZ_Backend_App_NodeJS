@@ -1,6 +1,6 @@
 import { RolesEnum } from "../../utils/constants/enum.constants.js";
-const endpointsAuthorization = {
+const quizAuthorizationEndpoints = {
     createQuiz: [RolesEnum.admin, RolesEnum.superAdmin],
     updateQuiz: [RolesEnum.admin, RolesEnum.superAdmin],
 };
-export default endpointsAuthorization;
+export default quizAuthorizationEndpoints;

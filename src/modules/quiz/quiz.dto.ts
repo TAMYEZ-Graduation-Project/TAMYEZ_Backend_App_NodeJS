@@ -17,6 +17,10 @@ export type GetQuizParamsDtoType = z.infer<
   typeof QuizValidators.getQuiz.params
 >;
 
+export type GetQuizzesQueryDtoType = z.infer<
+  typeof QuizValidators.getQuizzes.query
+>;
+
 export type CheckQuizAnswersParamsDtoType = z.infer<
   typeof QuizValidators.checkQuizAnswers.params
 >;

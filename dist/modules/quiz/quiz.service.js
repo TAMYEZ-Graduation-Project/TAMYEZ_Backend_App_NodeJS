@@ -101,31 +101,63 @@ class QuizService {
             message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
         });
     };
-    getQuizDetails = async (req, res) => {
-        const { quizId } = req.params;
-        const projection = {};
-        if (req.user.role === RolesEnum.user) {
-            projection.aiPrompt = 0;
-            projection.tags = 0;
-        }
-        const filter = {};
-        quizId === QuizTypesEnum.careerAssessment
-            ? (filter.uniqueKey = {
-                $regex: StringConstants.CAREER_ASSESSMENT,
-                $options: "i",
-            })
-            : (filter._id = quizId);
-        const quiz = await this._quizRepository.findOne({
-            filter: {
-                ...filter,
-                paranoid: req.user.role !== RolesEnum.user ? false : true,
-            },
-            projection,
-        });
-        if (!quiz) {
-            throw new NotFoundException(StringConstants.INVALID_PARAMETER_MESSAGE("quizId"));
-        }
-        return successHandler({ res, body: { quiz } });
+    getQuizzes = ({ archived = false } = {}) => {
+        return async (req, res) => {
+            const { page, size, searchKey } = req.validationResult
+                .query;
+            const result = await this._quizRepository.paginate({
+                filter: {
+                    ...(searchKey
+                        ? {
+                            $or: [
+                                { title: { $regex: searchKey, $options: "i" } },
+                                {
+                                    description: { $regex: searchKey, $options: "i" },
+                                },
+                                {
+                                    uniqueKey: { $regex: searchKey, $options: "i" },
+                                },
+                            ],
+                        }
+                        : {}),
+                    ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+                },
+                page,
+                size,
+            });
+            if (!result.data || result.data.length == 0) {
+                throw new NotFoundException(archived ? "No archived quizzes found 🔍❌" : "No quizzes found 🔍❌");
+            }
+            return successHandler({ res, body: result });
+        };
+    };
+    getQuiz = ({ archived = false } = {}) => {
+        return async (req, res) => {
+            const { quizId } = req.params;
+            const quiz = await this._quizRepository.findOne({
+                filter: {
+                    ...(quizId === QuizTypesEnum.careerAssessment
+                        ? {
+                            uniqueKey: {
+                                $regex: StringConstants.CAREER_ASSESSMENT,
+                                $options: "i",
+                            },
+                        }
+                        : { _id: quizId }),
+                    ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+                },
+                projection: req.user.role === RolesEnum.user
+                    ? {
+                        aiPrompt: 0,
+                        uniqueKey: 0,
+                    }
+                    : {},
+            });
+            if (!quiz) {
+                throw new NotFoundException(archived ? "No archived quiz found 🔍❌" : "No quiz found 🔍❌");
+            }
+            return successHandler({ res, body: { quiz } });
+        };
     };
     _generateQuestions = async ({ title, aiPrompt, }) => {
         await pause(1500);
