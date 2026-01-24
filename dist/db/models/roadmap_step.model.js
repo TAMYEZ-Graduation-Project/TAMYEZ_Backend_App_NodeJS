@@ -91,6 +91,8 @@ roadmapStepSchema.virtual("career", {
     },
 });
 function mergeResources({ stepId, current, global, }) {
+    if (!global || !global?.length)
+        return;
     const out = current;
     for (const res of global) {
         if ((res.appliesTo === CareerResourceAppliesToEnum.all ||
@@ -140,22 +142,22 @@ roadmapStepSchema.pre(["find", "findOne", "findOneAndUpdate", "countDocuments"],
     next();
 });
 roadmapStepSchema.post("findOne", function (doc, next) {
-    if (doc.allowGlobalResources) {
+    if (doc.allowGlobalResources && !Types.ObjectId.isValid(doc.career)) {
         mergeResources({
             current: doc.courses,
             global: doc.career
-                .courses,
+                ?.courses,
             stepId: doc._id,
         });
         mergeResources({
             current: doc.youtubePlaylists,
             global: doc.career
-                .youtubePlaylists,
+                ?.youtubePlaylists,
             stepId: doc._id,
         });
         mergeResources({
             current: doc.books,
-            global: doc.career.books ??
+            global: doc.career?.books ??
                 [],
             stepId: doc._id,
         });

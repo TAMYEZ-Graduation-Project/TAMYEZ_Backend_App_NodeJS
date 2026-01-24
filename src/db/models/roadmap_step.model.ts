@@ -130,8 +130,9 @@ function mergeResources({
 }: {
   stepId: Types.ObjectId;
   current: IRoadmapStepResource[];
-  global: ICareerResource[];
+  global?: ICareerResource[] | undefined;
 }) {
+  if (!global || !global?.length) return;
   const out = current;
 
   for (const res of global) {
@@ -212,25 +213,25 @@ roadmapStepSchema.pre(
 );
 
 roadmapStepSchema.post("findOne", function (doc, next) {
-  if (doc.allowGlobalResources) {
+  if (doc.allowGlobalResources && !Types.ObjectId.isValid(doc.career)) {
     mergeResources({
       current: doc.courses,
       global: (doc as unknown as IRoadmapStep & { career: ICareer }).career
-        .courses,
+        ?.courses,
       stepId: doc._id,
     });
 
     mergeResources({
       current: doc.youtubePlaylists,
       global: (doc as unknown as IRoadmapStep & { career: ICareer }).career
-        .youtubePlaylists,
+        ?.youtubePlaylists,
       stepId: doc._id,
     });
 
     mergeResources({
       current: doc.books,
       global:
-        (doc as unknown as IRoadmapStep & { career: ICareer }).career.books ??
+        (doc as unknown as IRoadmapStep & { career: ICareer }).career?.books ??
         [],
       stepId: doc._id,
     });

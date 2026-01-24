@@ -6,6 +6,7 @@ import { startSession, Types } from "mongoose";
 import S3Service from "../../utils/multer/s3.service.js";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
+import { isNumberBetweenOrEqual } from "../../utils/validators/numeric.validator.js";
 class RoadmapService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
@@ -198,22 +199,39 @@ class RoadmapService {
         if (!roadmapStep || roadmapStep.careerId.freezed) {
             throw new NotFoundException("Invalid roadmapStepId, roadmapStep is freezed or its career is freezed ❌");
         }
-        if (RoadmapService.getTotalResourceCount({
-            currentResources: roadmapStep.courses,
-            removeResources: body.removeCourses,
-            newResourcesCount: body.courses?.length ?? 0,
-        }) > 5 ||
-            RoadmapService.getTotalResourceCount({
-                currentResources: roadmapStep.youtubePlaylists,
-                removeResources: body.removeYoutubePlaylists,
-                newResourcesCount: body.youtubePlaylists?.length ?? 0,
-            }) > 5 ||
+        if (!isNumberBetweenOrEqual({
+            value: RoadmapService.getTotalResourceCount({
+                currentResources: roadmapStep.courses,
+                removeResources: body.removeCourses,
+                newResourcesCount: body.courses?.length ?? 0,
+            }),
+            min: 1,
+            max: 5,
+        }) ||
+            !isNumberBetweenOrEqual({
+                value: RoadmapService.getTotalResourceCount({
+                    currentResources: roadmapStep.youtubePlaylists,
+                    removeResources: body.removeYoutubePlaylists,
+                    newResourcesCount: body.youtubePlaylists?.length ?? 0,
+                }),
+                min: 1,
+                max: 5,
+            }) ||
             RoadmapService.getTotalResourceCount({
                 currentResources: roadmapStep.books,
                 removeResources: body.removeBooks,
                 newResourcesCount: body.books?.length ?? 0,
-            }) > 5) {
-            throw new BadRequestException("Each career resource list (courses | youtubePlaylists | books) must be at most 5 items length ❌");
+            }) > 5 ||
+            !isNumberBetweenOrEqual({
+                value: RoadmapService.getTotalResourceCount({
+                    currentResources: roadmapStep.quizzesIds,
+                    removeResources: body.removeQuizzesIds,
+                    newResourcesCount: body.quizzesIds?.length ?? 0,
+                }),
+                min: 1,
+                max: 5,
+            })) {
+            throw new BadRequestException("Each roadmap step list (courses | youtubePlaylists | books | quizzes) must be at most 5 items length, and only (courses | youtubePlaylists | quizzes) must be at least 1 item length ❌");
         }
         this._checkQuizzesExists({ quizzesIds: body.quizzesIds });
         const session = await startSession();
@@ -238,14 +256,29 @@ class RoadmapService {
                 toUpdate.order = body.order;
             if (body.description)
                 toUpdate.description = body.description;
-            if (body.quizzesIds?.length)
-                toUpdate.quizzesIds = body.quizzesIds.map((id) => Types.ObjectId.createFromHexString(id));
             if (body.allowGlobalResources != undefined)
                 toUpdate.allowGlobalResources = body.allowGlobalResources;
             await this._roadmapStepRepository.updateOne({
                 filter: { _id: roadmapStepId, __v: body.v },
                 update: [
-                    { $set: { ...toUpdate } },
+                    {
+                        $set: {
+                            ...toUpdate,
+                            ...{
+                                quizzesIds: {
+                                    $setUnion: [
+                                        {
+                                            $setDifference: [
+                                                "$quizzesIds",
+                                                body.removeQuizzesIds?.map((quiz) => Types.ObjectId.createFromHexString(quiz)) ?? [],
+                                            ],
+                                        },
+                                        body.quizzesIds?.map((quiz) => Types.ObjectId.createFromHexString(quiz)) ?? [],
+                                    ],
+                                },
+                            },
+                        },
+                    },
                     ...RoadmapService.buildUniqueAppendStages({
                         fieldName: "courses",
                         newItems: body.courses,
@@ -282,19 +315,23 @@ class RoadmapService {
         return successHandler({ res });
     };
     static getTotalResourceCount({ currentResources, removeResources, newResourcesCount, }) {
-        if (currentResources.length === 0) {
+        if (!currentResources?.length) {
             return newResourcesCount;
         }
         else if (!removeResources || !removeResources.length) {
             return currentResources.length + newResourcesCount;
         }
-        let totalCourses = currentResources.length + newResourcesCount;
+        let totalResources = currentResources.length + newResourcesCount;
         for (const removeResource of removeResources) {
-            if (currentResources.findIndex((c) => c._id.equals(removeResource)) !== -1) {
-                totalCourses--;
+            if (currentResources.findIndex((c) => {
+                return Types.ObjectId.isValid(c.toString())
+                    ? c.equals(removeResource)
+                    : c._id.equals(removeResource);
+            }) !== -1) {
+                totalResources--;
             }
         }
-        return totalCourses;
+        return totalResources;
     }
     static buildUniqueAppendStages({ fieldName, removeIds, newItems, }) {
         const tmpTitles = `_${fieldName}_titles`;

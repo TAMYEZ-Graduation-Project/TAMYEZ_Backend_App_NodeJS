@@ -140,25 +140,32 @@ class RoadmapValidators {
             courses: z.array(this.roadmapStepResource.body).max(5).optional(),
             youtubePlaylists: z
                 .array(this.roadmapStepResource.body)
+                .min(1)
                 .max(5)
                 .optional(),
             books: z.array(this.roadmapStepResource.body).max(5).optional(),
             removeCourses: z
                 .array(generalValidationConstants.objectId)
+                .min(1)
                 .max(5)
                 .optional(),
             removeYoutubePlaylists: z
                 .array(generalValidationConstants.objectId)
+                .min(1)
                 .max(5)
                 .optional(),
             removeBooks: z
                 .array(generalValidationConstants.objectId)
+                .min(1)
                 .max(5)
                 .optional(),
             quizzesIds: z
-                .array(generalValidationConstants.objectId, {
-                error: StringConstants.PATH_REQUIRED_MESSAGE("quizzesIds"),
-            })
+                .array(generalValidationConstants.objectId)
+                .min(1)
+                .max(5)
+                .optional(),
+            removeQuizzesIds: z
+                .array(generalValidationConstants.objectId)
                 .min(1)
                 .max(5)
                 .optional(),

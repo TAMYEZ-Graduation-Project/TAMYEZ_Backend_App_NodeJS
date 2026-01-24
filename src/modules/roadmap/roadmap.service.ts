@@ -40,6 +40,7 @@ import S3Service from "../../utils/multer/s3.service.ts";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.ts";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.ts";
 import type { UpdateRoadmapStepResourceResponse } from "./roadmap.entity.ts";
+import { isNumberBetweenOrEqual } from "../../utils/validators/numeric.validator.ts";
 
 class RoadmapService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -303,25 +304,42 @@ class RoadmapService {
     }
 
     if (
-      RoadmapService.getTotalResourceCount({
-        currentResources: roadmapStep.courses as FullIRoadmapStepResource[],
-        removeResources: body.removeCourses,
-        newResourcesCount: body.courses?.length ?? 0,
-      }) > 5 ||
-      RoadmapService.getTotalResourceCount({
-        currentResources:
-          roadmapStep.youtubePlaylists as FullIRoadmapStepResource[],
-        removeResources: body.removeYoutubePlaylists,
-        newResourcesCount: body.youtubePlaylists?.length ?? 0,
-      }) > 5 ||
+      !isNumberBetweenOrEqual({
+        value: RoadmapService.getTotalResourceCount({
+          currentResources: roadmapStep.courses as FullIRoadmapStepResource[],
+          removeResources: body.removeCourses,
+          newResourcesCount: body.courses?.length ?? 0,
+        }),
+        min: 1,
+        max: 5,
+      }) ||
+      !isNumberBetweenOrEqual({
+        value: RoadmapService.getTotalResourceCount({
+          currentResources:
+            roadmapStep.youtubePlaylists as FullIRoadmapStepResource[],
+          removeResources: body.removeYoutubePlaylists,
+          newResourcesCount: body.youtubePlaylists?.length ?? 0,
+        }),
+        min: 1,
+        max: 5,
+      }) ||
       RoadmapService.getTotalResourceCount({
         currentResources: roadmapStep.books as FullIRoadmapStepResource[],
         removeResources: body.removeBooks,
         newResourcesCount: body.books?.length ?? 0,
-      }) > 5
+      }) > 5 ||
+      !isNumberBetweenOrEqual({
+        value: RoadmapService.getTotalResourceCount({
+          currentResources: roadmapStep.quizzesIds as Types.ObjectId[],
+          removeResources: body.removeQuizzesIds,
+          newResourcesCount: body.quizzesIds?.length ?? 0,
+        }),
+        min: 1,
+        max: 5,
+      })
     ) {
       throw new BadRequestException(
-        "Each career resource list (courses | youtubePlaylists | books) must be at most 5 items length ❌",
+        "Each roadmap step list (courses | youtubePlaylists | books | quizzes) must be at most 5 items length, and only (courses | youtubePlaylists | quizzes) must be at least 1 item length ❌",
       );
     }
 
@@ -348,17 +366,34 @@ class RoadmapService {
       if (body.order && roadmapStep.order !== body.order)
         toUpdate.order = body.order;
       if (body.description) toUpdate.description = body.description;
-      if (body.quizzesIds?.length)
-        toUpdate.quizzesIds = body.quizzesIds.map((id) =>
-          Types.ObjectId.createFromHexString(id),
-        );
       if (body.allowGlobalResources != undefined)
         toUpdate.allowGlobalResources = body.allowGlobalResources;
 
       await this._roadmapStepRepository.updateOne<[]>({
         filter: { _id: roadmapStepId, __v: body.v },
         update: [
-          { $set: { ...toUpdate } },
+          {
+            $set: {
+              ...toUpdate,
+              ...{
+                quizzesIds: {
+                  $setUnion: [
+                    {
+                      $setDifference: [
+                        "$quizzesIds",
+                        body.removeQuizzesIds?.map((quiz) =>
+                          Types.ObjectId.createFromHexString(quiz),
+                        ) ?? [],
+                      ],
+                    },
+                    body.quizzesIds?.map((quiz) =>
+                      Types.ObjectId.createFromHexString(quiz),
+                    ) ?? [],
+                  ],
+                },
+              },
+            },
+          },
           ...RoadmapService.buildUniqueAppendStages({
             fieldName: "courses",
             newItems: body.courses,
@@ -408,26 +443,28 @@ class RoadmapService {
     removeResources,
     newResourcesCount,
   }: {
-    currentResources: FullIRoadmapStepResource[];
+    currentResources: FullIRoadmapStepResource[] | Types.ObjectId[];
     removeResources?: string[] | undefined;
     newResourcesCount: number;
   }) {
-    if (currentResources.length === 0) {
+    if (!currentResources?.length) {
       return newResourcesCount;
     } else if (!removeResources || !removeResources.length) {
       return currentResources.length + newResourcesCount;
     }
-    let totalCourses: number = currentResources.length + newResourcesCount;
+    let totalResources: number = currentResources.length + newResourcesCount;
     for (const removeResource of removeResources) {
       if (
-        currentResources.findIndex((c) =>
-          (c as FullIRoadmapStepResource)._id.equals(removeResource),
-        ) !== -1
+        currentResources.findIndex((c) => {
+          return Types.ObjectId.isValid(c.toString())
+            ? (c as Types.ObjectId).equals(removeResource)
+            : (c as FullIRoadmapStepResource)._id.equals(removeResource);
+        }) !== -1
       ) {
-        totalCourses--;
+        totalResources--;
       }
     }
-    return totalCourses;
+    return totalResources;
   }
 
   static buildUniqueAppendStages({

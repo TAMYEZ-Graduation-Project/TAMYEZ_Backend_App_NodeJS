@@ -9,7 +9,10 @@ import { rateLimit } from "express-rate-limit";
 import CloudMulter from "../../utils/multer/cloud.multer.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import fileValidation from "../../utils/multer/file_validation.multer.ts";
-import { StorageTypesEnum } from "../../utils/constants/enum.constants.ts";
+import {
+  ErrorCodesEnum,
+  StorageTypesEnum,
+} from "../../utils/constants/enum.constants.ts";
 
 const roadmapRouter: Router = Router();
 const roadmapService = new RoadmapService();
@@ -59,7 +62,11 @@ roadmapRouter.patch(
   rateLimit({
     limit: 10,
     windowMs: 10 * 60 * 1000,
-    message: "Too many update roadmap step requests, please try after a while.",
+    message: {
+      code: ErrorCodesEnum.TOO_MANY_RQUESTS,
+      message:
+        "Too many update roadmap step requests, please try after a while.",
+    },
   }),
   Auths.combined({
     accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
