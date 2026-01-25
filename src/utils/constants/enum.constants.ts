@@ -143,3 +143,8 @@ export enum CareerResourceNamesEnum {
   youtubePlaylists = "youtubePlaylists",
   books = "books",
 }
+
+export enum ApplicationTypeEnum {
+  user = "User",
+  adminDashboard = "AdminDashboard"
+}

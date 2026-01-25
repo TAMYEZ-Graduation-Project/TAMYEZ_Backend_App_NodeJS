@@ -26,11 +26,16 @@ class AuthValidators {
             password: generalValidationConstants.password(),
         }),
     };
-    static signUp = {
+    static adminLogIn = {
         body: z.strictObject({
-            fullName: generalValidationConstants.fullName,
             email: generalValidationConstants.email,
             password: generalValidationConstants.password(),
+        }),
+    };
+    static signUp = {
+        body: this.adminLogIn.body
+            .extend({
+            fullName: generalValidationConstants.fullName,
             confirmPassword: z.string({
                 error: StringConstants.PATH_REQUIRED_MESSAGE("confirmPassword"),
             }),
@@ -45,6 +50,11 @@ class AuthValidators {
     };
     static signUpLogInGamil = {
         body: this.checkNotificationStatus.body.safeExtend({
+            idToken: generalValidationConstants.token,
+        }),
+    };
+    static adminLogInGmail = {
+        body: z.strictObject({
             idToken: generalValidationConstants.token,
         }),
     };

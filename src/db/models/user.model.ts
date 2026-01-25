@@ -131,7 +131,11 @@ userSchema.methods.toJSON = function () {
     gender: userObject.gender,
     role: userObject.role,
     profilePicture: userObject?.profilePicture?.url
-      ? S3KeyUtil.generateS3UploadsUrlFromSubKey(userObject.profilePicture.url)
+      ? userObject.profilePicture.provider === ProvidersEnum.local
+        ? S3KeyUtil.generateS3UploadsUrlFromSubKey(
+            userObject.profilePicture.url,
+          )
+        : userObject.profilePicture.url
       : undefined,
     createdAt: userObject.createdAt,
     updatedAt: userObject.updatedAt,

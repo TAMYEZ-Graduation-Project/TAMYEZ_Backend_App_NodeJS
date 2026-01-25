@@ -21,6 +21,7 @@ import type {
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   ServerException,
 } from "../../utils/exceptions/custom.exceptions.ts";
@@ -32,6 +33,8 @@ import {
   EmailEventsEnum,
   OTPsOrLinksEnum,
   ProvidersEnum,
+  ApplicationTypeEnum,
+  RolesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import RoutePaths from "../../utils/constants/route_paths.constants.ts";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.ts";
@@ -251,57 +254,75 @@ class AuthService {
     return true;
   };
 
-  logIn = async (req: Request, res: Response): Promise<Response> => {
-    const { email, password, deviceId, fcmToken } =
-      req.body as LogInBodyDtoType;
+  logIn = ({
+    applicationType = ApplicationTypeEnum.user,
+  }: {
+    applicationType?: ApplicationTypeEnum;
+  } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { email, password, deviceId, fcmToken } =
+        req.body as LogInBodyDtoType;
 
-    const user = await this._userRepository.findOne({
-      filter: {
-        email,
-        freezed: { $exists: false },
-        confirmedAt: { $exists: true },
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException(StringConstants.INVALID_USER_ACCOUNT_MESSAGE);
-    }
-
-    if (
-      !(await HashingSecurityUtil.compareHash({
-        plainText: password,
-        cipherText: user.password!,
-      }))
-    ) {
-      throw new BadRequestException(
-        StringConstants.INVALID_LOGIN_CREDENTIALS_MESSAGE,
-      );
-    }
-    const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({ user });
-
-    let notificationsEnabled;
-    if (deviceId && fcmToken)
-      notificationsEnabled = await this._checkNotificationsForPushDevice({
-        userId: user._id,
-        jwtTokenExpiresAt: new Date(
-          TokenSecurityUtil.getTokenExpiresAt({
-            userRole: user.role,
-            token: accessToken,
-          }) * 1000,
-        ),
-        deviceId,
-        fcmToken,
+      const user = await this._userRepository.findOne({
+        filter: {
+          email,
+          confirmedAt: { $exists: true },
+        },
       });
 
-    return successHandler<ILogInResponse>({
-      res,
-      message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
-      body: {
-        accessToken,
-        notificationsEnabled,
+      if (!user) {
+        throw new NotFoundException(
+          StringConstants.INVALID_USER_ACCOUNT_MESSAGE,
+        );
+      }
+      if (
+        applicationType === ApplicationTypeEnum.adminDashboard &&
+        user.role === RolesEnum.user
+      ) {
+        throw new ForbiddenException(
+          "Not authorized to login to the admin dashboard ❌⚠️",
+        );
+      }
+
+      if (
+        !(await HashingSecurityUtil.compareHash({
+          plainText: password,
+          cipherText: user.password!,
+        }))
+      ) {
+        throw new BadRequestException(
+          StringConstants.INVALID_LOGIN_CREDENTIALS_MESSAGE,
+        );
+      }
+      const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
         user,
-      },
-    });
+        applicationType,
+      });
+
+      let notificationsEnabled;
+      if (deviceId && fcmToken && applicationType === ApplicationTypeEnum.user)
+        notificationsEnabled = await this._checkNotificationsForPushDevice({
+          userId: user._id,
+          jwtTokenExpiresAt: new Date(
+            TokenSecurityUtil.getTokenExpiresAt({
+              userRole: user.role,
+              token: accessToken,
+            }) * 1000,
+          ),
+          deviceId,
+          fcmToken,
+        });
+
+      return successHandler<ILogInResponse>({
+        res,
+        message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
+        body: {
+          accessToken,
+          notificationsEnabled,
+          user,
+        },
+      });
+    };
   };
 
   // Social Login/Signup with gmail
@@ -355,7 +376,7 @@ class AuthService {
 
     if (userExist) {
       if (userExist.authProvider === ProvidersEnum.google) {
-        return await this.logInWithGmail(req, res);
+        return await this.logInWithGmail()(req, res);
       }
       throw new ConflictException(
         StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE,
@@ -394,6 +415,7 @@ class AuthService {
 
     const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
       user: user,
+      applicationType: ApplicationTypeEnum.user,
     });
 
     let notificationsEnabled;
@@ -422,60 +444,74 @@ class AuthService {
     });
   };
 
-  logInWithGmail = async (req: Request, res: Response): Promise<Response> => {
-    const { idToken, deviceId, fcmToken } =
-      req.body as SignUpLogInGmailBodyDtoType;
+  logInWithGmail = ({
+    applicationType = ApplicationTypeEnum.user,
+  }: { applicationType?: ApplicationTypeEnum } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { idToken, deviceId, fcmToken } =
+        req.body as SignUpLogInGmailBodyDtoType;
 
-    const { email } = await this._verifyGmailAccount({ idToken });
+      const { email } = await this._verifyGmailAccount({ idToken });
 
-    if (!email) {
-      throw new BadRequestException(
-        StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE,
-      );
-    }
+      if (!email) {
+        throw new BadRequestException(
+          StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE,
+        );
+      }
 
-    const user = await this._userRepository.findOne({
-      filter: {
-        email,
-        authProvider: ProvidersEnum.google,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException(
-        StringConstants.INVALID_USER_ACCOUNT_MESSAGE +
-          " or " +
-          StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE,
-      );
-    }
-
-    const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
-      user,
-    });
-
-    let notificationsEnabled;
-    if (deviceId && fcmToken)
-      notificationsEnabled = await this._checkNotificationsForPushDevice({
-        userId: user._id,
-        jwtTokenExpiresAt: new Date(
-          TokenSecurityUtil.getTokenExpiresAt({
-            userRole: user.role,
-            token: accessToken,
-          }) * 1000,
-        ),
-        deviceId,
-        fcmToken,
+      const user = await this._userRepository.findOne({
+        filter: {
+          email,
+          authProvider: ProvidersEnum.google,
+        },
       });
 
-    return successHandler<ISignUpLogInGmailResponse>({
-      res,
-      message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
-      body: {
-        accessToken,
-        notificationsEnabled,
+      if (!user) {
+        throw new NotFoundException(
+          StringConstants.INVALID_USER_ACCOUNT_MESSAGE +
+            " or " +
+            StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE,
+        );
+      }
+
+      if (
+        applicationType === ApplicationTypeEnum.adminDashboard &&
+        user.role === RolesEnum.user
+      ) {
+        throw new ForbiddenException(
+          "Not authorized to login to the admin dashboard ❌⚠️",
+        );
+      }
+
+      const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
         user,
-      },
-    });
+        applicationType,
+      });
+
+      let notificationsEnabled;
+      if (deviceId && fcmToken && applicationType === ApplicationTypeEnum.user)
+        notificationsEnabled = await this._checkNotificationsForPushDevice({
+          userId: user._id,
+          jwtTokenExpiresAt: new Date(
+            TokenSecurityUtil.getTokenExpiresAt({
+              userRole: user.role,
+              token: accessToken,
+            }) * 1000,
+          ),
+          deviceId,
+          fcmToken,
+        });
+
+      return successHandler<ISignUpLogInGmailResponse>({
+        res,
+        message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
+        body: {
+          accessToken,
+          notificationsEnabled,
+          user,
+        },
+      });
+    };
   };
 
   forgetPassword = async (req: Request, res: Response): Promise<Response> => {

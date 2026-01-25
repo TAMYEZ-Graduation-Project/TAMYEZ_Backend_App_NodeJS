@@ -1,5 +1,5 @@
 import jwt, {} from "jsonwebtoken";
-import { LogoutFlagsEnum, RolesEnum, SignatureLevelsEnum, TokenTypesEnum, } from "../constants/enum.constants.js";
+import { ApplicationTypeEnum, LogoutFlagsEnum, RolesEnum, SignatureLevelsEnum, TokenTypesEnum, } from "../constants/enum.constants.js";
 import EnvFields from "../constants/env_fields.constants.js";
 import IdSecurityUtil from "./id.security.js";
 import { BadRequestException, ServerException, UnauthorizedException, } from "../exceptions/custom.exceptions.js";
@@ -56,14 +56,14 @@ class TokenSecurityUtil {
         }
         throw new ServerException("No matching signature is a available ❌");
     };
-    static getTokensBasedOnRole = ({ user, }) => {
+    static getTokensBasedOnRole = ({ user, applicationType, }) => {
         const signatures = this.getSignatures({
             signatureLevel: this.getSignatureLevel({ role: user.role }),
         });
         const jti = IdSecurityUtil.generateAlphaNumericId();
         return {
             accessToken: this.generateToken({
-                payload: { id: user.id, jti },
+                payload: { id: user.id, jti, applicationType },
                 secretKey: signatures.accessSignature,
             }),
         };

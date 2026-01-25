@@ -144,3 +144,8 @@ export var CareerResourceNamesEnum;
     CareerResourceNamesEnum["youtubePlaylists"] = "youtubePlaylists";
     CareerResourceNamesEnum["books"] = "books";
 })(CareerResourceNamesEnum || (CareerResourceNamesEnum = {}));
+export var ApplicationTypeEnum;
+(function (ApplicationTypeEnum) {
+    ApplicationTypeEnum["user"] = "User";
+    ApplicationTypeEnum["adminDashboard"] = "AdminDashboard";
+})(ApplicationTypeEnum || (ApplicationTypeEnum = {}));

@@ -1,6 +1,7 @@
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import type { ITokenPayload } from "../constants/interface.constants.ts";
 import {
+  ApplicationTypeEnum,
   LogoutFlagsEnum,
   RolesEnum,
   SignatureLevelsEnum,
@@ -114,8 +115,10 @@ class TokenSecurityUtil {
 
   static getTokensBasedOnRole = ({
     user,
+    applicationType,
   }: {
     user: HIUserType;
+    applicationType: ApplicationTypeEnum;
   }): { accessToken: string } => {
     const signatures = this.getSignatures({
       signatureLevel: this.getSignatureLevel({ role: user.role }),
@@ -123,7 +126,7 @@ class TokenSecurityUtil {
     const jti: string = IdSecurityUtil.generateAlphaNumericId(); // jti = jwtId
     return {
       accessToken: this.generateToken({
-        payload: { id: user.id, jti },
+        payload: { id: user.id, jti, applicationType },
         secretKey: signatures.accessSignature,
       }),
     };

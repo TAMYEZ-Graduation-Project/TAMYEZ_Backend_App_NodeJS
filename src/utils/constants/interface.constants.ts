@@ -1,6 +1,7 @@
 import type { MailOptions } from "nodemailer/lib/json-transport/index.js";
 import type { IssueObjectType } from "../types/issue_object.type.ts";
 import type {
+  ApplicationTypeEnum,
   ErrorCodesEnum,
   OptionIdsEnum,
   QuestionTypesEnum,
@@ -32,6 +33,7 @@ export interface INotificationParams {
 
 export interface ITokenPayload extends JwtPayload {
   id: Types.ObjectId;
+  applicationType: ApplicationTypeEnum;
   jti: string;
 }
 
@@ -52,8 +54,10 @@ export interface IMulterFile {
   buffer?: Buffer | undefined;
 }
 
-export interface IPaginationResult<TDocument, TLean extends LeanType = false>
-  extends IPaginationMetaData {
+export interface IPaginationResult<
+  TDocument,
+  TLean extends LeanType = false,
+> extends IPaginationMetaData {
   data?: FindFunctionsReturnType<TDocument, TLean>;
 }
 
@@ -79,8 +83,7 @@ export interface IAIModelGeneratedQuestionsResponse {
   }[];
 }
 
-export interface IAIModelCheckWrittenQuestionsRequest
-  extends IAIModelGeneratedQuestionsRequest {
+export interface IAIModelCheckWrittenQuestionsRequest extends IAIModelGeneratedQuestionsRequest {
   writtenAnswers: {
     questionId: string;
     text: string;
