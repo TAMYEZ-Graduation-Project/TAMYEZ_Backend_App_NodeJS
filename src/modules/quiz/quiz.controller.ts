@@ -5,6 +5,7 @@ import Auths from "../../middlewares/auths.middleware.ts";
 import quizAuthorizationEndpoints from "./quiz.auhorization.ts";
 import validationMiddleware from "../../middlewares/validation.middleware.ts";
 import QuizValidators from "./quiz.validation.ts";
+import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.ts";
 
 export const quizRouter = Router();
 export const adminQuizRouter = Router();
@@ -49,59 +50,56 @@ quizRouter.post(
 );
 
 // admin apis
-
+adminQuizRouter.use(
+  Auths.combined({
+    accessRoles: quizAuthorizationEndpoints.createQuiz,
+    applicationType: ApplicationTypeEnum.adminDashboard,
+  }),
+);
 adminQuizRouter.post(
   RoutePaths.createQuiz,
-  Auths.combined({ accessRoles: quizAuthorizationEndpoints.createQuiz }),
   validationMiddleware({ schema: QuizValidators.createQuiz }),
   quizService.createQuiz,
 );
 
 adminQuizRouter.get(
   RoutePaths.getQuizzes,
-  Auths.combined({ accessRoles: quizAuthorizationEndpoints.createQuiz }),
   validationMiddleware({ schema: QuizValidators.getQuizzes }),
   quizService.getQuizzes(),
 );
 
 adminQuizRouter.get(
   RoutePaths.getArchivedQuizzes,
-  Auths.combined({ accessRoles: quizAuthorizationEndpoints.createQuiz }),
   validationMiddleware({ schema: QuizValidators.getQuizzes }),
   quizService.getQuizzes({ archived: true }),
 );
 
 adminQuizRouter.get(
   RoutePaths.getArchivedQuiz,
-  Auths.combined({ accessRoles: quizAuthorizationEndpoints.createQuiz }),
   validationMiddleware({ schema: QuizValidators.getQuiz }),
   quizService.getQuiz({ archived: true }),
 );
 
 adminQuizRouter.patch(
   RoutePaths.archiveQuiz,
-  Auths.combined({ accessRoles: quizAuthorizationEndpoints.createQuiz }),
   validationMiddleware({ schema: QuizValidators.archiveQuiz }),
   quizService.archiveQuiz,
 );
 
 adminQuizRouter.patch(
   RoutePaths.restoreQuiz,
-  Auths.combined({ accessRoles: quizAuthorizationEndpoints.createQuiz }),
   validationMiddleware({ schema: QuizValidators.restoreQuiz }),
   quizService.restoreQuiz,
 );
 
 adminQuizRouter.patch(
   RoutePaths.updateQuiz,
-  Auths.combined({ accessRoles: quizAuthorizationEndpoints.createQuiz }),
   validationMiddleware({ schema: QuizValidators.updateQuiz }),
   quizService.updateQuiz,
 );
 
 adminQuizRouter.delete(
   RoutePaths.deleteQuiz,
-  Auths.combined({ accessRoles: quizAuthorizationEndpoints.createQuiz }),
   validationMiddleware({ schema: QuizValidators.deleteQuiz }),
   quizService.deleteQuiz,
 );

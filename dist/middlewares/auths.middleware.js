@@ -1,12 +1,14 @@
 import TokenSecurityUtil from "../utils/security/token.security.js";
-import { RolesEnum, TokenTypesEnum, } from "../utils/constants/enum.constants.js";
+import { ApplicationTypeEnum, RolesEnum, TokenTypesEnum, } from "../utils/constants/enum.constants.js";
 import { z } from "zod";
 import AppRegex from "../utils/constants/regex.constants.js";
 import { ForbiddenException, ValidationException, } from "../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../utils/constants/strings.constants.js";
 class Auths {
-    static authenticationMiddleware = ({ tokenType = TokenTypesEnum.accessToken, } = {}) => {
+    static authenticationMiddleware = ({ tokenType = TokenTypesEnum.accessToken, isOptional = false, } = {}) => {
         return async (req, res, next) => {
+            if (isOptional && !req.headers.authorization)
+                return next();
             const result = await z
                 .object({
                 authorization: z
@@ -36,18 +38,22 @@ class Auths {
             return next();
         };
     };
-    static authorizationMiddleware = ({ accessRoles, }) => {
+    static authorizationMiddleware = ({ accessRoles, applicationType, }) => {
         return async (req, res, next) => {
             if (!accessRoles.includes(req.user?.role ?? "")) {
                 throw new ForbiddenException(StringConstants.NOT_AUTHORIZED_ACCOUNT_MESSAGE);
             }
+            if (applicationType &&
+                req.tokenPayload?.applicationType !== applicationType) {
+                throw new ForbiddenException("Invalid login gateway ❌🚪");
+            }
             return next();
         };
     };
-    static combined = ({ tokenType = TokenTypesEnum.accessToken, accessRoles, }) => {
+    static combined = ({ tokenType = TokenTypesEnum.accessToken, accessRoles, applicationType, }) => {
         return [
             this.authenticationMiddleware({ tokenType }),
-            this.authorizationMiddleware({ accessRoles }),
+            this.authorizationMiddleware({ accessRoles, applicationType }),
         ];
     };
 }

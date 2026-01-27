@@ -114,10 +114,7 @@ class RoadmapValidators {
   static getRoadmap = {
     query: z.strictObject({
       size: z.coerce.number().int().min(2).max(30).optional().default(15),
-      page: z.union([
-        z.enum([StringConstants.ALL]),
-        z.coerce.number().int().min(1).max(300).optional().default(1),
-      ]),
+      page: z.coerce.number().int().min(1).max(300).optional().default(1),
       searchKey: z.string().nonempty().min(1).max(100).optional(),
       belongToCareers: z
         .union([

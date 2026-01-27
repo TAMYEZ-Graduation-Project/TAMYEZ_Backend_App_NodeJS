@@ -106,6 +106,7 @@ careerSchema.methods.toJSON = function () {
             c.pictureUrl = S3KeyUtil.generateS3UploadsUrlFromSubKey(c.pictureUrl);
             return DocumentFormat.getIdFrom_Id(c);
         }),
+        stepsCount: careerObject?.stepsCount,
         roadmap: careerObject?.roadmap?.map((step) => {
             return {
                 id: step?._id,

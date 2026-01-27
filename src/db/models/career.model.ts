@@ -151,6 +151,7 @@ careerSchema.methods.toJSON = function () {
         c as FullICareerResource,
       );
     }),
+    stepsCount: careerObject?.stepsCount,
     roadmap: careerObject?.roadmap?.map((step) => {
       return {
         id: (step as FullIRoadmapStep)?._id,

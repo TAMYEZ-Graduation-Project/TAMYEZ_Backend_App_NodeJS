@@ -91,7 +91,9 @@ const userSchema = new mongoose.Schema<IUser>(
     },
 
     // Acadamic Info
-    careerPath: { type: idSelectedAtObjectSchema },
+    careerPath: {
+      type: idSelectedAtObjectSchema({ ref: ModelsNames.careerModel }),
+    },
 
     // Quiz Info
     quizAttempts: quizAttemptsSchema,
@@ -108,6 +110,11 @@ const userSchema = new mongoose.Schema<IUser>(
   },
 );
 
+userSchema.index(
+  { "careerPath.id": 1 },
+  { partialFilterExpression: { "careerPath.id": { $exists: true } } },
+);
+
 userSchema
   .virtual("fullName")
   .get(function (this: IUser) {
@@ -122,14 +129,14 @@ userSchema.methods.toJSON = function () {
   const userObject = DocumentFormat.getIdFrom_Id<IUser>(this.toObject());
 
   return {
-    id: userObject.id,
-    fullName: userObject.firstName
+    id: userObject?.id,
+    fullName: userObject?.firstName
       ? `${userObject.firstName} ${userObject.lastName}`
       : undefined,
-    email: userObject.email,
-    phoneNumber: userObject.phoneNumber,
-    gender: userObject.gender,
-    role: userObject.role,
+    email: userObject?.email,
+    phoneNumber: userObject?.phoneNumber,
+    gender: userObject?.gender,
+    role: userObject?.role,
     profilePicture: userObject?.profilePicture?.url
       ? userObject.profilePicture.provider === ProvidersEnum.local
         ? S3KeyUtil.generateS3UploadsUrlFromSubKey(
@@ -137,10 +144,11 @@ userSchema.methods.toJSON = function () {
           )
         : userObject.profilePicture.url
       : undefined,
-    createdAt: userObject.createdAt,
-    updatedAt: userObject.updatedAt,
-    confirmedAt: userObject.confirmedAt,
-    v: userObject.v,
+    careerPath: userObject?.careerPath,
+    createdAt: userObject?.createdAt,
+    updatedAt: userObject?.updatedAt,
+    confirmedAt: userObject?.confirmedAt,
+    v: userObject?.v,
   };
 };
 

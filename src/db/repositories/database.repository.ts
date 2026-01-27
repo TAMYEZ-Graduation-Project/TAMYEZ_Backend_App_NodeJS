@@ -3,6 +3,7 @@ import type {
   DeleteResult,
   MongooseBaseQueryOptions,
   MongooseBulkWriteResult,
+  PipelineStage,
   UpdateWriteOpResult,
 } from "mongoose";
 import type {
@@ -35,6 +36,8 @@ import type { PartialUndefined } from "../../utils/types/partial_undefined.type.
 import type { UpdateOptions } from "mongodb";
 import type { MongooseBulkWriteOptions } from "mongoose";
 import type { InferId } from "mongoose";
+import type { AggregateOptions } from "mongoose";
+import type { Aggregate } from "mongoose";
 
 abstract class DatabaseRepository<TDocument> {
   constructor(protected readonly model: Model<TDocument>) {}
@@ -418,6 +421,16 @@ abstract class DatabaseRepository<TDocument> {
     filter: RootFilterQuery<TDocument>;
   }): Promise<{ _id: InferId<TDocument> } | null> => {
     return this.model.exists(filter);
+  };
+
+  aggregate = async <R extends Record<string, any>>({
+    pipeline,
+    options,
+  }: {
+    pipeline: PipelineStage[];
+    options?: AggregateOptions;
+  }): Promise<Aggregate<Array<R>>> => {
+    return this.model.aggregate<R>(pipeline, options);
   };
 }
 

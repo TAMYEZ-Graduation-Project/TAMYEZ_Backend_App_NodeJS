@@ -119,6 +119,7 @@ roadmapStepSchema.virtual("career", {
       courses: 1,
       youtubePlaylists: 1,
       books: 1,
+      freezed: 1,
     },
   },
 });
@@ -213,7 +214,13 @@ roadmapStepSchema.pre(
 );
 
 roadmapStepSchema.post("findOne", function (doc, next) {
-  if (doc && doc.allowGlobalResources && !Types.ObjectId.isValid(doc.career)) {
+  if (
+    doc &&
+    doc.allowGlobalResources &&
+    !Types.ObjectId.isValid(doc.career?.toString()) &&
+    !doc.freezed &&
+    !doc.career?.freezed
+  ) {
     mergeResources({
       current: doc.courses,
       global: (doc as unknown as IRoadmapStep & { career: ICareer }).career

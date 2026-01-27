@@ -207,5 +207,8 @@ class DatabaseRepository {
     exists = async ({ filter, }) => {
         return this.model.exists(filter);
     };
+    aggregate = async ({ pipeline, options, }) => {
+        return this.model.aggregate(pipeline, options);
+    };
 }
 export default DatabaseRepository;

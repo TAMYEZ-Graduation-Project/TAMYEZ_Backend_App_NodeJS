@@ -8,6 +8,8 @@ import CloudMulter from "../../utils/multer/cloud.multer.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import fileValidation from "../../utils/multer/file_validation.multer.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
+import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.js";
+import { userAuthorizationEndpoints } from "./user.authorization.js";
 export const userRouter = Router();
 export const adminUserRouter = Router();
 const userService = new UserService();
@@ -20,3 +22,7 @@ userRouter.patch(RoutePaths.profilePicture, Auths.authenticationMiddleware(), Cl
 }), validationMiddleware({ schema: UserValidators.uploadProfilePicture }), userService.uploadProfilePicture);
 userRouter.patch(RoutePaths.updateProfile, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.updateProfile }), userService.updateProfile);
 userRouter.patch(RoutePaths.changePassword, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.changePassword }), userService.changePassword);
+adminUserRouter.use(Auths.combined({
+    accessRoles: userAuthorizationEndpoints.getUsers,
+    applicationType: ApplicationTypeEnum.adminDashboard,
+}));

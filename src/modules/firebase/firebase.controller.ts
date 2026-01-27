@@ -5,6 +5,7 @@ import firebaseAuthorizationEndpoints from "./firebase.authorization.ts";
 import validationMiddleware from "../../middlewares/validation.middleware.ts";
 import FirebaseValidators from "./firebase.validation.ts";
 import FirebaseService from "./firebase.service.ts";
+import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.ts";
 
 export const firebaseRouter = Router();
 export const adminFirebaseRouter = Router();
@@ -34,29 +35,26 @@ firebaseRouter.post(
 );
 
 // admin apis
-adminFirebaseRouter.post(
-  RoutePaths.sendNotification,
+adminFirebaseRouter.use(
   Auths.combined({
     accessRoles: firebaseAuthorizationEndpoints.sendNotification,
+    applicationType: ApplicationTypeEnum.adminDashboard,
   }),
+);
+adminFirebaseRouter.post(
+  RoutePaths.sendNotification,
   validationMiddleware({ schema: FirebaseValidators.sendNotification }),
   firebaseService.sendFirebaseNotification,
 );
 
 adminFirebaseRouter.post(
   RoutePaths.sendMultipleNotifications,
-  Auths.combined({
-    accessRoles: firebaseAuthorizationEndpoints.sendNotification,
-  }),
   validationMiddleware({ schema: FirebaseValidators.sendMultiNotifications }),
   firebaseService.sendMultipleFirebaseNotifications,
 );
 
 adminFirebaseRouter.post(
   RoutePaths.sendNotificationsToAllUsers,
-  Auths.combined({
-    accessRoles: firebaseAuthorizationEndpoints.sendNotification,
-  }),
   validationMiddleware({
     schema: FirebaseValidators.sendNotificationsToAllUsers,
   }),

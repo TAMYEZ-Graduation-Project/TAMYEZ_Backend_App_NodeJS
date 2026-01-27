@@ -85,7 +85,10 @@ class TokenSecurityUtil {
                 ? signatures.accessSignature
                 : "",
         });
-        if (!payload.id || !payload.iat || !payload.jti) {
+        if (!payload.id ||
+            !payload.iat ||
+            !payload.jti ||
+            !payload.applicationType) {
             throw new BadRequestException(StringConstants.INVALID_TOKEN_PAYLOAD_MESSAGE);
         }
         if (await this._revokedTokenRepository.findOne({

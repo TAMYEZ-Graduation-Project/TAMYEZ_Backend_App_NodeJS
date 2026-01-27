@@ -1,5 +1,5 @@
-import { CareerModel, RoadmapStepModel } from "../../db/models/index.js";
-import { CareerRepository, RoadmapStepRepository, } from "../../db/repositories/index.js";
+import { CareerModel, RoadmapStepModel, UserModel, } from "../../db/models/index.js";
+import { CareerRepository, RoadmapStepRepository, UserRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
 import { BadRequestException, ConflictException, NotFoundException, ServerException, } from "../../utils/exceptions/custom.exceptions.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
@@ -7,13 +7,14 @@ import S3Service from "../../utils/multer/s3.service.js";
 import IdSecurityUtil from "../../utils/security/id.security.js";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
-import { CareerResourceAppliesToEnum } from "../../utils/constants/enum.constants.js";
+import { ApplicationTypeEnum, CareerResourceAppliesToEnum, } from "../../utils/constants/enum.constants.js";
 import { Types } from "mongoose";
 import { RoadmapService } from "../roadmap/index.js";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
 class CareerService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
+    _userRepository = new UserRepository(UserModel);
     createCareer = async (req, res) => {
         const { title, description, courses, youtubePlaylists, books } = req
             .validationResult.body;
@@ -82,17 +83,29 @@ class CareerService {
     getCareer = ({ archived = false } = {}) => {
         return async (req, res) => {
             const { careerId } = req.params;
-            const result = await this._careerRepository.findOne({
-                filter: {
+            let filter;
+            if (req.user &&
+                req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+                req.user.careerPath?.id?.equals(careerId)) {
+                filter = {
+                    _id: careerId,
+                    paranoid: false,
+                };
+            }
+            else {
+                filter = {
                     _id: careerId,
                     ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
-                },
+                };
+            }
+            const result = await this._careerRepository.findOne({
+                filter,
                 options: {
                     populate: [
                         {
                             path: "roadmap",
                             match: {
-                                order: { $lte: 30 },
+                                order: { $lte: 10 },
                                 ...(!archived ? { freezed: { $exists: false } } : undefined),
                             },
                         },
@@ -344,6 +357,51 @@ class CareerService {
                 v: result.__v,
             },
         });
+    };
+    archiveCareer = async (req, res) => {
+        const { careerId } = req.params;
+        const { v, confirmFreezing } = req.body;
+        if (!(await this._careerRepository.findOne({
+            filter: { _id: careerId, __v: v },
+        }))) {
+            throw new NotFoundException("Invalid careerId or already freezed ❌");
+        }
+        if (!confirmFreezing) {
+            const count = await this._userRepository.countDocuments({
+                filter: { "careerPath.id": careerId },
+            });
+            if (count) {
+                throw new BadRequestException(`Warning ⚠️: there are ${count} users that are studying this career ❌`);
+            }
+        }
+        await this._careerRepository.updateOne({
+            filter: { _id: careerId, __v: v },
+            update: {
+                freezed: { at: new Date(), by: req.user._id },
+                $unset: { restored: 1 },
+            },
+        });
+        return successHandler({ res });
+    };
+    restoreCareer = async (req, res) => {
+        const { careerId } = req.params;
+        const { v } = req.body;
+        const result = await this._careerRepository.updateOne({
+            filter: {
+                _id: careerId,
+                __v: v,
+                paranoid: false,
+                freezed: { $exists: true },
+            },
+            update: {
+                restored: { at: new Date(), by: req.user._id },
+                $unset: { freezed: 1 },
+            },
+        });
+        if (!result.matchedCount) {
+            throw new NotFoundException("Invalid careerId or Not freezed ❌");
+        }
+        return successHandler({ res });
     };
 }
 export default CareerService;

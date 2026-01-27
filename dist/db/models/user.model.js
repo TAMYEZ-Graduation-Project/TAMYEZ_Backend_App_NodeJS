@@ -63,7 +63,9 @@ const userSchema = new mongoose.Schema({
     profilePicture: {
         type: profilePictureObjectSchema,
     },
-    careerPath: { type: idSelectedAtObjectSchema },
+    careerPath: {
+        type: idSelectedAtObjectSchema({ ref: ModelsNames.careerModel }),
+    },
     quizAttempts: quizAttemptsSchema,
     freezed: atByObjectSchema,
     restored: atByObjectSchema,
@@ -73,6 +75,7 @@ const userSchema = new mongoose.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
 });
+userSchema.index({ "careerPath.id": 1 }, { partialFilterExpression: { "careerPath.id": { $exists: true } } });
 userSchema
     .virtual("fullName")
     .get(function () {
@@ -85,23 +88,24 @@ userSchema
 userSchema.methods.toJSON = function () {
     const userObject = DocumentFormat.getIdFrom_Id(this.toObject());
     return {
-        id: userObject.id,
-        fullName: userObject.firstName
+        id: userObject?.id,
+        fullName: userObject?.firstName
             ? `${userObject.firstName} ${userObject.lastName}`
             : undefined,
-        email: userObject.email,
-        phoneNumber: userObject.phoneNumber,
-        gender: userObject.gender,
-        role: userObject.role,
+        email: userObject?.email,
+        phoneNumber: userObject?.phoneNumber,
+        gender: userObject?.gender,
+        role: userObject?.role,
         profilePicture: userObject?.profilePicture?.url
             ? userObject.profilePicture.provider === ProvidersEnum.local
                 ? S3KeyUtil.generateS3UploadsUrlFromSubKey(userObject.profilePicture.url)
                 : userObject.profilePicture.url
             : undefined,
-        createdAt: userObject.createdAt,
-        updatedAt: userObject.updatedAt,
-        confirmedAt: userObject.confirmedAt,
-        v: userObject.v,
+        careerPath: userObject?.careerPath,
+        createdAt: userObject?.createdAt,
+        updatedAt: userObject?.updatedAt,
+        confirmedAt: userObject?.confirmedAt,
+        v: userObject?.v,
     };
 };
 userSchema.pre("save", async function (next) {

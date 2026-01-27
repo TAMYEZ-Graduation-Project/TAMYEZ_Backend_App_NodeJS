@@ -159,6 +159,13 @@ class AuthService {
                     email,
                     confirmedAt: { $exists: true },
                 },
+                options: {
+                    projection: applicationType === ApplicationTypeEnum.adminDashboard
+                        ? {
+                            careerPath: 0,
+                        }
+                        : {},
+                },
             });
             if (!user) {
                 throw new NotFoundException(StringConstants.INVALID_USER_ACCOUNT_MESSAGE);
@@ -290,6 +297,13 @@ class AuthService {
                 filter: {
                     email,
                     authProvider: ProvidersEnum.google,
+                },
+                options: {
+                    projection: applicationType === ApplicationTypeEnum.adminDashboard
+                        ? {
+                            careerPath: 0,
+                        }
+                        : {},
                 },
             });
             if (!user) {

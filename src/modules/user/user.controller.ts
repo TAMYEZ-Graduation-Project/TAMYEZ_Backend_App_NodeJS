@@ -8,6 +8,8 @@ import CloudMulter from "../../utils/multer/cloud.multer.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import fileValidation from "../../utils/multer/file_validation.multer.ts";
 import EnvFields from "../../utils/constants/env_fields.constants.ts";
+import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.ts";
+import { userAuthorizationEndpoints } from "./user.authorization.ts";
 
 export const userRouter = Router();
 export const adminUserRouter = Router();
@@ -57,3 +59,9 @@ userRouter.patch(
 
 
 // admin apis
+adminUserRouter.use(
+  Auths.combined({
+    accessRoles: userAuthorizationEndpoints.getUsers,
+    applicationType: ApplicationTypeEnum.adminDashboard,
+  }),
+);

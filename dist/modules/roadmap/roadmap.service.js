@@ -8,6 +8,7 @@ import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
 import { isNumberBetweenOrEqual } from "../../utils/validators/numeric.validator.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
+import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.js";
 class RoadmapService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
@@ -105,62 +106,122 @@ class RoadmapService {
         return async (req, res) => {
             const { page, size, searchKey, haveQuizzes, belongToCareers } = req
                 .validationResult.query;
+            const pipeline = [];
             if (belongToCareers !== StringConstants.ALL) {
-                const careersCount = await this._careerRepository.countDocuments({
-                    filter: {
-                        _id: belongToCareers.split(","),
-                        ...(archived
-                            ? { paranoid: false, freezed: { $exists: true } }
-                            : {}),
+                pipeline.push({
+                    $match: {
+                        careerId: {
+                            $in: belongToCareers
+                                .split(",")
+                                .map((c) => Types.ObjectId.createFromHexString(c)),
+                        },
                     },
                 });
-                if (new Set(belongToCareers.split(",")).size != careersCount) {
-                    throw new NotFoundException(archived
-                        ? "Some of archived careers are NOT found 🔍❌"
-                        : "Some of careers are NOT found 🔍❌");
-                }
             }
-            const result = await this._roadmapStepRepository.paginate({
-                filter: {
-                    ...(belongToCareers !== StringConstants.ALL
-                        ? { careerId: { $in: belongToCareers.split(",") } }
-                        : {}),
-                    ...(searchKey
-                        ? {
-                            $or: [
-                                { title: { $regex: searchKey, $options: "i" } },
-                                {
-                                    description: { $regex: searchKey, $options: "i" },
-                                },
-                            ],
-                        }
-                        : {}),
-                    ...(haveQuizzes
-                        ? { quizzesIds: { $in: haveQuizzes.split(",") } }
-                        : {}),
-                    ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
-                },
-                page,
-                size,
-                maxAllCount: 60,
-                options: {
-                    sort: belongToCareers === StringConstants.ALL
-                        ? { title: 1 }
-                        : { order: 1 },
-                    projection: {
-                        courses: 0,
-                        youtubePlaylists: 0,
-                        books: 0,
-                        quizzesIds: 0,
+            if (searchKey || haveQuizzes) {
+                const andList = [];
+                if (searchKey)
+                    andList.push({
+                        $or: [
+                            { title: { $regex: searchKey, $options: "i" } },
+                            {
+                                description: { $regex: searchKey, $options: "i" },
+                            },
+                        ],
+                    });
+                if (haveQuizzes)
+                    andList.push({
+                        quizzesIds: {
+                            $in: haveQuizzes
+                                .split(",")
+                                .map((quiz) => Types.ObjectId.createFromHexString(quiz)),
+                        },
+                    });
+                pipeline.push({
+                    $match: {
+                        $and: andList,
                     },
+                });
+            }
+            pipeline.push({
+                $lookup: {
+                    from: "careers",
+                    localField: "careerId",
+                    foreignField: "_id",
+                    as: "careerDoc",
                 },
             });
+            if (!archived) {
+                if (!(req.user &&
+                    req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+                    req.user.careerPath?.id?.equals(belongToCareers)))
+                    pipeline.push({
+                        $match: {
+                            $and: [
+                                { "careerDoc.freezed": { $exists: false } },
+                                { freezed: { $exists: false } },
+                            ],
+                        },
+                    });
+            }
+            else {
+                pipeline.push({
+                    $match: {
+                        $or: [
+                            { "careerDoc.freezed": { $exists: true } },
+                            { freezed: { $exists: true } },
+                        ],
+                    },
+                });
+            }
+            const result = (await this._roadmapStepRepository.aggregate({
+                pipeline: [
+                    ...pipeline,
+                    {
+                        $facet: {
+                            data: [
+                                {
+                                    $sort: belongToCareers === StringConstants.ALL
+                                        ? { title: 1 }
+                                        : { order: 1 },
+                                },
+                                { $skip: Number((page - 1) * size) },
+                                { $limit: size },
+                                {
+                                    $project: {
+                                        careerDoc: 0,
+                                        courses: 0,
+                                        youtubePlaylists: 0,
+                                        books: 0,
+                                    },
+                                },
+                            ],
+                            meta: [{ $count: "total" }],
+                        },
+                    },
+                    {
+                        $project: {
+                            total: { $ifNull: [{ $arrayElemAt: ["$meta.total", 0] }, 0] },
+                            data: 1,
+                        },
+                    },
+                ],
+            }))[0];
             if (!result.data || result.data.length == 0) {
                 throw new NotFoundException(archived
                     ? "No archived roadmap steps found 🔍❌"
                     : "No roadmap steps found 🔍❌");
             }
-            return successHandler({ res, body: result });
+            return successHandler({
+                res,
+                body: {
+                    totalCount: result.total,
+                    totalPages: Math.ceil(result.total / size),
+                    currentPage: page,
+                    size,
+                    data: result.data,
+                },
+            });
         };
     };
     getRoadmapStep = ({ archived = false } = {}) => {
@@ -169,14 +230,14 @@ class RoadmapService {
             const result = await this._roadmapStepRepository.findOne({
                 filter: {
                     _id: roadmapStepId,
-                    ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+                    paranoid: false,
                 },
                 options: {
                     populate: [
                         {
                             path: "career",
                             match: {
-                                ...(!archived ? { freezed: { $exists: false } } : undefined),
+                                paranoid: false,
                             },
                         },
                         {
@@ -193,10 +254,21 @@ class RoadmapService {
                     ],
                 },
             });
-            if (!result || !result.careerId) {
-                throw new NotFoundException(archived
-                    ? "No archived roadmapStep found or career is NOT freezed 🔍❌"
-                    : "No roadmapStep found or career is freezed 🔍❌");
+            if (!result) {
+                throw new NotFoundException("Invalid roadmapStepId ");
+            }
+            if (archived) {
+                if (!result.freezed &&
+                    !result.career.freezed) {
+                    throw new NotFoundException("No archived roadmapStep found or career is NOT freezed 🔍❌");
+                }
+            }
+            else {
+                if (result.freezed ||
+                    result
+                        .career.freezed) {
+                    throw new NotFoundException("No roadmapStep found or career is freezed 🔍❌");
+                }
             }
             return successHandler({ res, body: result });
         };
@@ -207,10 +279,15 @@ class RoadmapService {
         const roadmapStep = await this._roadmapStepRepository.findOne({
             filter: { _id: roadmapStepId },
             options: {
-                populate: [{ path: "careerId", select: "freezed stepsCount" }],
+                populate: [
+                    {
+                        path: "careerId",
+                        select: "stepsCount",
+                    },
+                ],
             },
         });
-        if (!roadmapStep || roadmapStep.careerId.freezed) {
+        if (!roadmapStep || !roadmapStep.careerId) {
             throw new NotFoundException("Invalid roadmapStepId, roadmapStep is freezed or its career is freezed ❌");
         }
         if (!isNumberBetweenOrEqual({
@@ -446,10 +523,10 @@ class RoadmapService {
                 },
             },
             options: {
-                populate: [{ path: "careerId", select: "freezed assetFolderId" }],
+                populate: [{ path: "careerId", select: "assetFolderId" }],
             },
         });
-        if (!roadmapStep || roadmapStep.careerId.freezed) {
+        if (!roadmapStep || !roadmapStep.careerId) {
             throw new NotFoundException("Invalid roadmapStepId, its career freezed or invalid resourceId ❌");
         }
         if (body.url || body.title) {

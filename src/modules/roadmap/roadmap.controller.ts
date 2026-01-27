@@ -10,6 +10,7 @@ import CloudMulter from "../../utils/multer/cloud.multer.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import fileValidation from "../../utils/multer/file_validation.multer.ts";
 import {
+  ApplicationTypeEnum,
   StorageTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import { expressRateLimitError } from "../../utils/constants/error.constants.ts";
@@ -23,6 +24,7 @@ const roadmapService = new RoadmapService();
 
 roadmapRouter.get(
   RoutePaths.getRoadmap,
+  Auths.authenticationMiddleware({ isOptional: true }),
   validationMiddleware({ schema: RoadmapValidators.getRoadmap }),
   roadmapService.getRoadmap(),
 );
@@ -35,28 +37,25 @@ roadmapRouter.get(
 );
 
 // admin apis
-adminRoadmapRouter.post(
-  RoutePaths.createRoadmapStep,
+adminRoadmapRouter.use(
   Auths.combined({
     accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
+    applicationType: ApplicationTypeEnum.adminDashboard,
   }),
+);
+adminRoadmapRouter.post(
+  RoutePaths.createRoadmapStep,
   validationMiddleware({ schema: RoadmapValidators.createRoadmapStep }),
   roadmapService.createRoadmapStep,
 );
 adminRoadmapRouter.get(
   RoutePaths.getArchivedRoadmap,
-  Auths.combined({
-    accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
-  }),
   validationMiddleware({ schema: RoadmapValidators.getRoadmap }),
   roadmapService.getRoadmap({ archived: true }),
 );
 
 adminRoadmapRouter.get(
   RoutePaths.getArchivedRoadmapStep,
-  Auths.combined({
-    accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
-  }),
   validationMiddleware({ schema: RoadmapValidators.getRoadmapStep }),
   roadmapService.getRoadmapStep({ archived: true }),
 );
@@ -68,9 +67,6 @@ adminRoadmapRouter.patch(
     windowMs: 10 * 60 * 1000,
     message: expressRateLimitError,
   }),
-  Auths.combined({
-    accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
-  }),
   validationMiddleware({ schema: RoadmapValidators.updateRoadmapStep }),
   roadmapService.updateRoadmapStep,
 );
@@ -81,9 +77,6 @@ adminRoadmapRouter.patch(
     limit: 10,
     windowMs: 10 * 60 * 1000,
     message: expressRateLimitError,
-  }),
-  Auths.combined({
-    accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
   }),
   CloudMulter.handleSingleFileUpload({
     fieldName: StringConstants.ATTACHMENT_FIELD_NAME,

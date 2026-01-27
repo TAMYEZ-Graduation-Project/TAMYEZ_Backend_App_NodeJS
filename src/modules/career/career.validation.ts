@@ -234,6 +234,21 @@ class CareerValidators {
         }
       }),
   };
+
+  static archiveCareer = {
+    params: this.uploadCareerPicture.params,
+    body: z.strictObject({
+      v: generalValidationConstants.v,
+      confirmFreezing: z.coerce.boolean().default(false).optional(),
+    }),
+  };
+
+  static restoreCareer = {
+    params: this.uploadCareerPicture.params,
+    body: z.strictObject({
+      v: generalValidationConstants.v,
+    }),
+  };
 }
 
 export default CareerValidators;

@@ -9,35 +9,29 @@ import { rateLimit } from "express-rate-limit";
 import CloudMulter from "../../utils/multer/cloud.multer.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import fileValidation from "../../utils/multer/file_validation.multer.js";
-import { StorageTypesEnum, } from "../../utils/constants/enum.constants.js";
+import { ApplicationTypeEnum, StorageTypesEnum, } from "../../utils/constants/enum.constants.js";
 import { expressRateLimitError } from "../../utils/constants/error.constants.js";
 export const roadmapRouter = Router();
 export const adminRoadmapRouter = Router();
 const roadmapService = new RoadmapService();
-roadmapRouter.get(RoutePaths.getRoadmap, validationMiddleware({ schema: RoadmapValidators.getRoadmap }), roadmapService.getRoadmap());
+roadmapRouter.get(RoutePaths.getRoadmap, Auths.authenticationMiddleware({ isOptional: true }), validationMiddleware({ schema: RoadmapValidators.getRoadmap }), roadmapService.getRoadmap());
 roadmapRouter.get(RoutePaths.getRoadmapStep, Auths.authenticationMiddleware(), validationMiddleware({ schema: RoadmapValidators.getRoadmapStep }), roadmapService.getRoadmapStep());
-adminRoadmapRouter.post(RoutePaths.createRoadmapStep, Auths.combined({
+adminRoadmapRouter.use(Auths.combined({
     accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
-}), validationMiddleware({ schema: RoadmapValidators.createRoadmapStep }), roadmapService.createRoadmapStep);
-adminRoadmapRouter.get(RoutePaths.getArchivedRoadmap, Auths.combined({
-    accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
-}), validationMiddleware({ schema: RoadmapValidators.getRoadmap }), roadmapService.getRoadmap({ archived: true }));
-adminRoadmapRouter.get(RoutePaths.getArchivedRoadmapStep, Auths.combined({
-    accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
-}), validationMiddleware({ schema: RoadmapValidators.getRoadmapStep }), roadmapService.getRoadmapStep({ archived: true }));
+    applicationType: ApplicationTypeEnum.adminDashboard,
+}));
+adminRoadmapRouter.post(RoutePaths.createRoadmapStep, validationMiddleware({ schema: RoadmapValidators.createRoadmapStep }), roadmapService.createRoadmapStep);
+adminRoadmapRouter.get(RoutePaths.getArchivedRoadmap, validationMiddleware({ schema: RoadmapValidators.getRoadmap }), roadmapService.getRoadmap({ archived: true }));
+adminRoadmapRouter.get(RoutePaths.getArchivedRoadmapStep, validationMiddleware({ schema: RoadmapValidators.getRoadmapStep }), roadmapService.getRoadmapStep({ archived: true }));
 adminRoadmapRouter.patch(RoutePaths.updateRoadmapStep, rateLimit({
     limit: 10,
     windowMs: 10 * 60 * 1000,
     message: expressRateLimitError,
-}), Auths.combined({
-    accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
 }), validationMiddleware({ schema: RoadmapValidators.updateRoadmapStep }), roadmapService.updateRoadmapStep);
 adminRoadmapRouter.patch(RoutePaths.updateRoadmapStepResource, rateLimit({
     limit: 10,
     windowMs: 10 * 60 * 1000,
     message: expressRateLimitError,
-}), Auths.combined({
-    accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
 }), CloudMulter.handleSingleFileUpload({
     fieldName: StringConstants.ATTACHMENT_FIELD_NAME,
     validation: fileValidation.image,
