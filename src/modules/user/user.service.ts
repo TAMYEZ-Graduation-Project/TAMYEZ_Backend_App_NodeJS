@@ -513,6 +513,7 @@ class UserService {
       this._notificationPushDeviceRepository.deleteMany({
         filter: { userId: userId || req.user!._id! },
       }),
+      //Todo: delete account progress
     ]);
 
     return successHandler({ res, message: "Account Deleted Permanently ✅" });
