@@ -106,5 +106,11 @@ class UserValidators {
             v: generalValidationConstants.v,
         }),
     };
+    static submitFeedback = {
+        body: z.strictObject({
+            text: z.string().nonempty().min(1).max(1000),
+            stars: z.coerce.number().int().min(1).max(5),
+        })
+    };
 }
 export default UserValidators;

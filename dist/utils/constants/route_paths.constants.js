@@ -29,6 +29,7 @@ class RoutePaths {
     static updateProfile = "/";
     static changePassword = "/change-password";
     static logout = "/logout";
+    static submitFeedback = "/feedback";
     static archiveAccount = "{/:userId}/archive";
     static restoreAccount = "/:userId/restore";
     static deleteAccount = "{/:userId}/delete";

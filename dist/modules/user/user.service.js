@@ -7,11 +7,11 @@ import HashingSecurityUtil from "../../utils/security/hash.security.js";
 import { BadRequestException, ForbiddenException, NotFoundException, ValidationException, VersionConflictException, } from "../../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import TokenSecurityUtil from "../../utils/security/token.security.js";
-import { AdminNotificationsLimitRepository, CareerRepository, DashboardReviewRepository, NotificationPushDeviceRepository, QuizAttemptRepository, UserRepository, } from "../../db/repositories/index.js";
+import { AdminNotificationsLimitRepository, CareerRepository, DashboardReviewRepository, FeedbackRepository, NotificationPushDeviceRepository, QuizAttemptRepository, UserRepository, } from "../../db/repositories/index.js";
 import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
 import UserModel from "../../db/models/user.model.js";
-import { AdminNotificationsLimitModel, CareerModel, DashboardReviewModel, QuizAttemptModel, QuizCooldownModel, SavedQuizModel, } from "../../db/models/index.js";
+import { AdminNotificationsLimitModel, CareerModel, DashboardReviewModel, FeedbackModel, QuizAttemptModel, QuizCooldownModel, SavedQuizModel, } from "../../db/models/index.js";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.js";
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.js";
 class UserService {
@@ -23,6 +23,7 @@ class UserService {
     _dashboardReviewRepository = new DashboardReviewRepository(DashboardReviewModel);
     _adminNotificationsLimitRepository = new AdminNotificationsLimitRepository(AdminNotificationsLimitModel);
     _careerRepository = new CareerRepository(CareerModel);
+    _feedbackRepository = new FeedbackRepository(FeedbackModel);
     getAdminDashboardData = async (req, res) => {
         const reviews = await this._dashboardReviewRepository.aggregate({
             pipeline: [
@@ -75,7 +76,7 @@ class UserService {
                         },
                     },
                 })) ?? undefined,
-                careerPathUpdate: (await this._careerRepository.findOne({
+                careerPathUpdated: (await this._careerRepository.findOne({
                     options: {
                         sort: { updatedAt: -1 },
                         projection: { title: 1, slug: 1, pictureUrl: 1, updatedAt: 1 },
@@ -107,6 +108,19 @@ class UserService {
                         ],
                     },
                 }),
+                userFeedbackReceived: (await this._feedbackRepository.findOne({
+                    options: {
+                        sort: { createdAt: -1 },
+                        projection: { text: 1, createdBy: 1, createdAt: 1 },
+                        populate: [
+                            {
+                                path: "createdBy",
+                                match: { paranoid: false },
+                                select: { firstName: 1, lastName: 1, email: 1 },
+                            },
+                        ],
+                    },
+                })) ?? undefined,
             },
         });
     };
@@ -483,6 +497,25 @@ class UserService {
             }),
         ]);
         return successHandler({ res, message: "Account Deleted Permanently ✅" });
+    };
+    submitFeedback = async (req, res) => {
+        const { text, stars } = req.validationResult
+            .body;
+        const lastFeedback = await this._feedbackRepository.findOne({
+            filter: { createdBy: req.user._id },
+            options: { sort: { createdAt: -1 } },
+        });
+        if (lastFeedback &&
+            lastFeedback.createdAt > new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+            throw new BadRequestException("You can only submit feedback once every 24 hours ❌");
+        }
+        await this._feedbackRepository.create({
+            data: [{ text, stars, createdBy: req.user._id }],
+        });
+        return successHandler({
+            res,
+            message: "Feedback submitted successfully ✅",
+        });
     };
 }
 export default UserService;

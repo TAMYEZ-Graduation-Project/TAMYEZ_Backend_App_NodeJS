@@ -31,6 +31,15 @@ userRouter.post(
   userService.logout,
 );
 
+userRouter.post(
+  RoutePaths.submitFeedback,
+  Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+  }),
+  validationMiddleware({ schema: UserValidators.submitFeedback }),
+  userService.submitFeedback,
+);
+
 userRouter.patch(
   RoutePaths.profilePicture,
   Auths.authenticationMiddleware(),

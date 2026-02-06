@@ -10,5 +10,6 @@ class ModelsNames {
     static careerModel = "Career";
     static roadmapStepModel = "RoadmapStep";
     static dashboardReviewModel = "DashboardReview";
+    static feedbackModel = "Feedback";
 }
 export default ModelsNames;

@@ -9,3 +9,4 @@ export { default as AdminNotificationsLimitModel } from "./admin_notifications_l
 export { default as CareerModel } from "./career.model.js";
 export { default as RoadmapStepModel } from "./roadmap_step.model.js";
 export { default as DashboardReviewModel } from "./dashboard_review.model.js";
+export { default as FeedbackModel } from "./feedback.model.js";

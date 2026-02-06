@@ -14,6 +14,7 @@ import type {
   LogoutBodyDtoType,
   RestoreAccountBodyDtoType,
   RestoreAccountParamsDtoType,
+  SubmitFeedbackBodyDtoType,
   UpdateProfileBodyDtoType,
   UploadProfilePictureBodyDtoType,
 } from "./user.dto.ts";
@@ -40,6 +41,7 @@ import {
   AdminNotificationsLimitRepository,
   CareerRepository,
   DashboardReviewRepository,
+  FeedbackRepository,
   NotificationPushDeviceRepository,
   QuizAttemptRepository,
   UserRepository,
@@ -51,6 +53,7 @@ import {
   AdminNotificationsLimitModel,
   CareerModel,
   DashboardReviewModel,
+  FeedbackModel,
   QuizAttemptModel,
   QuizCooldownModel,
   SavedQuizModel,
@@ -84,6 +87,8 @@ class UserService {
     new AdminNotificationsLimitRepository(AdminNotificationsLimitModel);
 
   private readonly _careerRepository = new CareerRepository(CareerModel);
+
+  private readonly _feedbackRepository = new FeedbackRepository(FeedbackModel);
 
   getAdminDashboardData = async (
     req: Request,
@@ -144,7 +149,7 @@ class UserService {
               },
             },
           })) ?? undefined,
-        careerPathUpdate:
+        careerPathUpdated:
           (await this._careerRepository.findOne({
             options: {
               sort: { updatedAt: -1 },
@@ -181,6 +186,20 @@ class UserService {
             },
           },
         ),
+        userFeedbackReceived:
+          (await this._feedbackRepository.findOne({
+            options: {
+              sort: { createdAt: -1 },
+              projection: { text: 1, createdBy: 1, createdAt: 1 },
+              populate: [
+                {
+                  path: "createdBy",
+                  match: { paranoid: false },
+                  select: { firstName: 1, lastName: 1, email: 1 },
+                },
+              ],
+            },
+          })) ?? undefined,
       },
     });
   };
@@ -657,6 +676,34 @@ class UserService {
     ]);
 
     return successHandler({ res, message: "Account Deleted Permanently ✅" });
+  };
+
+  submitFeedback = async (req: Request, res: Response): Promise<Response> => {
+    const { text, stars } = req.validationResult
+      .body as SubmitFeedbackBodyDtoType;
+
+    const lastFeedback = await this._feedbackRepository.findOne({
+      filter: { createdBy: req.user!._id },
+      options: { sort: { createdAt: -1 } },
+    });
+
+    if (
+      lastFeedback &&
+      lastFeedback.createdAt > new Date(Date.now() - 24 * 60 * 60 * 1000)
+    ) {
+      throw new BadRequestException(
+        "You can only submit feedback once every 24 hours ❌",
+      );
+    }
+
+    await this._feedbackRepository.create({
+      data: [{ text, stars, createdBy: req.user!._id }],
+    });
+
+    return successHandler({
+      res,
+      message: "Feedback submitted successfully ✅",
+    });
   };
 }
 

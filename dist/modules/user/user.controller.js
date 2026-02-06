@@ -15,6 +15,9 @@ export const adminUserRouter = Router();
 const userService = new UserService();
 userRouter.get(RoutePaths.userProfile, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.getProfile }), userService.getProfile());
 userRouter.post(RoutePaths.logout, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.logout }), userService.logout);
+userRouter.post(RoutePaths.submitFeedback, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: UserValidators.submitFeedback }), userService.submitFeedback);
 userRouter.patch(RoutePaths.profilePicture, Auths.authenticationMiddleware(), CloudMulter.handleSingleFileUpload({
     fieldName: StringConstants.ATTACHMENT_FIELD_NAME,
     maxFileSize: Number(process.env[EnvFields.PROFILE_PICTURE_SIZE]),

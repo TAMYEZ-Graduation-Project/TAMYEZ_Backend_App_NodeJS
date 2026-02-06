@@ -7,3 +7,4 @@ export { default as AdminNotificationsLimitRepository } from "./admin_notificati
 export { default as CareerRepository } from "./career.repository.ts";
 export { default as RoadmapStepRepository } from "./roadmap_step.repository.ts";
 export { default as DashboardReviewRepository } from "./dashboard_review.repository.ts";
+export { default as FeedbackRepository } from "./feedback.repository.ts";

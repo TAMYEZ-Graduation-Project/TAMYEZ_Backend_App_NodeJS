@@ -35,6 +35,7 @@ class RoutePaths {
   static readonly updateProfile = "/";
   static readonly changePassword = "/change-password";
   static readonly logout = "/logout";
+  static readonly submitFeedback = "/feedback";
   static readonly archiveAccount = "{/:userId}/archive";
   static readonly restoreAccount = "/:userId/restore";
   static readonly deleteAccount = "{/:userId}/delete";

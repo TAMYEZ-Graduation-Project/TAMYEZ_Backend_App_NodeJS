@@ -55,3 +55,7 @@ export type DeleteAccountBodyDtoType = z.infer<
   typeof UserValidators.deleteAccount.body
 >;
 
+export type SubmitFeedbackBodyDtoType = z.infer<
+  typeof UserValidators.submitFeedback.body
+>;
+
