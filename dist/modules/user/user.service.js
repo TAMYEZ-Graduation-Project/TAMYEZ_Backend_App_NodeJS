@@ -30,10 +30,22 @@ class UserService {
                 req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
                 throw new ForbiddenException(StringConstants.INVALID_LOGIN_GATEWAY_MESSAGE);
             }
+            const options = {
+                populate: [
+                    {
+                        path: "careerPath.id",
+                        match: { paranoid: false },
+                        select: "title slug pictureUrl freezed",
+                    },
+                ],
+            };
             let user;
             if (!archived) {
                 user = userId
-                    ? await this._userRepository.findOne({ filter: { _id: userId } })
+                    ? await this._userRepository.findOne({
+                        filter: { _id: userId },
+                        options,
+                    })
                     : req.user;
             }
             else {
@@ -41,7 +53,12 @@ class UserService {
                     throw new ValidationException("userId is required ❌");
                 }
                 user = await this._userRepository.findOne({
-                    filter: { _id: userId, paranoid: false, freezed: { $exists: true } },
+                    filter: {
+                        _id: userId,
+                        paranoid: false,
+                        freezed: { $exists: true },
+                        options,
+                    },
                 });
             }
             if (!user) {

@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import type {
   ICareerDeleted,
   IQuizAttempts,
@@ -22,6 +22,8 @@ import HashingSecurityUtil from "../../utils/security/hash.security.ts";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.ts";
 import type { UpdateQuery } from "mongoose";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
+import type { FullICareer, ICareer } from "../interfaces/career.interface.ts";
+import EnvFields from "../../utils/constants/env_fields.constants.ts";
 
 const careerDeletedSchema = new mongoose.Schema<ICareerDeleted>({
   message: { type: String, required: true },
@@ -144,6 +146,20 @@ userSchema
 userSchema.methods.toJSON = function () {
   const userObject = DocumentFormat.getIdFrom_Id<IUser>(this.toObject());
 
+  if (
+    userObject?.careerPath &&
+    !Types.ObjectId.isValid(userObject.careerPath.id.toString())
+  ) {
+    const careerObj = userObject.careerPath.id as unknown as ICareer;
+    careerObj.pictureUrl =
+      careerObj.pictureUrl === process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
+        ? careerObj.pictureUrl
+        : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObj.pictureUrl)!;
+    userObject.careerPath.id = DocumentFormat.getIdFrom_Id<ICareer>(
+      userObject.careerPath.id as unknown as FullICareer,
+    ) as unknown as Types.ObjectId;
+  }
+
   return {
     id: userObject?.id,
     fullName: userObject?.firstName
@@ -223,7 +239,7 @@ userSchema.pre(
 );
 
 userSchema.post(
-  ["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"],
+  ["find", "findOne", "findOneAndUpdate", "countDocuments"],
   function (this, docs, next) {
     // docs is an array for 'find', or a single document for 'findOne'
 

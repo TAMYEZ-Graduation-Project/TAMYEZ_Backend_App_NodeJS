@@ -98,6 +98,15 @@ class TokenSecurityUtil {
         }
         const user = await this._userRepository.findOne({
             filter: { _id: payload.id },
+            options: {
+                populate: [
+                    {
+                        path: "careerPath.id",
+                        match: { paranoid: false },
+                        select: "title slug pictureUrl freezed",
+                    },
+                ],
+            },
         });
         if (!user?.confirmedAt) {
             throw new BadRequestException(StringConstants.INVALID_USER_ACCOUNT_MESSAGE);

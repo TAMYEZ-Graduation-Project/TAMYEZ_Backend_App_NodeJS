@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { GenderEnum, ProvidersEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
 import ModelsNames from "../../utils/constants/models.names.constants.js";
 import { softDeleteFunction } from "../../utils/soft_delete/soft_delete.js";
@@ -7,6 +7,7 @@ import { atByObjectSchema, codeExpireCountObjectSchema, idSelectedAtObjectSchema
 import HashingSecurityUtil from "../../utils/security/hash.security.js";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
+import EnvFields from "../../utils/constants/env_fields.constants.js";
 const careerDeletedSchema = new mongoose.Schema({
     message: { type: String, required: true },
     newSuggestedCareer: {
@@ -98,6 +99,15 @@ userSchema
 });
 userSchema.methods.toJSON = function () {
     const userObject = DocumentFormat.getIdFrom_Id(this.toObject());
+    if (userObject?.careerPath &&
+        !Types.ObjectId.isValid(userObject.careerPath.id.toString())) {
+        const careerObj = userObject.careerPath.id;
+        careerObj.pictureUrl =
+            careerObj.pictureUrl === process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
+                ? careerObj.pictureUrl
+                : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObj.pictureUrl);
+        userObject.careerPath.id = DocumentFormat.getIdFrom_Id(userObject.careerPath.id);
+    }
     return {
         id: userObject?.id,
         fullName: userObject?.firstName
@@ -154,7 +164,7 @@ userSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocume
     softDeleteFunction(this);
     next();
 });
-userSchema.post(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"], function (docs, next) {
+userSchema.post(["find", "findOne", "findOneAndUpdate", "countDocuments"], function (docs, next) {
     if (!docs)
         return next();
     const decryptPhone = (doc) => {
