@@ -157,3 +157,8 @@ export enum DashboardReviewTypes {
   careers = "careers",
   quizzes = "quizzes",
 }
+
+export enum BucketProvidersEnum {
+  aws = "AWS",
+  cloudflare = "Cloudflare",
+}

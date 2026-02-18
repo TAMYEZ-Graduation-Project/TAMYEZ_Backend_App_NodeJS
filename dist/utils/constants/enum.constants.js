@@ -158,3 +158,8 @@ export var DashboardReviewTypes;
     DashboardReviewTypes["careers"] = "careers";
     DashboardReviewTypes["quizzes"] = "quizzes";
 })(DashboardReviewTypes || (DashboardReviewTypes = {}));
+export var BucketProvidersEnum;
+(function (BucketProvidersEnum) {
+    BucketProvidersEnum["aws"] = "AWS";
+    BucketProvidersEnum["cloudflare"] = "Cloudflare";
+})(BucketProvidersEnum || (BucketProvidersEnum = {}));

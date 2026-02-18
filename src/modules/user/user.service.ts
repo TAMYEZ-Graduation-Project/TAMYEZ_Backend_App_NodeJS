@@ -346,7 +346,7 @@ class UserService {
     });
 
     const result = await this._userRepository
-      .updateOne({
+      .findOneAndUpdate({
         filter: { _id: req.user?._id, __v: v },
         update: {
           profilePicture: {
@@ -354,6 +354,7 @@ class UserService {
             provide: ProvidersEnum.local,
           },
         },
+        options: { projection: { __v: 1 }, new: true },
       })
       .catch(async (error) => {
         await S3Service.deleteFile({
@@ -362,7 +363,7 @@ class UserService {
         throw error;
       });
 
-    if (result.matchedCount) {
+    if (result) {
       if (
         req.user?.profilePicture &&
         req.user.profilePicture.provider === ProvidersEnum.local
@@ -379,7 +380,10 @@ class UserService {
 
     return successHandler({
       res,
-      body: { url: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey) },
+      body: {
+        url: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey),
+        v: result?.__v,
+      },
     });
   };
 

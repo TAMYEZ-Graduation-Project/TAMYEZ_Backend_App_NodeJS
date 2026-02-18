@@ -1,5 +1,4 @@
 import {
-  S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
@@ -14,20 +13,19 @@ import {
 import { Upload } from "@aws-sdk/lib-storage";
 import type { Progress } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { StorageTypesEnum } from "../constants/enum.constants.ts";
+import {
+  BucketProvidersEnum,
+  StorageTypesEnum,
+} from "../constants/enum.constants.ts";
 import { createReadStream } from "node:fs";
 import { S3Exception } from "../exceptions/custom.exceptions.ts";
 import S3KeyUtil from "./s3_key.multer.ts";
 import type { IMulterFile } from "../constants/interface.constants.ts";
-import EnvFields from "../constants/env_fields.constants.ts";
+import S3ClientFactory from "./s3_client_factory.ts";
 
 abstract class S3Service {
-  private static _s3ClientObject = new S3Client({
-    region: process.env[EnvFields.AWS_REGION]!,
-    credentials: {
-      accessKeyId: process.env[EnvFields.AWS_ACCESS_KEY_ID]!,
-      secretAccessKey: process.env[EnvFields.AWS_SECRET_ACCESS_KEY]!,
-    },
+  private static _s3ClientObject = S3ClientFactory.createS3Client({
+    bucketProvider: BucketProvidersEnum.cloudflare,
   });
 
   static uploadFile = async ({

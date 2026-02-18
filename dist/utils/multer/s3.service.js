@@ -1,18 +1,14 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, ObjectCannedACL, } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, ObjectCannedACL, } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { StorageTypesEnum } from "../constants/enum.constants.js";
+import { BucketProvidersEnum, StorageTypesEnum, } from "../constants/enum.constants.js";
 import { createReadStream } from "node:fs";
 import { S3Exception } from "../exceptions/custom.exceptions.js";
 import S3KeyUtil from "./s3_key.multer.js";
-import EnvFields from "../constants/env_fields.constants.js";
+import S3ClientFactory from "./s3_client_factory.js";
 class S3Service {
-    static _s3ClientObject = new S3Client({
-        region: process.env[EnvFields.AWS_REGION],
-        credentials: {
-            accessKeyId: process.env[EnvFields.AWS_ACCESS_KEY_ID],
-            secretAccessKey: process.env[EnvFields.AWS_SECRET_ACCESS_KEY],
-        },
+    static _s3ClientObject = S3ClientFactory.createS3Client({
+        bucketProvider: BucketProvidersEnum.cloudflare,
     });
     static uploadFile = async ({ StorageApproach = StorageTypesEnum.memory, Bucket = process.env.AWS_BUCKET_NAME, ACL = "private", Path = "general", File, }) => {
         const subKey = S3KeyUtil.generateS3SubKey({
