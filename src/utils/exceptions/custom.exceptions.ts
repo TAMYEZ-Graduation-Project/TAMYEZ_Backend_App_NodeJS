@@ -9,7 +9,7 @@ export class ApplicationException implements IAppError {
     public statusCode: number,
     public message: string,
     public details?: IssueObjectType[],
-    public cause?: unknown
+    public cause?: unknown,
   ) {
     this.name = this.constructor.name;
   }
@@ -82,7 +82,7 @@ export class S3Exception extends ApplicationException {
     awsS3Error: any | undefined,
     message: string,
     details?: IssueObjectType[],
-    cause?: unknown
+    cause?: unknown,
   ) {
     super(
       awsS3Error?.Code || ErrorCodesEnum.ASSET_ERROR,
@@ -90,8 +90,24 @@ export class S3Exception extends ApplicationException {
       message +
         (awsS3Error?.message ? ` (Exact Error: ${awsS3Error.message})` : ""),
       details,
-      cause
+      cause,
     );
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+export class ContentTooLargeException extends ApplicationException {
+  constructor(message: string, details?: IssueObjectType[], cause?: unknown) {
+    super(ErrorCodesEnum.CONTENT_TOO_LARGE, 413, message, details, cause);
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+export class VersionConflictException extends ApplicationException {
+  constructor(message: string, details?: IssueObjectType[], cause?: unknown) {
+    super(ErrorCodesEnum.VERSION_CONFLICT, 409, message, details, cause);
     this.name = this.constructor.name;
     Error.captureStackTrace(this, this.constructor);
   }

@@ -1,0 +1,695 @@
+import type { Request, Response } from "express";
+import {
+  CareerModel,
+  QuizAttemptModel,
+  RoadmapStepModel,
+  SavedQuizModel,
+  UserModel,
+} from "../../db/models/index.ts";
+import {
+  CareerRepository,
+  QuizAttemptRepository,
+  RoadmapStepRepository,
+  UserRepository,
+} from "../../db/repositories/index.ts";
+import successHandler from "../../utils/handlers/success.handler.ts";
+import type {
+  ArchiveCareerBodyDto,
+  ArchiveCareerParamsDto,
+  CreateCareerBodyDto,
+  DeleteCareerBodyDto,
+  DeleteCareerParamsDto,
+  GetCareerParamsDto,
+  GetCareersQueryDto,
+  RestoreCareerBodyDto,
+  RestoreCareerParamsDto,
+  UpdateCareerBodyDto,
+  UpdateCareerParamsDto,
+  UpdateCareerResourceBodyDto,
+  UpdateCareerResourceParamsDto,
+  UploadCareerPictureBodyDto,
+  UploadCareerPictureParamsDto,
+} from "./career.dto.ts";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  ServerException,
+} from "../../utils/exceptions/custom.exceptions.ts";
+import type {
+  FullICareerResource,
+  ICareerResource,
+} from "../../db/interfaces/common.interface.ts";
+import EnvFields from "../../utils/constants/env_fields.constants.ts";
+import S3Service from "../../utils/multer/s3.service.ts";
+import IdSecurityUtil from "../../utils/security/id.security.ts";
+import S3FoldersPaths from "../../utils/multer/s3_folders_paths.ts";
+import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
+import {
+  ApplicationTypeEnum,
+  CareerResourceAppliesToEnum,
+} from "../../utils/constants/enum.constants.ts";
+import { Types, type FilterQuery } from "mongoose";
+import type { ICareer } from "../../db/interfaces/career.interface.ts";
+import { RoadmapService } from "../roadmap/index.ts";
+import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.ts";
+import type {
+  UpdateCareerResourceResponse,
+  UploadCareerPictureResponse,
+} from "./career.entity.ts";
+import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
+
+class CareerService {
+  private readonly _careerRepository = new CareerRepository(CareerModel);
+  private readonly _roadmapStepRepository = new RoadmapStepRepository(
+    RoadmapStepModel,
+  );
+  private readonly _userRepository = new UserRepository(UserModel);
+  private readonly _savedQuizRepository = new SavedQuizRepository(
+    SavedQuizModel,
+  );
+  private readonly _quizAttemptRepository = new QuizAttemptRepository(
+    QuizAttemptModel,
+  );
+
+  createCareer = async (req: Request, res: Response): Promise<Response> => {
+    const { title, description, courses, youtubePlaylists, books } = req
+      .validationResult.body as CreateCareerBodyDto;
+
+    const careerExists = await this._careerRepository.findOne({
+      filter: { title, paranoid: false },
+    });
+    if (careerExists) {
+      throw new ConflictException(
+        `Career title conflicts with another ${
+          careerExists.freezed?.at ? "archived " : ""
+        }career ❌`,
+      );
+    }
+
+    const [newCareer] = await this._careerRepository.create({
+      data: [
+        {
+          title,
+          description,
+          assetFolderId: IdSecurityUtil.generateAlphaNumericId(),
+          pictureUrl: process.env[
+            EnvFields.CAREER_DEFAULT_PICTURE_URL
+          ] as string,
+          courses: courses as unknown as ICareerResource[],
+          youtubePlaylists: youtubePlaylists as unknown as ICareerResource[],
+          books: books as unknown as ICareerResource[],
+        },
+      ],
+    });
+
+    if (!newCareer) {
+      throw new ServerException(
+        `Failed to create career, please try again later ☹️`,
+      );
+    }
+
+    return successHandler({ res, message: "Career created successfully ✅" });
+  };
+
+  getCareers = ({ archived = false }: { archived?: boolean } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { page, size, searchKey } = req.validationResult
+        .query as GetCareersQueryDto;
+      const result = await this._careerRepository.paginate({
+        filter: {
+          ...(searchKey
+            ? {
+                $or: [
+                  { title: { $regex: searchKey, $options: "i" } },
+                  {
+                    description: { $regex: searchKey, $options: "i" },
+                  },
+                  {
+                    slug: { $regex: searchKey, $options: "i" },
+                  },
+                ],
+              }
+            : {}),
+          ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+        },
+        page,
+        size,
+        options: {
+          projection: {
+            courses: 0,
+            youtubePlaylists: 0,
+            books: 0,
+            assetFolderId: 0,
+          },
+        },
+      });
+
+      if (!result.data || result.data.length == 0) {
+        throw new NotFoundException(
+          archived ? "No archived careers found 🔍❌" : "No careers found 🔍❌",
+        );
+      }
+
+      return successHandler({ res, body: result });
+    };
+  };
+
+  getCareer = ({ archived = false }: { archived?: boolean } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { careerId } = req.params as GetCareerParamsDto;
+
+      let filter: FilterQuery<ICareer>;
+      if (
+        req.user &&
+        req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+        req.user.careerPath?.id?.equals(careerId)
+      ) {
+        filter = {
+          _id: careerId,
+          paranoid: false,
+        };
+      } else {
+        filter = {
+          _id: careerId,
+          ...(archived ? { paranoid: false, freezed: { $exists: true } } : {}),
+        };
+      }
+
+      const result = await this._careerRepository.findOne({
+        filter,
+        options: {
+          populate: [
+            {
+              path: "roadmap",
+              match: {
+                order: { $lte: 10 },
+                ...(req.user &&
+                req.tokenPayload?.applicationType ===
+                  ApplicationTypeEnum.user &&
+                req.user.careerPath?.id?.equals(careerId)
+                  ? { paranoid: false }
+                  : undefined),
+              },
+              select: {
+                title: 1,
+                description: 1,
+                order: 1,
+                freezed: 1,
+                __v: 1,
+              },
+            },
+          ],
+        },
+      });
+
+      if (!result) {
+        throw new NotFoundException(
+          archived ? "No archived career found 🔍❌" : "No career found 🔍❌",
+        );
+      }
+
+      return successHandler({ res, body: result });
+    };
+  };
+
+  uploadCareerPicture = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
+    const { careerId } = req.params as UploadCareerPictureParamsDto;
+    const { attachment, v } = req.body as UploadCareerPictureBodyDto;
+
+    const career = await this._careerRepository.findOne({
+      filter: { _id: careerId, __v: v },
+    });
+
+    if (!career) {
+      throw new NotFoundException("Invalid careerId or career freezed ❌");
+    }
+
+    const subKey = await S3Service.uploadFile({
+      File: attachment,
+      Path: S3FoldersPaths.careerFolderPath(career.assetFolderId),
+    });
+
+    const result = await this._careerRepository
+      .updateOne({
+        filter: { _id: careerId, __v: v },
+        update: { pictureUrl: subKey },
+      })
+      .catch(async (error) => {
+        await S3Service.deleteFile({ SubKey: subKey });
+        throw error;
+      });
+
+    if (result.matchedCount) {
+      if (
+        career.pictureUrl &&
+        career.pictureUrl != process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
+      )
+        await S3Service.deleteFile({ SubKey: career.pictureUrl });
+    } else {
+      await S3Service.deleteFile({ SubKey: subKey });
+    }
+
+    return successHandler<UploadCareerPictureResponse>({
+      res,
+      body: {
+        pictureUrl: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey)!,
+      },
+    });
+  };
+
+  updateCareer = async (req: Request, res: Response): Promise<Response> => {
+    const { careerId } = req.params as UpdateCareerParamsDto;
+    const body = req.validationResult.body as UpdateCareerBodyDto;
+
+    const career = await this._careerRepository.findOne({
+      filter: { _id: careerId },
+    });
+
+    if (!career) {
+      throw new NotFoundException("Invalid careerId or career freezed ❌");
+    }
+
+    // check on specfiedSteps existence
+    const specifiedStepsIdsSet = new Set<string>([
+      ...this._getResourceSpecifiedStepsIds(
+        body.courses as unknown as ICareerResource[],
+      ).values(),
+      ...this._getResourceSpecifiedStepsIds(
+        body.youtubePlaylists as unknown as ICareerResource[],
+      ).values(),
+      ...this._getResourceSpecifiedStepsIds(
+        body.books as unknown as ICareerResource[],
+      ).values(),
+    ]);
+
+    if (specifiedStepsIdsSet.size > 0) {
+      const existingStepsCount =
+        await this._roadmapStepRepository.countDocuments({
+          filter: { _id: { $in: Array.from(specifiedStepsIdsSet) }, careerId },
+        });
+
+      if (existingStepsCount !== specifiedStepsIdsSet.size) {
+        throw new NotFoundException(
+          `One or more specifiedSteps do not exist ❌`,
+        );
+      }
+    }
+
+    if (
+      RoadmapService.getTotalResourceCount({
+        currentResources: career.courses as FullICareerResource[],
+        removeResources: body.removeCourses,
+        newResourcesCount: body.courses?.length ?? 0,
+      }) > 5 ||
+      RoadmapService.getTotalResourceCount({
+        currentResources: career.youtubePlaylists as FullICareerResource[],
+        removeResources: body.removeYoutubePlaylists,
+        newResourcesCount: body.youtubePlaylists?.length ?? 0,
+      }) > 5 ||
+      RoadmapService.getTotalResourceCount({
+        currentResources: career.books as FullICareerResource[],
+        removeResources: body.removeBooks,
+        newResourcesCount: body.books?.length ?? 0,
+      }) > 5
+    ) {
+      throw new BadRequestException(
+        "Each career resource list (courses | youtubePlaylists | books) must be at most 5 items length ❌",
+      );
+    }
+
+    const toUpdate: Partial<ICareer> = {};
+    if (body.title) toUpdate.title = body.title;
+    if (body.description) toUpdate.description = body.description;
+
+    await this._careerRepository.updateOne<[]>({
+      filter: { _id: careerId, __v: body.v },
+      update: [
+        { $set: { ...toUpdate } },
+        ...RoadmapService.buildUniqueAppendStages({
+          fieldName: "courses",
+          newItems: body.courses?.map<ICareerResource>((rs) => {
+            return {
+              ...rs,
+              specifiedSteps:
+                rs.specifiedSteps?.map<Types.ObjectId>((id) =>
+                  Types.ObjectId.createFromHexString(id),
+                ) ?? [],
+            };
+          }),
+          removeIds: body.removeCourses?.map((id) =>
+            Types.ObjectId.createFromHexString(id),
+          ),
+        }),
+        ...RoadmapService.buildUniqueAppendStages({
+          fieldName: "youtubePlaylists",
+          newItems: body.youtubePlaylists?.map<ICareerResource>((rs) => {
+            return {
+              ...rs,
+              specifiedSteps:
+                rs.specifiedSteps?.map<Types.ObjectId>((id) =>
+                  Types.ObjectId.createFromHexString(id),
+                ) ?? [],
+            };
+          }),
+          removeIds: body.removeYoutubePlaylists?.map((id) =>
+            Types.ObjectId.createFromHexString(id),
+          ),
+        }),
+        ...RoadmapService.buildUniqueAppendStages({
+          fieldName: "books",
+          newItems: body.books?.map<ICareerResource>((rs) => {
+            return {
+              ...rs,
+              specifiedSteps:
+                rs.specifiedSteps?.map<Types.ObjectId>((id) =>
+                  Types.ObjectId.createFromHexString(id),
+                ) ?? [],
+            };
+          }),
+          removeIds: body.removeBooks?.map((id) =>
+            Types.ObjectId.createFromHexString(id),
+          ),
+        }),
+      ],
+    });
+
+    return successHandler({ res });
+  };
+
+  private _getResourceSpecifiedStepsIds = (
+    resources: ICareerResource[],
+  ): Set<string> => {
+    const specifiedStepsIdsSet = new Set<string>();
+    if (resources?.length) {
+      for (const resource of resources) {
+        if (
+          resource.appliesTo === CareerResourceAppliesToEnum.specific &&
+          resource.specifiedSteps?.length
+        ) {
+          resource.specifiedSteps.forEach((stepId) =>
+            specifiedStepsIdsSet.add(stepId.toString()),
+          );
+        }
+      }
+    }
+    return specifiedStepsIdsSet;
+  };
+
+  updateCareerResource = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
+    const { careerId, resourceName, resourceId } =
+      req.params as UpdateCareerResourceParamsDto;
+    const body = req.validationResult.body as UpdateCareerResourceBodyDto;
+
+    const career = await this._careerRepository.findOne({
+      filter: {
+        _id: careerId,
+        [`${resourceName}`]: {
+          $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
+        },
+      },
+      projection: {
+        assetFolderId: 1,
+        [`${resourceName}`]: {
+          $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
+        },
+      },
+    });
+
+    if (!career) {
+      throw new NotFoundException(
+        "Invalid careerId, career freezed or invalid resourceId ❌",
+      );
+    }
+    if (
+      career[resourceName]![0]?.appliesTo ===
+        CareerResourceAppliesToEnum.specific &&
+      body.appliesTo === CareerResourceAppliesToEnum.all
+    ) {
+      body.specifiedSteps = [];
+    }
+
+    if (body.url || body.title) {
+      const exist = await this._careerRepository.findOne({
+        filter: {
+          _id: careerId,
+          [`${resourceName}`]: {
+            $elemMatch: { $or: [{ title: body.title }, { url: body.url }] },
+          },
+        },
+        projection: {
+          _id: 0,
+          [`${resourceName}`]: {
+            $elemMatch: { $or: [{ title: body.title }, { url: body.url }] },
+          },
+        },
+      });
+
+      if (exist) {
+        throw new BadRequestException(
+          `This title or url already exists in the ${resourceName} list ❌`,
+        );
+      }
+    }
+
+    if (body.specifiedSteps) {
+      if (
+        body.appliesTo !== CareerResourceAppliesToEnum.specific &&
+        career[resourceName]![0]?.appliesTo == CareerResourceAppliesToEnum.all
+      ) {
+        throw new BadRequestException(
+          "specifiedSteps can't have values when appliesTo equals All ❌",
+        );
+      }
+      const specifiedStepsIdsSet = new Set(body.specifiedSteps);
+      const existingStepsCount =
+        await this._roadmapStepRepository.countDocuments({
+          filter: { _id: { $in: Array.from(specifiedStepsIdsSet) }, careerId },
+        });
+
+      if (existingStepsCount !== specifiedStepsIdsSet.size) {
+        throw new NotFoundException(
+          `One or more specifiedSteps do not exist for this career ❌`,
+        );
+      }
+    }
+
+    let subKey;
+    if (body.attachment) {
+      subKey = (
+        await Promise.all([
+          career[resourceName]![0]?.pictureUrl
+            ? S3Service.deleteFile({
+                SubKey: career[resourceName]![0]?.pictureUrl,
+              })
+            : undefined,
+          S3Service.uploadFile({
+            File: body.attachment,
+            Path: S3FoldersPaths.careerResourceFolderPath(
+              career.assetFolderId,
+              resourceName,
+            ),
+          }),
+        ])
+      )[1];
+    }
+
+    const result = await this._careerRepository.findOneAndUpdate({
+      filter: {
+        _id: careerId,
+        [`${resourceName}`]: {
+          $elemMatch: { _id: resourceId },
+        },
+        __v: body.v,
+      },
+      update: listUpdateFieldsHandler({
+        resourceName,
+        body,
+        attachmentSubKey: subKey,
+      }),
+      options: {
+        new: true,
+        arrayFilters: [
+          { "el._id": Types.ObjectId.createFromHexString(resourceId) },
+        ],
+        projection: {
+          _id: 0,
+          __v: 1,
+          [`${resourceName}`]: {
+            $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
+          },
+        },
+      },
+    });
+
+    if (!result) {
+      throw new NotFoundException("Invalid resourceId ❌");
+    }
+
+    return successHandler<UpdateCareerResourceResponse>({
+      res,
+      body: {
+        [`${resourceName}`]: result.toJSON()[resourceName],
+        v: result.__v,
+      },
+    });
+  };
+
+  archiveCareer = async (req: Request, res: Response): Promise<Response> => {
+    const { careerId } = req.params as ArchiveCareerParamsDto;
+    const { v, confirmFreezing } = req.body as ArchiveCareerBodyDto;
+
+    if (
+      !(await this._careerRepository.findOne({
+        filter: { _id: careerId, __v: v },
+      }))
+    ) {
+      throw new NotFoundException("Invalid careerId or already freezed ❌");
+    }
+
+    if (!confirmFreezing) {
+      const count = await this._userRepository.countDocuments({
+        filter: { "careerPath.id": careerId },
+      });
+      if (count) {
+        throw new BadRequestException(
+          `Warning ⚠️: there are ${count} users that are studying this career ❌`,
+        );
+      }
+    }
+
+    await this._careerRepository.updateOne({
+      filter: { _id: careerId, __v: v },
+      update: {
+        freezed: { at: new Date(), by: req.user!._id },
+        $unset: { restored: 1 },
+      },
+    });
+
+    return successHandler({ res });
+  };
+
+  restoreCareer = async (req: Request, res: Response): Promise<Response> => {
+    const { careerId } = req.params as RestoreCareerParamsDto;
+    const { v } = req.body as RestoreCareerBodyDto;
+
+    const result = await this._careerRepository.updateOne({
+      filter: {
+        _id: careerId,
+        __v: v,
+        paranoid: false,
+        freezed: { $exists: true },
+      },
+      update: {
+        restored: { at: new Date(), by: req.user!._id },
+        $unset: { freezed: 1 },
+      },
+    });
+
+    if (!result.matchedCount) {
+      throw new NotFoundException("Invalid careerId or Not freezed ❌");
+    }
+
+    return successHandler({ res });
+  };
+
+  deleteCareer = async (req: Request, res: Response): Promise<Response> => {
+    const { careerId } = req.params as DeleteCareerParamsDto;
+    const { v } = req.body as DeleteCareerBodyDto;
+
+    const career = await this._careerRepository.findOne({
+      filter: {
+        _id: careerId,
+        __v: v,
+        paranoid: false,
+        freezed: { $exists: true },
+      },
+    });
+
+    if (!career) {
+      throw new NotFoundException("Invalid careerId or Not freezed ❌");
+    }
+
+    if (Date.now() - career.freezed!.at.getTime() < 172_800_000) {
+      // less than 48 hours
+      throw new BadRequestException(
+        "Can't delete the career until at least 48 hours have passed after freezing ❌⌛️",
+      );
+    }
+
+    if (await this._quizAttemptRepository.exists({ filter: { careerId } })) {
+      throw new BadRequestException(
+        "There active quiz attempts on this career please wait until it's done ❌⌛️",
+      );
+    }
+
+    if (
+      (
+        await this._careerRepository.deleteOne({
+          filter: {
+            _id: careerId,
+            __v: v,
+            paranoid: false,
+            freezed: { $exists: true },
+          },
+        })
+      ).deletedCount
+    ) {
+      await Promise.all([
+        // delete assets in AWS Bucket
+        S3Service.deleteFolderByPrefix({
+          FolderPath: S3FoldersPaths.careerFolderPath(career.assetFolderId),
+        }),
+        // delete roadmap steps of this career
+        this._roadmapStepRepository.deleteMany({
+          filter: { careerId },
+        }),
+        // remove the careerPath field in user profile
+        this._userRepository.aggregate({
+          pipeline: [
+            {
+              $match: {
+                "careerPath.id": Types.ObjectId.createFromHexString(careerId),
+              },
+            },
+            {
+              $project: { firstName: 1, lastName: 1, __v: 1 },
+            },
+            {
+              $unset: "careerPath",
+            },
+            {
+              $set: {
+                "careerDeleted.message": {
+                  $concat: [
+                    "Hi ",
+                    "$firstName",
+                    " ",
+                    "$lastName",
+                    " 👋, we’re really sorry to let you know that your career path has been deleted from our system 😔. You can retake the career assessment 🚀 or check any suggested careers 💼.",
+                  ],
+                },
+                __v: { $add: ["$__v", 1] },
+              },
+            },
+          ],
+        }),
+        // delete saved quizzes of this career
+        this._savedQuizRepository.deleteMany({ filter: { careerId } }),
+        // delete user progress related to this career
+      ]);
+    } else {
+      throw new NotFoundException("Invalid careerId or Not freezed ❌");
+    }
+
+    return successHandler({ res });
+  };
+}
+
+export default CareerService;

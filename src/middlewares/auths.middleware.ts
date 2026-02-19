@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import TokenSecurityUtil from "../utils/security/token.security.ts";
 import {
+  ApplicationTypeEnum,
   RolesEnum,
   TokenTypesEnum,
 } from "../utils/constants/enum.constants.js";
@@ -15,12 +16,14 @@ import StringConstants from "../utils/constants/strings.constants.ts";
 class Auths {
   static authenticationMiddleware = ({
     tokenType = TokenTypesEnum.accessToken,
-  }: { tokenType?: TokenTypesEnum } = {}) => {
+    isOptional = false,
+  }: { tokenType?: TokenTypesEnum; isOptional?: boolean } = {}) => {
     return async (
       req: Request,
       res: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
+      if (isOptional && !req.headers.authorization) return next();
       const result = await z
         .object({
           authorization: z
@@ -42,7 +45,7 @@ class Auths {
               path: issue.path.join("."),
               message: issue.message,
             };
-          })
+          }),
         );
       }
 
@@ -64,13 +67,29 @@ class Auths {
     return async (
       req: Request,
       res: Response,
-      next: NextFunction
+      next: NextFunction,
     ): Promise<void> => {
       if (!accessRoles.includes(req.user?.role ?? ("" as RolesEnum))) {
         throw new ForbiddenException(
-          StringConstants.NOT_AUTHORIZED_ACCOUNT_MESSAGE
+          StringConstants.NOT_AUTHORIZED_ACCOUNT_MESSAGE,
         );
       }
+      return next();
+    };
+  };
+
+  static gatewayMiddleware = ({
+    applicationType,
+  }: {
+    applicationType: ApplicationTypeEnum;
+  }) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+      if (req.tokenPayload?.applicationType !== applicationType) {
+        throw new ForbiddenException(
+          StringConstants.INVALID_LOGIN_GATEWAY_MESSAGE,
+        );
+      }
+
       return next();
     };
   };
@@ -85,6 +104,35 @@ class Auths {
     return [
       this.authenticationMiddleware({ tokenType }),
       this.authorizationMiddleware({ accessRoles }),
+    ];
+  };
+
+  static combinedWithGateway = ({
+    tokenType = TokenTypesEnum.accessToken,
+    accessRoles,
+    applicationType,
+  }: {
+    tokenType?: TokenTypesEnum;
+    accessRoles: RolesEnum[];
+    applicationType: ApplicationTypeEnum;
+  }) => {
+    return [
+      this.authenticationMiddleware({ tokenType }),
+      this.authorizationMiddleware({ accessRoles }),
+      this.gatewayMiddleware({ applicationType }),
+    ];
+  };
+
+  static authenticationWithGateway = ({
+    tokenType = TokenTypesEnum.accessToken,
+    applicationType,
+  }: {
+    tokenType?: TokenTypesEnum;
+    applicationType: ApplicationTypeEnum;
+  }) => {
+    return [
+      this.authenticationMiddleware({ tokenType }),
+      this.gatewayMiddleware({ applicationType }),
     ];
   };
 }

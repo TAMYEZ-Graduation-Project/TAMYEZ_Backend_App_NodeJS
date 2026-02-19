@@ -5,8 +5,12 @@ abstract class ModelsNames {
   static readonly quizAttemptModel = "QuizAttempt";
   static readonly savedQuizModel = "SavedQuiz";
   static readonly quizCooldownModel = "QuizCooldown";
-  static readonly notificationPushDevice = "NotificationPushDevice"
-  static readonly adminNotificationsLimit = "AdminNotificationsLimit"
+  static readonly notificationPushDevice = "NotificationPushDevice";
+  static readonly adminNotificationsLimit = "AdminNotificationsLimit";
+  static readonly careerModel = "Career";
+  static readonly roadmapStepModel = "RoadmapStep";
+  static readonly dashboardReviewModel = "DashboardReview";
+  static readonly feedbackModel = "Feedback";
 }
 
 export default ModelsNames;

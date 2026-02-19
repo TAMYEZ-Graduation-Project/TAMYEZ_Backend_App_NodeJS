@@ -6,7 +6,7 @@ import type {
 } from "../../utils/constants/enum.constants.ts";
 import type {
   IAtByObject,
-  ICodExpireCoundObject,
+  ICodeExpireCountObject,
   IIdSelectedAtObject,
   IProfilePictureObject,
 } from "./common.interface.ts";
@@ -14,6 +14,11 @@ import type {
 export interface IQuizAttempts {
   count: number;
   lastAttempt: Date;
+}
+
+export interface ICareerDeleted {
+  message: string;
+  newSuggestedCareer?: Types.ObjectId;
 }
 
 export interface IUser {
@@ -24,11 +29,12 @@ export interface IUser {
   lastName: string; // vitual
 
   email: string;
-  confirmEmailLink?: ICodExpireCoundObject;
+  confirmEmailLink?: ICodeExpireCountObject;
   confirmedAt?: Date;
+  restoreEmailLink: ICodeExpireCountObject;
 
   password: string;
-  forgetPasswordOtp?: ICodExpireCoundObject;
+  forgetPasswordOtp?: ICodeExpireCountObject;
   forgetPasswordVerificationExpiresAt?: Date;
   lastResetPasswordAt?: Date;
 
@@ -47,6 +53,7 @@ export interface IUser {
 
   // Acadamic Info
   careerPath?: IIdSelectedAtObject;
+  careerDeleted?: ICareerDeleted;
 
   // Quiz Info
   quizAttempts: IQuizAttempts;

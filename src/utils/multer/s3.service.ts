@@ -1,5 +1,4 @@
 import {
-  S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
@@ -14,20 +13,19 @@ import {
 import { Upload } from "@aws-sdk/lib-storage";
 import type { Progress } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { StorageTypesEnum } from "../constants/enum.constants.ts";
+import {
+  BucketProvidersEnum,
+  StorageTypesEnum,
+} from "../constants/enum.constants.ts";
 import { createReadStream } from "node:fs";
 import { S3Exception } from "../exceptions/custom.exceptions.ts";
-import KeyUtil from "./key.multer.ts";
+import S3KeyUtil from "./s3_key.multer.ts";
 import type { IMulterFile } from "../constants/interface.constants.ts";
-import EnvFields from "../constants/env_fields.constants.ts";
+import S3ClientFactory from "./s3_client_factory.ts";
 
-class S3Service {
-  private static _s3ClientObject = new S3Client({
-    region: process.env[EnvFields.AWS_REGION]!,
-    credentials: {
-      accessKeyId: process.env[EnvFields.AWS_ACCESS_KEY_ID]!,
-      secretAccessKey: process.env[EnvFields.AWS_SECRET_ACCESS_KEY]!,
-    },
+abstract class S3Service {
+  private static _s3ClientObject = S3ClientFactory.createS3Client({
+    bucketProvider: BucketProvidersEnum.cloudflare,
   });
 
   static uploadFile = async ({
@@ -43,7 +41,7 @@ class S3Service {
     Path?: string;
     File: IMulterFile;
   }): Promise<string> => {
-    const subKey = KeyUtil.generateS3SubKey({
+    const subKey = S3KeyUtil.generateS3SubKey({
       Path,
       originalname: File.originalname,
     });
@@ -51,7 +49,7 @@ class S3Service {
     const command = new PutObjectCommand({
       Bucket,
       ACL,
-      Key: KeyUtil.generateS3KeyFromSubKey(subKey),
+      Key: S3KeyUtil.generateS3KeyFromSubKey(subKey),
       Body:
         StorageApproach === StorageTypesEnum.memory
           ? File.buffer!
@@ -90,8 +88,8 @@ class S3Service {
             Bucket,
             ACL,
             Path,
-          })
-      )
+          }),
+      ),
     );
     if (subKeys.length == 0) {
       throw new S3Exception(undefined, "Failed to Retrieve Upload Keys");
@@ -112,7 +110,7 @@ class S3Service {
     Path?: string;
     File: Express.Multer.File;
   }): Promise<string> => {
-    const subKey = KeyUtil.generateS3SubKey({
+    const subKey = S3KeyUtil.generateS3SubKey({
       Path,
       originalname: File.originalname,
     });
@@ -122,7 +120,7 @@ class S3Service {
       params: {
         Bucket,
         ACL,
-        Key: KeyUtil.generateS3KeyFromSubKey(subKey),
+        Key: S3KeyUtil.generateS3KeyFromSubKey(subKey),
         Body:
           StorageApproach === StorageTypesEnum.memory
             ? File.buffer
@@ -166,8 +164,8 @@ class S3Service {
           Bucket,
           ACL,
           Path,
-        })
-      )
+        }),
+      ),
     );
 
     if ((subKeys.length = 0)) {
@@ -190,7 +188,7 @@ class S3Service {
     contentType: string;
     expiresIn?: number;
   }): Promise<{ url: string; key: string }> => {
-    const subKey = KeyUtil.generateS3SubKey({
+    const subKey = S3KeyUtil.generateS3SubKey({
       Path,
       tag: "presigned",
       originalname,
@@ -198,7 +196,7 @@ class S3Service {
 
     const command = new PutObjectCommand({
       Bucket,
-      Key: KeyUtil.generateS3KeyFromSubKey(subKey),
+      Key: S3KeyUtil.generateS3KeyFromSubKey(subKey),
       ContentType: contentType,
     });
     const url = await getSignedUrl(this._s3ClientObject, command, {
@@ -227,7 +225,7 @@ class S3Service {
   }): Promise<string> => {
     const command = new GetObjectCommand({
       Bucket,
-      Key: KeyUtil.generateS3KeyFromSubKey(SubKey),
+      Key: S3KeyUtil.generateS3KeyFromSubKey(SubKey),
       ResponseContentDisposition:
         download === "true"
           ? `attachment; filename="${
@@ -257,7 +255,7 @@ class S3Service {
   }): Promise<GetObjectOutput> => {
     const command = new GetObjectCommand({
       Bucket,
-      Key: KeyUtil.generateS3KeyFromSubKey(SubKey),
+      Key: S3KeyUtil.generateS3KeyFromSubKey(SubKey),
     });
 
     return this._s3ClientObject.send(command).catch((error) => {
@@ -274,7 +272,7 @@ class S3Service {
   }): Promise<DeleteObjectCommandOutput> => {
     const command = new DeleteObjectCommand({
       Bucket,
-      Key: KeyUtil.generateS3KeyFromSubKey(SubKey),
+      Key: S3KeyUtil.generateS3KeyFromSubKey(SubKey),
     });
 
     return this._s3ClientObject.send(command).catch((error) => {
@@ -302,7 +300,7 @@ class S3Service {
           return { Key };
         })
       : SubKeys!.map<{ Key: string }>((SubKey) => {
-          return { Key: KeyUtil.generateS3KeyFromSubKey(SubKey) };
+          return { Key: S3KeyUtil.generateS3KeyFromSubKey(SubKey) };
         });
 
     const command = new DeleteObjectsCommand({
@@ -327,18 +325,11 @@ class S3Service {
   }): Promise<ListObjectsV2CommandOutput> => {
     const command = new ListObjectsV2Command({
       Bucket,
-      Prefix: KeyUtil.generateS3KeyFromSubKey(FolderPath),
+      Prefix: S3KeyUtil.generateS3KeyFromSubKey(FolderPath),
     });
 
-    const result = await this._s3ClientObject.send(command).catch((error) => {
-      throw new S3Exception(
-        error,
-        `Failed to list files in this directory ☹️.`
-      );
-    });
-    if (!result.Contents || result.Contents.length === 0) {
-      throw new S3Exception(undefined, "No files found in this directory ☹️");
-    }
+    const result = await this._s3ClientObject.send(command);
+
     return result;
   };
 
@@ -350,14 +341,15 @@ class S3Service {
     Bucket?: string;
     FolderPath: string;
     Quiet?: boolean;
-  }): Promise<DeleteObjectsCommandOutput> => {
+  }): Promise<DeleteObjectsCommandOutput | undefined> => {
     // List all objects with the given prefix
     const listedObjects = await this.listDirectoryFiles({
       Bucket,
       FolderPath,
     });
 
-    const Keys = listedObjects.Contents!.map((item) => item.Key!);
+    const Keys = listedObjects.Contents?.map((item) => item.Key!);
+    if (!Keys) return;
 
     return this.deleteFiles({ Bucket, Keys, Quiet });
   };

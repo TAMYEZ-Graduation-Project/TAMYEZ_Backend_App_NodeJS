@@ -1,6 +1,7 @@
+import EnvFields from "../constants/env_fields.constants.ts";
 import IdSecurityUtil from "../security/id.security.ts";
 
-class KeyUtil {
+class S3KeyUtil {
   static generateS3Key = ({
     Path,
     tag,
@@ -10,7 +11,9 @@ class KeyUtil {
     tag?: string | undefined;
     originalname: string;
   }): string => {
-    return `${process.env.APP_NAME}/${Path}/${IdSecurityUtil.generateAlphaNumericId({
+    return `${
+      process.env.APP_NAME
+    }/${Path}/${IdSecurityUtil.generateAlphaNumericId({
       size: 24,
     })}${tag ? `_${tag}` : ""}_${originalname}`;
   };
@@ -33,15 +36,14 @@ class KeyUtil {
     })}${tag ? `_${tag}` : ""}_${originalname}`;
   };
 
-  static generateS3UploadsUrlFromSubKey = ({
-    req,
-    subKey,
-  }: {
-    req: { host: string; protocol: string };
-    subKey: string;
-  }): string => {
-    return `${req.protocol}://${req.host}/uploads/${subKey}`;
+  static generateS3UploadsUrlFromSubKey = (
+    subKey?: string,
+  ): string | undefined => {
+    if (!subKey) return undefined;
+    return `${process.env[EnvFields.PROTOCOL]}://${
+      process.env[EnvFields.HOST]
+    }/uploads/${encodeURIComponent(subKey)}`;
   };
 }
 
-export default KeyUtil;
+export default S3KeyUtil;

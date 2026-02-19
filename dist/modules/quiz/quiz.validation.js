@@ -148,8 +148,10 @@ class QuizValidators {
                 .max(36_000)
                 .optional(),
             tags: z.array(z.string().toLowerCase()).min(2).max(20).optional(),
+            v: generalValidationConstants.v,
         })
             .superRefine((data, ctx) => {
+            generalValidationConstants.checkValuesForUpdate(data, ctx);
             if (data.type === QuizTypesEnum.careerAssessment &&
                 data.title != undefined) {
                 ctx.addIssue({
@@ -181,10 +183,42 @@ class QuizValidators {
                 z.literal(QuizTypesEnum.careerAssessment),
                 generalValidationConstants.objectId,
             ]),
+            roadmapStepId: generalValidationConstants.objectId.optional(),
+        }),
+    };
+    static getQuizQuestions = {
+        params: this.getQuiz.params
+            .extend({
+            roadmapStepId: generalValidationConstants.objectId.optional(),
+        })
+            .superRefine((data, ctx) => {
+            if (data.quizId !== QuizTypesEnum.careerAssessment &&
+                !data.roadmapStepId) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["roadmapStepId"],
+                    message: "roadmapStepId is required when getting questions of roadmap step quiz ❌",
+                });
+            }
+            else if (data.quizId === QuizTypesEnum.careerAssessment &&
+                data.roadmapStepId) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["roadmapStepId"],
+                    message: `no need for roadmapStepId, when getting ${QuizTypesEnum.careerAssessment} questions ❌`,
+                });
+            }
+        }),
+    };
+    static getQuizzes = {
+        query: z.strictObject({
+            size: z.coerce.number().int().min(2).max(30).optional().default(15),
+            page: z.coerce.number().int().min(1).max(300).optional().default(1),
+            searchKey: z.string().nonempty().min(1).optional(),
         }),
     };
     static checkQuizAnswers = {
-        params: z.strictObject({ quizId: generalValidationConstants.objectId }),
+        params: z.strictObject({ quizAttemptId: generalValidationConstants.objectId }),
         body: z.strictObject({
             answers: z
                 .array(z
@@ -242,6 +276,20 @@ class QuizValidators {
         params: z.strictObject({
             savedQuizId: generalValidationConstants.objectId,
         }),
+    };
+    static archiveQuiz = {
+        params: this.updateQuiz.params,
+        body: z.strictObject({
+            v: generalValidationConstants.v,
+        }),
+    };
+    static restoreQuiz = {
+        params: this.archiveQuiz.params,
+        body: this.archiveQuiz.body,
+    };
+    static deleteQuiz = {
+        params: this.archiveQuiz.params,
+        body: this.archiveQuiz.body,
     };
 }
 export default QuizValidators;

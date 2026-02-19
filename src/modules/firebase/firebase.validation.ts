@@ -19,6 +19,13 @@ class FirebaseValidators {
     }),
   };
 
+  static readonly sendNotificationToCareerUsers = {
+    params: z.strictObject({
+      careerId: generalValidationConstants.objectId,
+    }),
+    body: this.sendNotificationsToAllUsers.body,
+  };
+
   static readonly sendNotification = {
     body: this.sendNotificationsToAllUsers.body.extend({
       fcmToken: generalValidationConstants.fcmToken,

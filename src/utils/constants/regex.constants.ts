@@ -16,7 +16,7 @@ class AppRegex {
   static readonly phoneNumberRegex = /^(\+20)(10|11|12|15)\d{8}$/;
 
   static readonly getFileWithUrlRegex =
-    /^(users)\/[0-9a-f]{24}\/.+\.(jpeg|jpg|png|gif)/;
+    /^(users|careers)\/\w{1,50}\/.+\.(jpeg|jpg|png|gif)$/;
 
   static readonly quizTitleRegex = /^(?=.{3,200}$)[A-Z][a-z]+(\s[A-Z][a-z]+)*$/;
 
@@ -27,9 +27,26 @@ class AppRegex {
 
   static readonly appVersionRegex = /^\d+(?:\.\d+){1,3}$/;
 
-  static readonly osRegex = /^(Android|IOS|Web)\s\d{1,2}(\.\d{1,2})*$/
+  static readonly osRegex = /^(Android|IOS|Web)\s\d{1,2}(\.\d{1,2})*$/;
 
-  static readonly deviceModelRegex = /^[A-Za-z0-9][A-Za-z0-9\-_ ]{1,49}$/
+  static readonly deviceModelRegex = /^[A-Za-z0-9][A-Za-z0-9\-_ ]{1,49}$/;
+
+  static readonly careerTitleRegex =
+    /^(?=.{3,100}$)[A-Z][a-z]+(?:[-\s][A-Z][a-z]+)*\s(?:Engineer|Developer|Scientist|Architect|Analyst|Administrator|Manager|Specialist|Consultant|Researcher|Tester|Auditor|Operator|Lead|Principal)(?:\s\([A-Za-z0-9 +\/#&.\-]{1,40}\))?$/;
+  // [Domain Words] [Role Type] (Optional Focus)
+  /*
+  Examples:
+   - Android Developer
+   - Mobile Developer (iOS)
+   - Machine Learning Engineer (AI/ML)
+   - Flutter Developer
+   - Design Developer (UI/UX)
+   - Mobile Developer (iOS)
+   - Backend Developer (C++)
+   - Software Engineer (C#/.NET)
+   - Data Scientist (NLP)
+   - Platform Engineer (SRE)
+  */
 }
 
 export default AppRegex;

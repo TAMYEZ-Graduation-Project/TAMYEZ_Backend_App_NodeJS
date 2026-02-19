@@ -21,8 +21,8 @@ class OTPSecurityUtil {
         }
         if (otpObject && otpObject.expiresAt) {
             if (otpObject.count >= 5) {
-                if (Date.now() + otpExpiringTime - otpObject.expiresAt.getTime() >=
-                    otpExpiringTime) {
+                if (Date.now() - (otpObject.expiresAt.getTime() - otpExpiringTime) >=
+                    900_000) {
                     otpObject.count = 0;
                 }
                 else {

@@ -1,1 +1,1 @@
-export { default as firebaseRouter } from "./firebase.controller.ts";
+export * from "./firebase.controller.ts";

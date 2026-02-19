@@ -6,9 +6,24 @@ import EnvFields from "../../utils/constants/env_fields.constants.ts";
 import {
   GenderEnum,
   LogoutFlagsEnum,
+  RolesEnum,
 } from "../../utils/constants/enum.constants.ts";
 
 class UserValidators {
+  static getProfile = {
+    params: z.strictObject({
+      userId: generalValidationConstants.objectId.optional(),
+    }),
+  };
+
+  static getUsers = {
+    query: z.strictObject({
+      size: z.coerce.number().int().min(2).max(30).optional().default(15),
+      page: z.coerce.number().int().min(1).max(300).optional().default(1),
+      searchKey: z.string().nonempty().min(1).optional(),
+    }),
+  };
+
   static uploadProfilePicture = {
     body: z.strictObject({
       attachment: generalValidationConstants.fileKeys({
@@ -16,6 +31,7 @@ class UserValidators {
         maxSize: Number(process.env[EnvFields.PROFILE_PICTURE_SIZE]),
         mimetype: fileValidation.image,
       }),
+      v: generalValidationConstants.v,
     }),
   };
 
@@ -26,15 +42,10 @@ class UserValidators {
         lastName: generalValidationConstants.name.optional(),
         phoneNumber: generalValidationConstants.phoneNumber.optional(),
         gender: z.enum(Object.values(GenderEnum)).optional(),
+        v: generalValidationConstants.v,
       })
       .superRefine((data, ctx) => {
-        if (!Object.values(data).length) {
-          ctx.addIssue({
-            code: "custom",
-            path: [""],
-            message: "All fields are empty ❌",
-          });
-        }
+        generalValidationConstants.checkValuesForUpdate(data, ctx);
       }),
   };
 
@@ -48,6 +59,7 @@ class UserValidators {
           .enum(Object.values(LogoutFlagsEnum))
           .optional()
           .default(LogoutFlagsEnum.stay),
+        v: generalValidationConstants.v,
       })
       .superRefine((data, ctx) => {
         if (data.currentPassword == data.newPassword) {
@@ -63,7 +75,7 @@ class UserValidators {
             password: data.newPassword,
             confirmPassword: data.confirmPassword,
           },
-          ctx
+          ctx,
         );
       }),
   };
@@ -80,6 +92,65 @@ class UserValidators {
         }),
     }),
   };
+
+  static changeRole = {
+    params: z.strictObject({
+      userId: generalValidationConstants.objectId,
+    }),
+    body: z.strictObject({
+      role: z.enum(Object.values(RolesEnum)),
+      v: generalValidationConstants.v,
+    }),
+  };
+
+  static archiveAccount = {
+    params: this.getProfile.params,
+    body: z.strictObject({
+      v: generalValidationConstants.v,
+      refreeze: z.coerce.boolean().optional(),
+    }),
+  };
+
+  static restoreAccount = {
+    params: this.changeRole.params,
+    body: z.strictObject({
+      v: generalValidationConstants.v,
+    }),
+  };
+
+  static deleteAccount = {
+    params: this.getProfile.params,
+    body: z.strictObject({
+      v: generalValidationConstants.v,
+    }),
+  };
+
+  static submitFeedback = {
+    body: z.strictObject({
+      text: z.string().nonempty().min(1).max(500),
+      stars: z.coerce.number().int().min(1).max(5),
+    }),
+  };
+
+  static getFeedbacks = {
+    query: z.strictObject({
+      size: z.coerce.number().int().min(2).max(30).optional().default(15),
+      page: z.coerce.number().int().min(1).max(300).optional().default(1),
+    }),
+  };
+
+  static replyToFeedback = {
+    params: z.strictObject({
+      feedbackId: generalValidationConstants.objectId,
+    }),
+    body: z.strictObject({
+      text: z.string().nonempty().min(1).max(500),
+    }),
+  };
+
+  static deleteFeedback = {
+    params: this.replyToFeedback.params,
+  }
 }
 
 export default UserValidators;

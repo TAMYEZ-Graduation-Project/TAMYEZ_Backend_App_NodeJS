@@ -15,15 +15,20 @@ export var ErrorCodesEnum;
     ErrorCodesEnum["FORBIDDEN"] = "FORBIDDEN";
     ErrorCodesEnum["TOO_MANY_RQUESTS"] = "TOO_MANY_REQUESTS";
     ErrorCodesEnum["ASSET_ERROR"] = "ASSET_ERROR";
+    ErrorCodesEnum["CONTENT_TOO_LARGE"] = "CONTENT_TOO_LARGE";
+    ErrorCodesEnum["VERSION_CONFLICT"] = "VERSION_CONFLICT";
 })(ErrorCodesEnum || (ErrorCodesEnum = {}));
 export var EmailEventsEnum;
 (function (EmailEventsEnum) {
     EmailEventsEnum["emailVerification"] = "EmailVerification";
     EmailEventsEnum["forgetPassword"] = "ForgetPassword";
+    EmailEventsEnum["emailRestoration"] = "EmailRestoration";
+    EmailEventsEnum["feedbackReply"] = "FeedReply";
 })(EmailEventsEnum || (EmailEventsEnum = {}));
 export var NotificationEventsEnum;
 (function (NotificationEventsEnum) {
-    NotificationEventsEnum["mutlipleNotifications"] = "MultipleNotifications";
+    NotificationEventsEnum["allUsers"] = "AllUsers";
+    NotificationEventsEnum["careerUsers"] = "CareerUsers";
 })(NotificationEventsEnum || (NotificationEventsEnum = {}));
 export var GenderEnum;
 (function (GenderEnum) {
@@ -107,3 +112,54 @@ export var AdminNotificationTypesEnum;
     AdminNotificationTypesEnum["allUsers"] = "AllUsers";
     AdminNotificationTypesEnum["careerSpecific"] = "CareerSpecific";
 })(AdminNotificationTypesEnum || (AdminNotificationTypesEnum = {}));
+export var RoadmapStepPricingTypesEnum;
+(function (RoadmapStepPricingTypesEnum) {
+    RoadmapStepPricingTypesEnum["free"] = "Free";
+    RoadmapStepPricingTypesEnum["paid"] = "Paid";
+    RoadmapStepPricingTypesEnum["subscription"] = "Subscription";
+})(RoadmapStepPricingTypesEnum || (RoadmapStepPricingTypesEnum = {}));
+export var LanguagesEnum;
+(function (LanguagesEnum) {
+    LanguagesEnum["en"] = "en";
+    LanguagesEnum["ar"] = "ar";
+    LanguagesEnum["in"] = "in";
+    LanguagesEnum["fr"] = "fr";
+    LanguagesEnum["es"] = "es";
+    LanguagesEnum["de"] = "de";
+    LanguagesEnum["it"] = "it";
+    LanguagesEnum["ja"] = "ja";
+    LanguagesEnum["ko"] = "ko";
+    LanguagesEnum["zh"] = "zh";
+    LanguagesEnum["ru"] = "ru";
+    LanguagesEnum["pt"] = "pt";
+    LanguagesEnum["hi"] = "hi";
+    LanguagesEnum["nl"] = "nl";
+    LanguagesEnum["sv"] = "sv";
+})(LanguagesEnum || (LanguagesEnum = {}));
+export var CareerResourceAppliesToEnum;
+(function (CareerResourceAppliesToEnum) {
+    CareerResourceAppliesToEnum["all"] = "All";
+    CareerResourceAppliesToEnum["specific"] = "Specific";
+})(CareerResourceAppliesToEnum || (CareerResourceAppliesToEnum = {}));
+export var CareerResourceNamesEnum;
+(function (CareerResourceNamesEnum) {
+    CareerResourceNamesEnum["courses"] = "courses";
+    CareerResourceNamesEnum["youtubePlaylists"] = "youtubePlaylists";
+    CareerResourceNamesEnum["books"] = "books";
+})(CareerResourceNamesEnum || (CareerResourceNamesEnum = {}));
+export var ApplicationTypeEnum;
+(function (ApplicationTypeEnum) {
+    ApplicationTypeEnum["user"] = "User";
+    ApplicationTypeEnum["adminDashboard"] = "AdminDashboard";
+})(ApplicationTypeEnum || (ApplicationTypeEnum = {}));
+export var DashboardReviewTypes;
+(function (DashboardReviewTypes) {
+    DashboardReviewTypes["users"] = "users";
+    DashboardReviewTypes["careers"] = "careers";
+    DashboardReviewTypes["quizzes"] = "quizzes";
+})(DashboardReviewTypes || (DashboardReviewTypes = {}));
+export var BucketProvidersEnum;
+(function (BucketProvidersEnum) {
+    BucketProvidersEnum["aws"] = "AWS";
+    BucketProvidersEnum["cloudflare"] = "Cloudflare";
+})(BucketProvidersEnum || (BucketProvidersEnum = {}));

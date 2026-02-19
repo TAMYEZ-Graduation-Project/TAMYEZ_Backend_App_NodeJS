@@ -4,10 +4,36 @@ import AppRegex from "./regex.constants.js";
 import { Types } from "mongoose";
 import { StorageTypesEnum } from "./enum.constants.js";
 import Stream from "node:stream";
+import { isNumberBetweenOrEqual } from "../validators/numeric.validator.js";
 const generalValidationConstants = {
-    objectId: z.string().refine((value) => {
+    objectId: z
+        .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("id") })
+        .refine((value) => {
         return Types.ObjectId.isValid(value);
     }, { error: StringConstants.INVALID_PARAMETER_MESSAGE() }),
+    objectIdsSeparatedByCommas: ({ min, max }) => {
+        return z.string().refine((value) => {
+            const ids = value.split(",");
+            if (!isNumberBetweenOrEqual({
+                value: ids.length,
+                min,
+                max,
+            })) {
+                return false;
+            }
+            for (const id of ids) {
+                if (!Types.ObjectId.isValid(id))
+                    return false;
+            }
+            return true;
+        }, {
+            error: `Invalid haveQuizzes value, the value must be ${min} to ${max} Valid objectIds separated by commas ❌`,
+        });
+    },
+    v: z.coerce
+        .number({ error: StringConstants.PATH_REQUIRED_MESSAGE("v") })
+        .int()
+        .min(0),
     name: z
         .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("name") })
         .regex(AppRegex.nameRegex, StringConstants.NAME_VALIDATION_MESSAGE),
@@ -31,6 +57,16 @@ const generalValidationConstants = {
                 code: "custom",
                 path: ["confirmPassword"],
                 message: StringConstants.MISMATCH_CONFIRM_PASSWORD_MESSAGE,
+            });
+        }
+    },
+    checkValuesForUpdate: (data, ctx) => {
+        const { v, ...mainData } = data;
+        if (!Object.values(mainData).length) {
+            ctx.addIssue({
+                code: "custom",
+                path: [""],
+                message: "All fields are empty ❌",
             });
         }
     },
@@ -137,5 +173,70 @@ const generalValidationConstants = {
         .regex(AppRegex.fcmTokenRegex, {
         error: "Invalid fcmToken format ❌",
     }),
+    checkCoureseUrls: ({ data, ctx, }) => {
+        if (data.courses?.length &&
+            data.courses.findIndex((c) => c.url.includes("youtube.com") || c.url.includes("youtu.be")) !== -1) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["courses"],
+                message: "Some courses have YouTube URLs ❌",
+            });
+        }
+    },
+    checkYoutubePlaylistsUrls: ({ data, ctx, }) => {
+        if (data.youtubePlaylists?.length &&
+            data.youtubePlaylists.findIndex((c) => !(c.url.includes("youtube.com") || c.url.includes("youtu.be"))) !== -1) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["youtubePlaylists"],
+                message: "Some youtube playlists have non-YouTube URLs ❌",
+            });
+        }
+    },
+    checkBooksUrls: ({ data, ctx, }) => {
+        if (data.books?.length &&
+            data.books.findIndex((c) => c.url.includes("youtube.com") || c.url.includes("youtu.be")) !== -1) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["books"],
+                message: "Some books have YouTube URLs ❌",
+            });
+        }
+    },
+    checkDuplicateCourses: ({ data, ctx, }) => {
+        if (data.courses?.length &&
+            (new Set(data.courses.map((c) => c.title)).size !== data.courses.length ||
+                new Set(data.courses.map((c) => c.url)).size !== data.courses.length)) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["courses"],
+                message: "Duplicate titles or urls found in courses ❌",
+            });
+        }
+    },
+    checkDuplicateYoutubePlaylists: ({ data, ctx, }) => {
+        if (data.youtubePlaylists?.length &&
+            (new Set(data.youtubePlaylists.map((c) => c.title)).size !==
+                data.youtubePlaylists.length ||
+                new Set(data.youtubePlaylists.map((c) => c.url)).size !==
+                    data.youtubePlaylists.length)) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["youtubePlaylists"],
+                message: "Duplicate titles or urls found in youtube playlists ❌",
+            });
+        }
+    },
+    checkDuplicateBooks: ({ data, ctx, }) => {
+        if (data.books?.length &&
+            (new Set(data.books.map((c) => c.title)).size !== data.books.length ||
+                new Set(data.books.map((c) => c.url)).size !== data.books.length)) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["books"],
+                message: "Duplicate titles or urls found in books ❌",
+            });
+        }
+    },
 };
 export default generalValidationConstants;

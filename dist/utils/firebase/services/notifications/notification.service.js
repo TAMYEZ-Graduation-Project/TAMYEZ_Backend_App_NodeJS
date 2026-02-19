@@ -28,17 +28,12 @@ class NotificationService {
         const result = await firebaseAdmin
             .messaging()
             .sendEachForMulticast(message);
-        console.log({
-            result,
-            responses: result.responses,
-        });
         return result;
     };
     sendMultipleNotificationsAndDeactivatePushDevices = async ({ title, body, imageUrl, pushDevices, }) => {
         if (pushDevices.length > 300) {
             throw new ServerException("Exceeded the max number of pushDevices ❌");
         }
-        console.log({ imageUrl });
         const response = await this.sendMultipleNotifications({
             title,
             body,

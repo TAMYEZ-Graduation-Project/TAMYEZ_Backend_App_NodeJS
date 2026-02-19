@@ -16,10 +16,10 @@ class OTPSecurityUtil {
     otpType = OTPsOrLinksEnum.confirmEmailLink,
     checkEmailStatus = EmailStatusEnum.notConfirmed,
     otpExpiringTime = Number(
-      process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS]
+      process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS],
     ),
     windowTimePreferedToNewOtpRequest = Number(
-      process.env[EnvFields.WINDOW_PREFERED_TO_NEW_OTP_REQUST_IN_MILLISECONDS]
+      process.env[EnvFields.WINDOW_PREFERED_TO_NEW_OTP_REQUST_IN_MILLISECONDS],
     ),
   }: {
     user: HIUserType | null;
@@ -37,7 +37,7 @@ class OTPSecurityUtil {
       throw new BadRequestException(
         `Invalid Account or ${
           checkEmailStatus === EmailStatusEnum.notConfirmed ? "" : "NOT"
-        }already Verified!`
+        }already Verified!`,
       );
     }
     let otpObject;
@@ -54,13 +54,13 @@ class OTPSecurityUtil {
     if (otpObject && otpObject.expiresAt) {
       if (otpObject.count! >= 5) {
         if (
-          Date.now() + otpExpiringTime - otpObject.expiresAt.getTime() >=
-          otpExpiringTime
+          Date.now() - (otpObject.expiresAt.getTime() - otpExpiringTime) >=
+          900_000 // 15 minutes
         ) {
           otpObject.count = 0;
         } else {
           throw new TooManyRequestsException(
-            StringConstants.TRY_AFTER_A_WHILE_MESSAGE
+            StringConstants.TRY_AFTER_A_WHILE_MESSAGE,
           );
         }
       } else {

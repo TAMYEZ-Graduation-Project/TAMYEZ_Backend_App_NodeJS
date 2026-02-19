@@ -1,9 +1,11 @@
 import { Router } from "express";
-import { authRouter } from "./auth/index.ts";
+import { authRouter, adminAuthRouter } from "./auth/index.ts";
 import RoutePaths from "../utils/constants/route_paths.constants.ts";
-import { userRouter } from "./user/index.ts";
-import { quizRouter } from "./quiz/index.ts";
-import { firebaseRouter } from "./firebase/index.ts";
+import { adminUserRouter, userRouter } from "./user/index.ts";
+import { adminQuizRouter, quizRouter } from "./quiz/index.ts";
+import { adminFirebaseRouter, firebaseRouter } from "./firebase/index.ts";
+import { adminCareerRouter, careerRouter } from "./career/index.ts";
+import { adminRoadmapRouter, roadmapRouter } from "./roadmap/index.ts";
 
 const modulesRouter: Router = Router();
 
@@ -13,9 +15,20 @@ modulesRouter.get("/", (req, res) => {
   });
 });
 
+// Normal user routes
 modulesRouter.use(RoutePaths.auth, authRouter);
 modulesRouter.use(RoutePaths.user, userRouter);
+modulesRouter.use(RoutePaths.career, careerRouter);
+modulesRouter.use(RoutePaths.roadmap, roadmapRouter);
 modulesRouter.use(RoutePaths.quiz, quizRouter);
 modulesRouter.use(RoutePaths.firebase, firebaseRouter);
+
+// admin routes
+modulesRouter.use(RoutePaths.adminAuth, adminAuthRouter);
+modulesRouter.use(RoutePaths.adminUser, adminUserRouter);
+modulesRouter.use(RoutePaths.adminCareer, adminCareerRouter);
+modulesRouter.use(RoutePaths.adminRoadmap, adminRoadmapRouter);
+modulesRouter.use(RoutePaths.adminQuiz, adminQuizRouter);
+modulesRouter.use(RoutePaths.adminFirebase, adminFirebaseRouter);
 
 export default modulesRouter;

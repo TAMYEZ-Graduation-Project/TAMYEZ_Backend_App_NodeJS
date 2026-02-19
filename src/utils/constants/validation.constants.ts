@@ -4,14 +4,45 @@ import AppRegex from "./regex.constants.ts";
 import { Types } from "mongoose";
 import { StorageTypesEnum } from "./enum.constants.ts";
 import Stream from "node:stream";
+import type { IRoadmapStepResource } from "../../db/interfaces/common.interface.ts";
+import { isNumberBetweenOrEqual } from "../validators/numeric.validator.ts";
 
 const generalValidationConstants = {
-  objectId: z.string().refine(
-    (value) => {
-      return Types.ObjectId.isValid(value);
-    },
-    { error: StringConstants.INVALID_PARAMETER_MESSAGE() }
-  ),
+  objectId: z
+    .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("id") })
+    .refine(
+      (value) => {
+        return Types.ObjectId.isValid(value);
+      },
+      { error: StringConstants.INVALID_PARAMETER_MESSAGE() },
+    ),
+  objectIdsSeparatedByCommas: ({ min, max }: { min: number; max: number }) => {
+    return z.string().refine(
+      (value) => {
+        const ids = value.split(",");
+        if (
+          !isNumberBetweenOrEqual({
+            value: ids.length,
+            min,
+            max,
+          })
+        ) {
+          return false;
+        }
+        for (const id of ids) {
+          if (!Types.ObjectId.isValid(id)) return false;
+        }
+        return true;
+      },
+      {
+        error: `Invalid haveQuizzes value, the value must be ${min} to ${max} Valid objectIds separated by commas ❌`,
+      },
+    );
+  },
+  v: z.coerce
+    .number({ error: StringConstants.PATH_REQUIRED_MESSAGE("v") })
+    .int()
+    .min(0),
   name: z
     .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("name") })
     .regex(AppRegex.nameRegex, StringConstants.NAME_VALIDATION_MESSAGE),
@@ -20,7 +51,7 @@ const generalValidationConstants = {
     .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("fullName") })
     .regex(
       AppRegex.fullNameRegex,
-      StringConstants.FULL_NAME_VALIDATION_MESSAGE
+      StringConstants.FULL_NAME_VALIDATION_MESSAGE,
     ),
 
   email: z.email(StringConstants.INVALID_EMAIL_MESSAGE),
@@ -29,7 +60,7 @@ const generalValidationConstants = {
       .string({ error: StringConstants.PATH_REQUIRED_MESSAGE(fieldName) })
       .regex(
         AppRegex.passwordRegex,
-        StringConstants.PASSWORD_VALIDATION_MESSAGE
+        StringConstants.PASSWORD_VALIDATION_MESSAGE,
       );
   },
 
@@ -40,13 +71,27 @@ const generalValidationConstants = {
     }),
   confirmPasswordChecker: (
     data: { confirmPassword: string; password: String } & Record<string, any>,
-    ctx: z.core.$RefinementCtx
+    ctx: z.core.$RefinementCtx,
   ) => {
     if (data.confirmPassword !== data.password) {
       ctx.addIssue({
         code: "custom",
         path: ["confirmPassword"],
         message: StringConstants.MISMATCH_CONFIRM_PASSWORD_MESSAGE,
+      });
+    }
+  },
+
+  checkValuesForUpdate: (
+    data: Record<string, any> & { v?: number | undefined },
+    ctx: z.core.$RefinementCtx,
+  ) => {
+    const { v, ...mainData } = data;
+    if (!Object.values(mainData).length) {
+      ctx.addIssue({
+        code: "custom",
+        path: [""],
+        message: "All fields are empty ❌",
       });
     }
   },
@@ -100,7 +145,7 @@ const generalValidationConstants = {
 
                 return true;
               },
-              { error: StringConstants.PATH_REQUIRED_MESSAGE("basePath") }
+              { error: StringConstants.PATH_REQUIRED_MESSAGE("basePath") },
             ),
           finalPath: z
             .string()
@@ -112,7 +157,7 @@ const generalValidationConstants = {
 
                 return true;
               },
-              { error: StringConstants.PATH_REQUIRED_MESSAGE("finalPath") }
+              { error: StringConstants.PATH_REQUIRED_MESSAGE("finalPath") },
             ),
           destination: z
             .string()
@@ -124,7 +169,7 @@ const generalValidationConstants = {
 
                 return true;
               },
-              { error: StringConstants.PATH_REQUIRED_MESSAGE("destination") }
+              { error: StringConstants.PATH_REQUIRED_MESSAGE("destination") },
             ),
           filename: z
             .string()
@@ -136,7 +181,7 @@ const generalValidationConstants = {
 
                 return true;
               },
-              { error: StringConstants.PATH_REQUIRED_MESSAGE("filename") }
+              { error: StringConstants.PATH_REQUIRED_MESSAGE("filename") },
             ),
           path: z
             .string()
@@ -148,7 +193,7 @@ const generalValidationConstants = {
 
                 return true;
               },
-              { error: StringConstants.PATH_REQUIRED_MESSAGE("path") }
+              { error: StringConstants.PATH_REQUIRED_MESSAGE("path") },
             ),
           size: z.number().positive().max(maxSize),
           buffer: z
@@ -162,10 +207,10 @@ const generalValidationConstants = {
 
                 return true;
               },
-              { error: StringConstants.PATH_REQUIRED_MESSAGE("buffer") }
+              { error: StringConstants.PATH_REQUIRED_MESSAGE("buffer") },
             ),
         },
-        { error: StringConstants.PATH_REQUIRED_MESSAGE("image") }
+        { error: StringConstants.PATH_REQUIRED_MESSAGE("image") },
       )
       .superRefine((data, ctx) => {
         if (data.fieldname !== fieldName) {
@@ -194,6 +239,143 @@ const generalValidationConstants = {
     .regex(AppRegex.fcmTokenRegex, {
       error: "Invalid fcmToken format ❌",
     }),
+
+  checkCoureseUrls: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      courses: IRoadmapStepResource[] | undefined;
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.courses?.length &&
+      data.courses.findIndex(
+        (c) => c.url.includes("youtube.com") || c.url.includes("youtu.be"),
+      ) !== -1
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["courses"],
+        message: "Some courses have YouTube URLs ❌",
+      });
+    }
+  },
+
+  checkYoutubePlaylistsUrls: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      youtubePlaylists: IRoadmapStepResource[] | undefined;
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.youtubePlaylists?.length &&
+      data.youtubePlaylists.findIndex(
+        (c) => !(c.url.includes("youtube.com") || c.url.includes("youtu.be")),
+      ) !== -1
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["youtubePlaylists"],
+        message: "Some youtube playlists have non-YouTube URLs ❌",
+      });
+    }
+  },
+
+  checkBooksUrls: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      books: IRoadmapStepResource[] | undefined;
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.books?.length &&
+      data.books.findIndex(
+        (c) => c.url.includes("youtube.com") || c.url.includes("youtu.be"),
+      ) !== -1
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["books"],
+        message: "Some books have YouTube URLs ❌",
+      });
+    }
+  },
+
+  checkDuplicateCourses: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      courses: IRoadmapStepResource[] | undefined;
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.courses?.length &&
+      (new Set(data.courses.map((c) => c.title)).size !== data.courses.length ||
+        new Set(data.courses.map((c) => c.url)).size !== data.courses.length)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["courses"],
+        message: "Duplicate titles or urls found in courses ❌",
+      });
+    }
+  },
+
+  checkDuplicateYoutubePlaylists: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      youtubePlaylists: IRoadmapStepResource[] | undefined;
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.youtubePlaylists?.length &&
+      (new Set(data.youtubePlaylists.map((c) => c.title)).size !==
+        data.youtubePlaylists.length ||
+        new Set(data.youtubePlaylists.map((c) => c.url)).size !==
+          data.youtubePlaylists.length)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["youtubePlaylists"],
+        message: "Duplicate titles or urls found in youtube playlists ❌",
+      });
+    }
+  },
+
+  checkDuplicateBooks: ({
+    data,
+    ctx,
+  }: {
+    data: {
+      books: IRoadmapStepResource[] | undefined;
+    };
+    ctx: z.core.$RefinementCtx;
+  }) => {
+    if (
+      data.books?.length &&
+      (new Set(data.books.map((c) => c.title)).size !== data.books.length ||
+        new Set(data.books.map((c) => c.url)).size !== data.books.length)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["books"],
+        message: "Duplicate titles or urls found in books ❌",
+      });
+    }
+  },
 };
 
 export default generalValidationConstants;

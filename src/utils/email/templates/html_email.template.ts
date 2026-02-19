@@ -7,7 +7,7 @@ const HTML_EMAIL_TEMPLATE = ({
 }: {
   title: string;
   message: string;
-  otpOrLink: string;
+  otpOrLink?: string;
   company?: string;
   logoUrl?: string;
 }): string => {
@@ -88,9 +88,13 @@ const HTML_EMAIL_TEMPLATE = ({
     <div class="content">
       <h2>${title}</h2>
       <p>${message}</p>
-      <div class="otp-box">${otpOrLink}</div>
+      ${
+        otpOrLink
+          ? `<div class="otp-box">${otpOrLink}</div>
       <p>This code or link will expire in 10 minutes. If you did not request this, please ignore this email.</p>
-    </div>
+    </div>`
+          : ``
+      }
     <div class="footer">
       &copy; ${new Date().getFullYear()} ${company}. All rights reserved.
     </div>

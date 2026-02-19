@@ -1,1 +1,1 @@
-export { default as quizRouter } from "./quiz.controller.ts";
+export * from "./quiz.controller.ts";

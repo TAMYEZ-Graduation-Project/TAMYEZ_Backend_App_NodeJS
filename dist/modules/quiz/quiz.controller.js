@@ -2,16 +2,35 @@ import { Router } from "express";
 import QuizService from "./quiz.service.js";
 import RoutePaths from "../../utils/constants/route_paths.constants.js";
 import Auths from "../../middlewares/auths.middleware.js";
-import endpointsAuthorization from "./quiz.auhorization.js";
+import quizAuthorizationEndpoints from "./quiz.auhorization.js";
 import validationMiddleware from "../../middlewares/validation.middleware.js";
 import QuizValidators from "./quiz.validation.js";
-const quizRouter = Router();
+import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.js";
+export const quizRouter = Router();
+export const adminQuizRouter = Router();
 const quizService = new QuizService();
-quizRouter.get(RoutePaths.getSavedQuizzes, Auths.authenticationMiddleware(), validationMiddleware({ schema: QuizValidators.getSavedQuizzes }), quizService.getSavedQuizzes);
-quizRouter.get(RoutePaths.getSavedQuiz, Auths.authenticationMiddleware(), validationMiddleware({ schema: QuizValidators.getSavedQuiz }), quizService.getSavedQuiz);
-quizRouter.get(RoutePaths.getQuizQuestions, Auths.authenticationMiddleware(), validationMiddleware({ schema: QuizValidators.getQuiz }), quizService.getQuizQuestions);
-quizRouter.get(RoutePaths.getQuizDetails, Auths.authenticationMiddleware(), validationMiddleware({ schema: QuizValidators.getQuiz }), quizService.getQuizDetails);
-quizRouter.post(RoutePaths.createQuiz, Auths.combined({ accessRoles: endpointsAuthorization.createQuiz }), validationMiddleware({ schema: QuizValidators.createQuiz }), quizService.createQuiz);
-quizRouter.post(RoutePaths.checkQuizAnswers, Auths.authenticationMiddleware(), validationMiddleware({ schema: QuizValidators.checkQuizAnswers }), quizService.checkQuizAnswers);
-quizRouter.patch(RoutePaths.updateQuiz, Auths.combined({ accessRoles: endpointsAuthorization.updateQuiz }), validationMiddleware({ schema: QuizValidators.updateQuiz }), quizService.updateQuiz);
-export default quizRouter;
+quizRouter.get(RoutePaths.getSavedQuizzes, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: QuizValidators.getSavedQuizzes }), quizService.getSavedQuizzes);
+quizRouter.get(RoutePaths.getSavedQuiz, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: QuizValidators.getSavedQuiz }), quizService.getSavedQuiz);
+quizRouter.get(RoutePaths.getQuizQuestions, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: QuizValidators.getQuizQuestions }), quizService.getQuizQuestions);
+quizRouter.get(RoutePaths.getQuiz, Auths.authenticationMiddleware(), validationMiddleware({ schema: QuizValidators.getQuiz }), quizService.getQuiz());
+quizRouter.post(RoutePaths.checkQuizAnswers, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: QuizValidators.checkQuizAnswers }), quizService.checkQuizAnswers);
+adminQuizRouter.use(Auths.combinedWithGateway({
+    accessRoles: quizAuthorizationEndpoints.createQuiz,
+    applicationType: ApplicationTypeEnum.adminDashboard,
+}));
+adminQuizRouter.post(RoutePaths.createQuiz, validationMiddleware({ schema: QuizValidators.createQuiz }), quizService.createQuiz);
+adminQuizRouter.get(RoutePaths.getQuizzes, validationMiddleware({ schema: QuizValidators.getQuizzes }), quizService.getQuizzes());
+adminQuizRouter.get(RoutePaths.getArchivedQuizzes, validationMiddleware({ schema: QuizValidators.getQuizzes }), quizService.getQuizzes({ archived: true }));
+adminQuizRouter.get(RoutePaths.getArchivedQuiz, validationMiddleware({ schema: QuizValidators.getQuiz }), quizService.getQuiz({ archived: true }));
+adminQuizRouter.patch(RoutePaths.archiveQuiz, validationMiddleware({ schema: QuizValidators.archiveQuiz }), quizService.archiveQuiz);
+adminQuizRouter.patch(RoutePaths.restoreQuiz, validationMiddleware({ schema: QuizValidators.restoreQuiz }), quizService.restoreQuiz);
+adminQuizRouter.patch(RoutePaths.updateQuiz, validationMiddleware({ schema: QuizValidators.updateQuiz }), quizService.updateQuiz);
+adminQuizRouter.delete(RoutePaths.deleteQuiz, validationMiddleware({ schema: QuizValidators.deleteQuiz }), quizService.deleteQuiz);

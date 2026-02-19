@@ -59,7 +59,7 @@ notifictionPushDeviceSchema.methods.toJSON = function () {
     isActive: pushDevice.isActive,
     createdAt: pushDevice?.createdAt,
     updatedAt: pushDevice?.updatedAt,
-    __v: pushDevice?.__v,
+    v: pushDevice?.v,
   };
 };
 

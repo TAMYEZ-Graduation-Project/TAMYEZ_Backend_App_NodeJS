@@ -14,15 +14,20 @@ export enum ErrorCodesEnum {
   FORBIDDEN = "FORBIDDEN",
   TOO_MANY_RQUESTS = "TOO_MANY_REQUESTS",
   ASSET_ERROR = "ASSET_ERROR",
+  CONTENT_TOO_LARGE = "CONTENT_TOO_LARGE",
+  VERSION_CONFLICT = "VERSION_CONFLICT",
 }
 
 export enum EmailEventsEnum {
   emailVerification = "EmailVerification",
   forgetPassword = "ForgetPassword",
+  emailRestoration = "EmailRestoration",
+  feedbackReply = "FeedReply"
 }
 
 export enum NotificationEventsEnum {
-  mutlipleNotifications = "MultipleNotifications",
+  allUsers = "AllUsers",
+  careerUsers = "CareerUsers",
 }
 
 export enum GenderEnum {
@@ -105,4 +110,55 @@ export enum PlatformsEnum {
 export enum AdminNotificationTypesEnum {
   allUsers = "AllUsers",
   careerSpecific = "CareerSpecific",
+}
+
+export enum RoadmapStepPricingTypesEnum {
+  free = "Free",
+  paid = "Paid",
+  subscription = "Subscription",
+}
+
+export enum LanguagesEnum {
+  en = "en", // English
+  ar = "ar", // Arabic
+  in = "in", // Indonesian
+  fr = "fr", // French
+  es = "es", // Spanish
+  de = "de", // German
+  it = "it", // Italian
+  ja = "ja", // Japanese
+  ko = "ko", // Korean
+  zh = "zh", // Chinese
+  ru = "ru", // Russian
+  pt = "pt", // Portuguese
+  hi = "hi", // Hindi
+  nl = "nl", // Dutch
+  sv = "sv", // Swedish
+}
+
+export enum CareerResourceAppliesToEnum {
+  all = "All",
+  specific = "Specific",
+}
+
+export enum CareerResourceNamesEnum {
+  courses = "courses",
+  youtubePlaylists = "youtubePlaylists",
+  books = "books",
+}
+
+export enum ApplicationTypeEnum {
+  user = "User",
+  adminDashboard = "AdminDashboard",
+}
+
+export enum DashboardReviewTypes {
+  users = "users",
+  careers = "careers",
+  quizzes = "quizzes",
+}
+
+export enum BucketProvidersEnum {
+  aws = "AWS",
+  cloudflare = "Cloudflare",
 }

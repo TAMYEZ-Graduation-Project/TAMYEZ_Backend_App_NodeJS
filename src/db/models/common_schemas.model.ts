@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import type {
   IAtByObject,
-  ICodExpireCoundObject,
+  ICodeExpireCountObject,
   IIdSelectedAtObject,
   IProfilePictureObject,
   IQuizQuestionOption,
@@ -21,17 +21,17 @@ export const atByObjectSchema = new mongoose.Schema<IAtByObject>(
       ref: ModelsNames.userModel,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 export const codeExpireCountObjectSchema =
-  new mongoose.Schema<ICodExpireCoundObject>(
+  new mongoose.Schema<ICodeExpireCountObject>(
     {
       code: { type: String, required: true },
       expiresAt: { type: Date, require: true },
       count: { type: Number, default: 0 },
     },
-    { _id: false }
+    { _id: false },
   );
 
 export const profilePictureObjectSchema =
@@ -44,27 +44,28 @@ export const profilePictureObjectSchema =
         default: ProvidersEnum.local,
       },
     },
-    { _id: false }
+    { _id: false },
   );
 
-export const idSelectedAtObjectSchema =
-  new mongoose.Schema<IIdSelectedAtObject>(
+export const idSelectedAtObjectSchema = ({ ref }: { ref: string }) => {
+  return new mongoose.Schema<IIdSelectedAtObject>(
     {
       id: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
-        ref: ModelsNames.userModel,
+        ref,
       },
 
       selectedAt: { type: Date, required: true },
     },
-    { _id: false }
+    { _id: false },
   );
+};
 
 export const questionOptionSchema = new mongoose.Schema<IQuizQuestionOption>(
   {
     id: { type: String, enum: Object.values(OptionIdsEnum), required: true },
     text: { type: String, required: true },
   },
-  { _id: false }
+  { _id: false },
 );

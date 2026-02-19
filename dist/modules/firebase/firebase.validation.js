@@ -17,6 +17,12 @@ class FirebaseValidators {
             imageUrl: z.url().optional(),
         }),
     };
+    static sendNotificationToCareerUsers = {
+        params: z.strictObject({
+            careerId: generalValidationConstants.objectId,
+        }),
+        body: this.sendNotificationsToAllUsers.body,
+    };
     static sendNotification = {
         body: this.sendNotificationsToAllUsers.body.extend({
             fcmToken: generalValidationConstants.fcmToken,

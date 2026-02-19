@@ -1,1 +1,1 @@
-export { default as authRouter } from "./auth.controller.ts";
+export * from "./auth.controller.ts";

@@ -1,5 +1,6 @@
 import { GenderEnum, QuizTypesEnum, SignatureLevelsEnum, } from "./enum.constants.js";
 class StringConstants {
+    static ALL = "All";
     static GENERIC_ERROR_MESSAGE = "An unexpected error occurred. Please try again later. 🤔";
     static SOMETHING_WRONG_MESSAGE = "Something went wrong. 🤔";
     static CONNECTED_TO_DB_MESSAGE = `Connected to DB Successfully 👌`;
@@ -10,6 +11,7 @@ class StringConstants {
     static FORGET_PASSWORD_SUBJECT = "Forget Password 🔑";
     static THANK_YOU_MESSAGE = "Thank you for using our Application ❤️.";
     static USE_EMAIL_VERIFICATION_LINK_MESSAGE = "Please use the Link below to verify your Email.";
+    static USE_EMAIL_RESTORATION_LINK_MESSAGE = "Please use the Link below to restore your Email.";
     static USE_FORGET_PASSWORD_OTP_MESSAGE = "Please use the OTP below to verify your Forget Password Attempt.";
     static INVALID_EMAIL_MESSAGE = "Invalid email address ✉️❌";
     static INVALID_USER_ACCOUNT_MESSAGE = "Invalid user account ⚠️";
@@ -44,11 +46,13 @@ class StringConstants {
     static INVALID_VALIDATION_BEARER_TOKEN_MESSAGE = `Token must start with one of ${Object.values(SignatureLevelsEnum)} followed by a space, and ${this.INVALID_VALIDATION_TOKEN_MESSAGE}`;
     static FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE = "Failed to verify this gmail account 🇬✉️";
     static INVALID_GMAIL_CREDENTIALS_MESSAGE = "Invaild gmail account credentials 🇬🪪";
+    static INVALID_VERSION_MESSAGE = `Version doesn't match ❌`;
     static EMAIL_EXISTS_PROVIDER_MESSAGE = "Email exists with another provider ✉️❌";
     static PHONE_NUMBER_VALIDATION_MESSAGE = "Phone number must start with country code (+20) followed by one of the code [10,11,12,15] followed by 8 digits 📱🔢 ❌";
     static NOT_AUTHORIZED_ACCOUNT_MESSAGE = "Not Authorized Account ⛔";
     static ATTACHMENT_FIELD_NAME = "attachment";
     static INVALID_VALIDATION_DURATION_MESSAGE = "duration must be an integer number between 60s and 36_000s 🕛";
+    static INVALID_LOGIN_GATEWAY_MESSAGE = "Invalid login gateway ❌🚪";
     static INVALID_DURATION_EXIST_MESSAGE = `${QuizTypesEnum.careerAssessment} must not have a duration value 🕛`;
     static FAILED_REVOKE_TOKEN_MESSAGE = "Failed to revoke Token(s) ☠️";
     static CAREER_ASSESSMENT = "Career Assessment";

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import ModelsNames from "../../utils/constants/models.names.constants.js";
-import { QuestionTypesEnum } from "../../utils/constants/enum.constants.js";
+import { QuestionTypesEnum, QuizTypesEnum, } from "../../utils/constants/enum.constants.js";
 import { questionOptionSchema } from "./common_schemas.model.js";
 import { validateIfValidQuestionAnswer } from "../../utils/question/validate_options.question.js";
 const questionSchema = new mongoose.Schema({
@@ -72,6 +72,25 @@ const quizAttemptSchema = new mongoose.Schema({
         required: true,
         ref: ModelsNames.userModel,
     },
+    attemptType: {
+        type: String,
+        enum: Object.values(QuizTypesEnum),
+        default: QuizTypesEnum.stepQuiz,
+    },
+    careerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: function () {
+            return this.attemptType === QuizTypesEnum.stepQuiz;
+        },
+        ref: ModelsNames.careerModel,
+    },
+    roadmapStepId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: function () {
+            return this.attemptType === QuizTypesEnum.stepQuiz;
+        },
+        ref: ModelsNames.roadmapStepModel,
+    },
     questions: {
         type: [questionSchema],
         required: true,
@@ -86,6 +105,8 @@ const quizAttemptSchema = new mongoose.Schema({
     id: false,
 });
 quizAttemptSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+quizAttemptSchema.index({ careerId: 1 });
+quizAttemptSchema.index({ roadmapStepId: 1 });
 quizAttemptSchema.virtual("id").get(function () {
     return this._id;
 });

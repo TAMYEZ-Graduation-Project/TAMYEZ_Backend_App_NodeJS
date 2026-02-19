@@ -13,6 +13,7 @@ import type {
   LogInBodyDtoType,
   ResendEmailVerificationLinkBodyDtoType,
   ResetForgetPasswordBodyDtoType,
+  RestoreEmailQueryDtoType,
   SignUpBodyDtoType,
   SignUpLogInGmailBodyDtoType,
   VerifyEmailQueryDtoType,
@@ -21,6 +22,7 @@ import type {
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   ServerException,
 } from "../../utils/exceptions/custom.exceptions.ts";
@@ -32,12 +34,17 @@ import {
   EmailEventsEnum,
   OTPsOrLinksEnum,
   ProvidersEnum,
+  ApplicationTypeEnum,
+  RolesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import RoutePaths from "../../utils/constants/route_paths.constants.ts";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import responseHtmlHandler from "../../utils/handlers/success_html.handler.ts";
-import HTML_VERIFY_EMAIL_TEMPLATE from "../../utils/email/templates/html_verify_email.template.ts";
+import {
+  HTML_VERIFY_EMAIL_TEMPLATE,
+  HTML_RESTORE_EMAIL_TEMPLATE,
+} from "../../utils/email/templates/html_verify_email.template.ts";
 import OTPSecurityUtil from "../../utils/security/otp.security.ts";
 import HashingSecurityUtil from "../../utils/security/hash.security.ts";
 import TokenSecurityUtil from "../../utils/security/token.security.ts";
@@ -48,13 +55,14 @@ import type {
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import type { IProfilePictureObject } from "../../db/interfaces/common.interface.ts";
 import type { Types } from "mongoose";
+import type { FullIUser } from "../../db/interfaces/user.interface.ts";
 
 class AuthService {
   private _userRepository = new UserRepository(UserModel);
   private readonly _notificationPushDeviceRepository =
     new NotificationPushDeviceRepository(NotificationPushDeviceModel);
 
-  private _sendTokenToUser = ({
+  private _sendVerificationLinkToUser = ({
     email,
     otp,
   }: {
@@ -74,6 +82,31 @@ class AuthService {
           process.env[EnvFields.HOST]
         }${RoutePaths.API_V1_PATH}${RoutePaths.auth}${
           RoutePaths.verifyEmail
+        }?token=${encodeURIComponent(fullToken)}`,
+      },
+    });
+  };
+
+  private _sendRestorationLinkToUser = ({
+    email,
+    otp,
+  }: {
+    email: string;
+    otp: string;
+  }) => {
+    const fullToken = EncryptionSecurityUtil.encryptText({
+      plainText: decodeURIComponent(`${email} ${otp}`),
+      secretKey: process.env[EnvFields.EMAIL_RESTORATION_TOKEN_ENC_KEY]!,
+    });
+
+    emailEvent.publish({
+      eventName: EmailEventsEnum.emailRestoration,
+      payload: {
+        to: email,
+        otpOrLink: `${process.env[EnvFields.PROTOCOL]}://${
+          process.env[EnvFields.HOST]
+        }${RoutePaths.API_V1_PATH}${RoutePaths.auth}${
+          RoutePaths.restoreEmail
         }?token=${encodeURIComponent(fullToken)}`,
       },
     });
@@ -109,7 +142,7 @@ class AuthService {
             }),
             expiresAt: new Date(
               Date.now() +
-                Number(process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS])
+                Number(process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS]),
             ),
             count: 0,
           },
@@ -117,7 +150,7 @@ class AuthService {
       ],
     });
 
-    this._sendTokenToUser({ email, otp });
+    this._sendVerificationLinkToUser({ email, otp });
 
     return successHandler({
       res,
@@ -140,20 +173,19 @@ class AuthService {
         filter: {
           email,
           confirmEmailLink: { $exists: true },
-          freezed: { $exists: false },
           confirmedAt: { $exists: false },
         },
       });
 
       if (!user) {
         throw new BadRequestException(
-          StringConstants.INVALID_EMAIL_ACCOUNT_OR_VARIFIED_MESSAGE
+          StringConstants.INVALID_EMAIL_ACCOUNT_OR_VARIFIED_MESSAGE,
         );
       }
 
       if (Date.now() >= user.confirmEmailLink!.expiresAt.getTime()) {
         throw new BadRequestException(
-          StringConstants.EMAIL_VERIFICATION_LINK_EXPIRE_MESSAGE
+          StringConstants.EMAIL_VERIFICATION_LINK_EXPIRE_MESSAGE,
         );
       }
 
@@ -166,9 +198,9 @@ class AuthService {
         throw new BadRequestException(StringConstants.INVALID_TOKEN_MESSAGE);
       }
 
-      await user.updateOne({
-        $unset: { confirmEmailLink: true },
-        confirmedAt: new Date(),
+      await this._userRepository.updateOne({
+        filter: { _id: user._id },
+        update: { $unset: { confirmEmailLink: true }, confirmedAt: new Date() },
       });
 
       return responseHtmlHandler({
@@ -191,7 +223,7 @@ class AuthService {
 
   resendEmailVerificationLink = async (
     req: Request,
-    res: Response
+    res: Response,
   ): Promise<Response> => {
     const { email } = req.body as ResendEmailVerificationLinkBodyDtoType;
 
@@ -216,7 +248,7 @@ class AuthService {
       },
     });
 
-    this._sendTokenToUser({ email, otp });
+    this._sendVerificationLinkToUser({ email, otp });
 
     return successHandler({
       res,
@@ -239,6 +271,7 @@ class AuthService {
       filter: {
         userId,
         deviceId,
+        __v: undefined,
       },
       update: { fcmToken, isActive: true, jwtTokenExpiresAt },
     });
@@ -250,57 +283,206 @@ class AuthService {
     return true;
   };
 
-  logIn = async (req: Request, res: Response): Promise<Response> => {
-    const { email, password, deviceId, fcmToken } =
-      req.body as LogInBodyDtoType;
+  restoreEmail = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const { token } = req.query as RestoreEmailQueryDtoType;
 
-    const user = await this._userRepository.findOne({
-      filter: {
-        email,
-        freezed: { $exists: false },
-        confirmedAt: { $exists: true },
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException(StringConstants.INVALID_USER_ACCOUNT_MESSAGE);
-    }
-
-    if (
-      !(await HashingSecurityUtil.compareHash({
-        plainText: password,
-        cipherText: user.password!,
-      }))
-    ) {
-      throw new BadRequestException(
-        StringConstants.INVALID_LOGIN_CREDENTIALS_MESSAGE
-      );
-    }
-    const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({ user });
-
-    let notificationsEnabled;
-    if (deviceId && fcmToken)
-      notificationsEnabled = await this._checkNotificationsForPushDevice({
-        userId: user._id,
-        jwtTokenExpiresAt: new Date(
-          TokenSecurityUtil.getTokenExpiresAt({
-            userRole: user.role,
-            token: accessToken,
-          }) * 1000
-        ),
-        deviceId,
-        fcmToken,
+      const tokenAfterDecryption = EncryptionSecurityUtil.decryptText({
+        cipherText: decodeURIComponent(token),
+        secretKey: process.env[EnvFields.EMAIL_RESTORATION_TOKEN_ENC_KEY]!,
       });
 
-    return successHandler<ILogInResponse>({
-      res,
-      message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
-      body: {
-        accessToken,
-        notificationsEnabled,
+      const [email, otp] = tokenAfterDecryption.split(" ");
+
+      const user = await this._userRepository.findOne({
+        filter: {
+          email,
+          restoreEmailLink: { $exists: true },
+          confirmedAt: { $exists: true },
+          paranoid: false,
+          freezed: { $exists: true },
+        },
+      });
+
+      if (!user || !user.freezed!.by.equals(user._id)) {
+        throw new BadRequestException(
+          "Invalid email account or already restored ❌",
+        );
+      }
+
+      if (Date.now() >= user.restoreEmailLink!.expiresAt.getTime()) {
+        throw new BadRequestException("Email Restoration Link has expired ⏰");
+      }
+
+      if (
+        !(await HashingSecurityUtil.compareHash({
+          plainText: otp!,
+          cipherText: user!.restoreEmailLink!.code!,
+        }))
+      ) {
+        throw new BadRequestException(StringConstants.INVALID_TOKEN_MESSAGE);
+      }
+
+      await this._userRepository.updateOne({
+        filter: { _id: user._id, paranoid: false },
+        update: {
+          $unset: { restoreEmailLink: true, freezed: true },
+          restored: { at: new Date(), by: user._id },
+        },
+      });
+
+      return responseHtmlHandler({
+        res,
+        htmlContent: HTML_RESTORE_EMAIL_TEMPLATE({
+          logoUrl: process.env[EnvFields.LOGO_URL]!,
+        }),
+      });
+    } catch (error: any) {
+      return responseHtmlHandler({
+        res,
+        htmlContent: HTML_RESTORE_EMAIL_TEMPLATE({
+          logoUrl: process.env[EnvFields.LOGO_URL]!,
+          success: false,
+          failureMessage: error?.message,
+        }),
+      });
+    }
+  };
+
+  private _handleAccountFreezing = async ({
+    user,
+  }: {
+    user: FullIUser;
+  }): Promise<string | undefined> => {
+    if (!user.freezed) return;
+    if (user.freezed.by.equals(user._id)) {
+      if (Date.now() - user.freezed.at.getTime() < 86_400_000) {
+        throw new BadRequestException(
+          `You only can restore your account after ${(new Date(user.freezed.at.getTime() + 24 * 60 * 60 * 1000).getTime() - user.freezed.at.getTime()) / (1000 * 60 * 60)} hours ⌛️`,
+        );
+      } else {
+        if (
+          user.restoreEmailLink &&
+          user.restoreEmailLink.expiresAt > new Date(Date.now())
+        ) {
+          throw new BadRequestException(
+            "You can only request a new restoration link after the current one expires ❌",
+          );
+        } else {
+          const otp = IdSecurityUtil.generateAlphaNumericId();
+          await this._userRepository.updateOne({
+            filter: { _id: user._id, paranoid: false },
+            update: {
+              restoreEmailLink: {
+                code: await HashingSecurityUtil.hashText({
+                  plainText: otp,
+                }),
+                expiresAt: new Date(
+                  Date.now() +
+                    Number(process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS]),
+                ),
+                count: 0,
+              },
+            },
+          });
+
+          this._sendRestorationLinkToUser({ email: user.email, otp });
+          return "Restoration link has been sent to your email ✅";
+        }
+      }
+    } else {
+      throw new BadRequestException(
+        "Account freezed, please contact with the admins ❌⚠️",
+      );
+    }
+  };
+
+  logIn = ({
+    applicationType = ApplicationTypeEnum.user,
+  }: {
+    applicationType?: ApplicationTypeEnum;
+  } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { email, password, deviceId, fcmToken } =
+        req.body as LogInBodyDtoType;
+
+      let user = await this._userRepository.findOne({
+        filter: {
+          email,
+          confirmedAt: { $exists: true },
+          authProvider: { $eq: ProvidersEnum.local },
+          paranoid: false,
+        },
+        options: {
+          projection:
+            applicationType === ApplicationTypeEnum.adminDashboard
+              ? {
+                  careerPath: 0,
+                }
+              : {},
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException(
+          StringConstants.INVALID_USER_ACCOUNT_MESSAGE +
+            ", not verified or " +
+            StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE,
+        );
+      }
+      if (
+        applicationType === ApplicationTypeEnum.adminDashboard &&
+        user.role === RolesEnum.user
+      ) {
+        throw new ForbiddenException(
+          "Not authorized to login to the admin dashboard ❌⚠️",
+        );
+      }
+
+      const message = await this._handleAccountFreezing({ user });
+      if (message) {
+        return successHandler({ res, message });
+      }
+
+      if (
+        !(await HashingSecurityUtil.compareHash({
+          plainText: password,
+          cipherText: user.password!,
+        }))
+      ) {
+        throw new BadRequestException(
+          StringConstants.INVALID_LOGIN_CREDENTIALS_MESSAGE,
+        );
+      }
+      const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
         user,
-      },
-    });
+        applicationType,
+      });
+
+      let notificationsEnabled;
+      if (deviceId && fcmToken && applicationType === ApplicationTypeEnum.user)
+        notificationsEnabled = await this._checkNotificationsForPushDevice({
+          userId: user._id,
+          jwtTokenExpiresAt: new Date(
+            TokenSecurityUtil.getTokenExpiresAt({
+              userRole: user.role,
+              token: accessToken,
+            }) * 1000,
+          ),
+          deviceId,
+          fcmToken,
+        });
+
+      return successHandler<ILogInResponse>({
+        res,
+        message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
+        body: {
+          accessToken,
+          notificationsEnabled,
+          user,
+        },
+      });
+    };
   };
 
   // Social Login/Signup with gmail
@@ -324,13 +506,13 @@ class AuthService {
 
       if (!payload?.email_verified) {
         throw new BadRequestException(
-          StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE
+          StringConstants.FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE,
         );
       }
       return payload;
     } catch (error: any) {
       throw new BadRequestException(
-        `Failed to verify idToken ❌. Error: ${error?.message}`
+        `Failed to verify idToken ❌. Error: ${error?.message}`,
       );
     }
   };
@@ -344,20 +526,23 @@ class AuthService {
 
     if (!email || !given_name || given_name.length < 2) {
       throw new BadRequestException(
-        StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE
+        StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE,
       );
     }
 
-    const userExist = await this._userRepository.findByEmail({
-      email,
+    const userExist = await this._userRepository.findOne({
+      filter: {
+        email,
+        paranoid: false,
+      },
     });
 
     if (userExist) {
       if (userExist.authProvider === ProvidersEnum.google) {
-        return await this.logInWithGmail(req, res);
+        return await this.logInWithGmail()(req, res);
       }
       throw new ConflictException(
-        StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE
+        StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE,
       );
     }
 
@@ -387,12 +572,13 @@ class AuthService {
 
     if (!user) {
       throw new ServerException(
-        "Failed to create user account, please try again later ☹️"
+        "Failed to create user account, please try again later ☹️",
       );
     }
 
     const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
       user: user,
+      applicationType: ApplicationTypeEnum.user,
     });
 
     let notificationsEnabled;
@@ -403,7 +589,7 @@ class AuthService {
           TokenSecurityUtil.getTokenExpiresAt({
             userRole: user.role,
             token: accessToken,
-          }) * 1000
+          }) * 1000,
         ),
         deviceId,
         fcmToken,
@@ -421,60 +607,88 @@ class AuthService {
     });
   };
 
-  logInWithGmail = async (req: Request, res: Response): Promise<Response> => {
-    const { idToken, deviceId, fcmToken } =
-      req.body as SignUpLogInGmailBodyDtoType;
+  logInWithGmail = ({
+    applicationType = ApplicationTypeEnum.user,
+  }: { applicationType?: ApplicationTypeEnum } = {}) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      const { idToken, deviceId, fcmToken } =
+        req.body as SignUpLogInGmailBodyDtoType;
 
-    const { email } = await this._verifyGmailAccount({ idToken });
+      const { email } = await this._verifyGmailAccount({ idToken });
 
-    if (!email) {
-      throw new BadRequestException(
-        StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE
-      );
-    }
+      if (!email) {
+        throw new BadRequestException(
+          StringConstants.INVALID_GMAIL_CREDENTIALS_MESSAGE,
+        );
+      }
 
-    const user = await this._userRepository.findOne({
-      filter: {
-        email,
-        authProvider: ProvidersEnum.google,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException(
-        StringConstants.INVALID_USER_ACCOUNT_MESSAGE +
-          " or " +
-          StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE
-      );
-    }
-
-    const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
-      user,
-    });
-
-    let notificationsEnabled;
-    if (deviceId && fcmToken)
-      notificationsEnabled = await this._checkNotificationsForPushDevice({
-        userId: user._id,
-        jwtTokenExpiresAt: new Date(
-          TokenSecurityUtil.getTokenExpiresAt({
-            userRole: user.role,
-            token: accessToken,
-          }) * 1000
-        ),
-        deviceId,
-        fcmToken,
+      const user = await this._userRepository.findOne({
+        filter: {
+          email,
+          authProvider: ProvidersEnum.google,
+          paranoid: false,
+        },
+        options: {
+          projection:
+            applicationType === ApplicationTypeEnum.adminDashboard
+              ? {
+                  careerPath: 0,
+                }
+              : {},
+        },
       });
 
-    return successHandler<ISignUpLogInGmailResponse>({
-      res,
-      message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
-      body: {
-        accessToken,
-        notificationsEnabled,
+      if (!user) {
+        throw new NotFoundException(
+          StringConstants.INVALID_USER_ACCOUNT_MESSAGE +
+            ", not verified " +
+            StringConstants.EMAIL_EXISTS_PROVIDER_MESSAGE,
+        );
+      }
+
+      if (
+        applicationType === ApplicationTypeEnum.adminDashboard &&
+        user.role === RolesEnum.user
+      ) {
+        throw new ForbiddenException(
+          "Not authorized to login to the admin dashboard ❌⚠️",
+        );
+      }
+
+      const message = await this._handleAccountFreezing({ user });
+      if (message) {
+        return successHandler({ res, message });
+      }
+
+      const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
         user,
-      },
-    });
+        applicationType,
+      });
+
+      let notificationsEnabled;
+      if (deviceId && fcmToken && applicationType === ApplicationTypeEnum.user)
+        notificationsEnabled = await this._checkNotificationsForPushDevice({
+          userId: user._id,
+          jwtTokenExpiresAt: new Date(
+            TokenSecurityUtil.getTokenExpiresAt({
+              userRole: user.role,
+              token: accessToken,
+            }) * 1000,
+          ),
+          deviceId,
+          fcmToken,
+        });
+
+      return successHandler<ISignUpLogInGmailResponse>({
+        res,
+        message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
+        body: {
+          accessToken,
+          notificationsEnabled,
+          user,
+        },
+      });
+    };
   };
 
   forgetPassword = async (req: Request, res: Response): Promise<Response> => {
@@ -498,11 +712,11 @@ class AuthService {
           Number(
             process.env[
               EnvFields.TIME_ELAPSED_TO_RESET_PASSWORD_IN_MILLISECONDS
-            ]
+            ],
           )
     ) {
       throw new BadRequestException(
-        StringConstants.RESET_PASSWORD_RECENTLY_MESSAGE
+        StringConstants.RESET_PASSWORD_RECENTLY_MESSAGE,
       );
     }
 
@@ -517,6 +731,7 @@ class AuthService {
     await this._userRepository.updateOne({
       filter: {
         _id: user._id!,
+        __v: user.__v,
       },
       update: {
         $unset: {
@@ -526,7 +741,7 @@ class AuthService {
           code: await HashingSecurityUtil.hashText({ plainText: otp }),
           expiresAt: new Date(
             Date.now() +
-              Number(process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS])
+              Number(process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS]),
           ),
           count,
         },
@@ -543,7 +758,7 @@ class AuthService {
 
   verifyForgetPassword = async (
     req: Request,
-    res: Response
+    res: Response,
   ): Promise<Response> => {
     const { email, otp } = req.body as VerifyForgetPasswordBodyDtoType;
 
@@ -572,11 +787,9 @@ class AuthService {
     await this._userRepository.updateOne({
       filter: {
         _id: user._id!,
+        __v: user.__v,
       },
       update: {
-        $unset: {
-          forgetPasswordOtp: 1,
-        },
         forgetPasswordVerificationExpiresAt:
           Date.now() +
           Number(process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS]),
@@ -591,7 +804,7 @@ class AuthService {
 
   resetForgetPassword = async (
     req: Request,
-    res: Response
+    res: Response,
   ): Promise<Response> => {
     const { email, password } = req.body as ResetForgetPasswordBodyDtoType;
 
@@ -609,12 +822,12 @@ class AuthService {
 
     if (Date.now() >= user.forgetPasswordVerificationExpiresAt!.getTime()) {
       throw new BadRequestException(
-        StringConstants.FORGET_PASSWORD_VERIFICATION_EXPIRE_MESSAGE
+        StringConstants.FORGET_PASSWORD_VERIFICATION_EXPIRE_MESSAGE,
       );
     }
 
     await user.updateOne({
-      $unset: { forgetPasswordVerificationExpiresAt: 1 },
+      $unset: { forgetPasswordVerificationExpiresAt: 1, forgetPasswordOtp: 1 },
       password: await HashingSecurityUtil.hashText({ plainText: password }),
       lastResetPasswordAt: new Date(),
       changeCredentialsTime: new Date(),

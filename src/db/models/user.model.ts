@@ -1,5 +1,9 @@
-import mongoose from "mongoose";
-import type { IQuizAttempts, IUser } from "../interfaces/user.interface.ts";
+import mongoose, { Types } from "mongoose";
+import type {
+  ICareerDeleted,
+  IQuizAttempts,
+  IUser,
+} from "../interfaces/user.interface.ts";
 import {
   GenderEnum,
   ProvidersEnum,
@@ -17,13 +21,24 @@ import {
 import HashingSecurityUtil from "../../utils/security/hash.security.ts";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.ts";
 import type { UpdateQuery } from "mongoose";
+import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
+import type { FullICareer, ICareer } from "../interfaces/career.interface.ts";
+import EnvFields from "../../utils/constants/env_fields.constants.ts";
+
+const careerDeletedSchema = new mongoose.Schema<ICareerDeleted>({
+  message: { type: String, required: true },
+  newSuggestedCareer: {
+    type: mongoose.Schema.ObjectId,
+    ref: ModelsNames.careerModel,
+  },
+});
 
 const quizAttemptsSchema = new mongoose.Schema<IQuizAttempts>(
   {
     count: { type: Number, required: true, min: 0, max: 5 },
     lastAttempt: { type: Date, required: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -39,6 +54,9 @@ const userSchema = new mongoose.Schema<IUser>(
     },
     confirmedAt: { type: Date },
     confirmEmailLink: {
+      type: codeExpireCountObjectSchema,
+    },
+    restoreEmailLink: {
       type: codeExpireCountObjectSchema,
     },
 
@@ -90,7 +108,10 @@ const userSchema = new mongoose.Schema<IUser>(
     },
 
     // Acadamic Info
-    careerPath: { type: idSelectedAtObjectSchema },
+    careerPath: {
+      type: idSelectedAtObjectSchema({ ref: ModelsNames.careerModel }),
+    },
+    careerDeleted: { type: careerDeletedSchema },
 
     // Quiz Info
     quizAttempts: quizAttemptsSchema,
@@ -104,7 +125,12 @@ const userSchema = new mongoose.Schema<IUser>(
     strictQuery: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
+);
+
+userSchema.index(
+  { "careerPath.id": 1 },
+  { partialFilterExpression: { "careerPath.id": { $exists: true } } },
 );
 
 userSchema
@@ -118,23 +144,43 @@ userSchema
   });
 
 userSchema.methods.toJSON = function () {
-  const userObject: IUser = DocumentFormat.getIdFrom_Id<IUser>(this.toObject());
+  const userObject = DocumentFormat.getIdFrom_Id<IUser>(this.toObject());
+
+  if (
+    userObject?.careerPath &&
+    !Types.ObjectId.isValid(userObject.careerPath.id.toString())
+  ) {
+    const careerObj = userObject.careerPath.id as unknown as ICareer;
+    careerObj.pictureUrl =
+      careerObj.pictureUrl === process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
+        ? careerObj.pictureUrl
+        : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObj.pictureUrl)!;
+    userObject.careerPath.id = DocumentFormat.getIdFrom_Id<ICareer>(
+      userObject.careerPath.id as unknown as FullICareer,
+    ) as unknown as Types.ObjectId;
+  }
 
   return {
-    id: userObject.id,
-    fullName: userObject.firstName
+    id: userObject?.id,
+    fullName: userObject?.firstName
       ? `${userObject.firstName} ${userObject.lastName}`
       : undefined,
-    email: userObject.email,
-    phoneNumber: userObject.phoneNumber,
-    gender: userObject.gender,
-    role: userObject.role,
+    email: userObject?.email,
+    phoneNumber: userObject?.phoneNumber,
+    gender: userObject?.gender,
+    role: userObject?.role,
     profilePicture: userObject?.profilePicture?.url
-      ? DocumentFormat.getFullURLFromSubKey(userObject.profilePicture.url)
+      ? userObject.profilePicture.provider === ProvidersEnum.local
+        ? S3KeyUtil.generateS3UploadsUrlFromSubKey(
+            userObject.profilePicture.url,
+          )
+        : userObject.profilePicture.url
       : undefined,
-    createdAt: userObject.createdAt,
-    updatedAt: userObject.updatedAt,
-    confirmedAt: userObject.confirmedAt,
+    careerPath: userObject?.careerPath,
+    createdAt: userObject?.createdAt,
+    updatedAt: userObject?.updatedAt,
+    confirmedAt: userObject?.confirmedAt,
+    v: userObject?.v,
   };
 };
 
@@ -184,12 +230,12 @@ userSchema.pre(["updateOne", "findOneAndUpdate"], async function () {
 });
 
 userSchema.pre(
-  ["find", "findOne", "findOneAndUpdate", "countDocuments"],
+  ["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"],
   function (next) {
     softDeleteFunction(this);
 
     next();
-  }
+  },
 );
 
 userSchema.post(
@@ -217,7 +263,7 @@ userSchema.post(
     }
 
     next();
-  }
+  },
 );
 
 const UserModel =
