@@ -1,0 +1,64 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    hostname: mongo
+    restart: always
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27018:27017"        # host:container
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  mongo-init:
+    image: mongo:7
+    container_name: mongo-init
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["bash", "-lc"]
+    command: >
+      '
+      echo "⏳ Waiting for Mongo to be ready...";
+      until mongosh --host mongo --quiet --eval "db.runCommand({ ping: 1 }).ok" | grep -q 1; do
+        sleep 1;
+      done;
+
+      echo "🔎 Checking replica set status...";
+      RS_STATUS=$$(mongosh --host mongo --quiet --eval "try { rs.status().ok } catch (e) { 0 }");
+
+      if [ "$$RS_STATUS" != "1" ]; then
+        echo "⚙️  Initializing replica set rs0...";
+        mongosh --host mongo --quiet --eval "
+          rs.initiate({
+            _id: \"rs0\",
+            members: [{ _id: 0, host: \"mongo:27017\" }]
+          });
+        ";
+
+        echo "⏳ Waiting for PRIMARY...";
+        for i in {1..30}; do
+          STATE=$$(mongosh --host mongo --quiet --eval "try { rs.status().members.filter(m=>m.self)[0].stateStr } catch(e) { \"\" }");
+          if [ \"$$STATE\" = \"PRIMARY\" ]; then
+            echo \"✅ PRIMARY ready\";
+            exit 0;
+          fi
+          sleep 1;
+        done
+
+        echo \"⚠️ Timed out waiting for PRIMARY; check logs\";
+        exit 1;
+      else
+        echo "ℹ️  Replica set already initialized. Skipping.";
+      fi
+      '
+
+volumes:
+  mongo-data:

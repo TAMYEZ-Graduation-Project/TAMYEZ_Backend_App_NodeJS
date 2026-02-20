@@ -7,7 +7,10 @@ import type {
   IQuizAttempt,
 } from "../interfaces/quiz_questions.interface.ts";
 import ModelsNames from "../../utils/constants/models.names.constants.ts";
-import { QuestionTypesEnum } from "../../utils/constants/enum.constants.ts";
+import {
+  QuestionTypesEnum,
+  QuizTypesEnum,
+} from "../../utils/constants/enum.constants.ts";
 import type { Model } from "mongoose";
 import { questionOptionSchema } from "./common_schemas.model.ts";
 import { validateIfValidQuestionAnswer } from "../../utils/question/validate_options.question.ts";
@@ -63,7 +66,7 @@ const questionSchema = new mongoose.Schema<IQuestion>(
     toObject: { virtuals: true },
     toJSON: { virtuals: true },
     id: false,
-  }
+  },
 );
 
 questionSchema.virtual("id").get(function () {
@@ -94,6 +97,28 @@ const quizAttemptSchema = new mongoose.Schema<IQuizAttempt>(
       ref: ModelsNames.userModel,
     },
 
+    attemptType: {
+      type: String,
+      enum: Object.values(QuizTypesEnum),
+      default: QuizTypesEnum.stepQuiz,
+    },
+
+    careerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: function () {
+        return this.attemptType === QuizTypesEnum.stepQuiz;
+      },
+      ref: ModelsNames.careerModel,
+    },
+
+    roadmapStepId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: function () {
+        return this.attemptType === QuizTypesEnum.stepQuiz;
+      },
+      ref: ModelsNames.roadmapStepModel,
+    },
+
     questions: {
       type: [questionSchema],
       required: true,
@@ -108,10 +133,14 @@ const quizAttemptSchema = new mongoose.Schema<IQuizAttempt>(
     toObject: { virtuals: true },
     toJSON: { virtuals: true },
     id: false,
-  }
+  },
 );
 
 quizAttemptSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+
+quizAttemptSchema.index({ careerId: 1 });
+
+quizAttemptSchema.index({ roadmapStepId: 1 });
 
 quizAttemptSchema.virtual("id").get(function () {
   return this._id;
@@ -134,9 +163,6 @@ quizAttemptSchema.methods.toJSON = function () {
 
 const QuizQuestionsModel =
   (mongoose.models.QuizQuestions as Model<IQuizAttempt>) ||
-  mongoose.model<IQuizAttempt>(
-    ModelsNames.quizAttemptModel,
-    quizAttemptSchema
-  );
+  mongoose.model<IQuizAttempt>(ModelsNames.quizAttemptModel, quizAttemptSchema);
 
 export default QuizQuestionsModel;

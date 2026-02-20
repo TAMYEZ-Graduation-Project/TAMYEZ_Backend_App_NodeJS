@@ -13,6 +13,14 @@ export type SendNotificationsToAllUsersBodyDtoType = z.infer<
   typeof FirebaseValidators.sendNotificationsToAllUsers.body
 >;
 
+export type SendNotificationToCareerUsersParamsDtoType = z.infer<
+  typeof FirebaseValidators.sendNotificationToCareerUsers.params
+>;
+
+export type SendNotificationToCareerUsersBodyDtoType = z.infer<
+  typeof FirebaseValidators.sendNotificationToCareerUsers.body
+>;
+
 export type EnableNotificationsBodyDtoType = z.infer<
   typeof FirebaseValidators.enableNotifications.body
 >;

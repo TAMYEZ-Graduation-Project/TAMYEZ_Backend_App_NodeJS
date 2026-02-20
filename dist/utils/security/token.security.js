@@ -1,5 +1,5 @@
 import jwt, {} from "jsonwebtoken";
-import { LogoutFlagsEnum, RolesEnum, SignatureLevelsEnum, TokenTypesEnum, } from "../constants/enum.constants.js";
+import { ApplicationTypeEnum, LogoutFlagsEnum, RolesEnum, SignatureLevelsEnum, TokenTypesEnum, } from "../constants/enum.constants.js";
 import EnvFields from "../constants/env_fields.constants.js";
 import IdSecurityUtil from "./id.security.js";
 import { BadRequestException, ServerException, UnauthorizedException, } from "../exceptions/custom.exceptions.js";
@@ -15,7 +15,12 @@ class TokenSecurityUtil {
         return jwt.sign(payload, secretKey, options);
     };
     static verifyToken = ({ token, secretKey, }) => {
-        return jwt.verify(token, secretKey);
+        try {
+            return jwt.verify(token, secretKey);
+        }
+        catch (e) {
+            throw new BadRequestException(e.message || "Invalid token ❌");
+        }
     };
     static getSignatureLevel = ({ role, }) => {
         switch (role) {
@@ -51,14 +56,14 @@ class TokenSecurityUtil {
         }
         throw new ServerException("No matching signature is a available ❌");
     };
-    static getTokensBasedOnRole = ({ user, }) => {
+    static getTokensBasedOnRole = ({ user, applicationType, }) => {
         const signatures = this.getSignatures({
             signatureLevel: this.getSignatureLevel({ role: user.role }),
         });
         const jti = IdSecurityUtil.generateAlphaNumericId();
         return {
             accessToken: this.generateToken({
-                payload: { id: user.id, jti },
+                payload: { id: user.id, jti, applicationType },
                 secretKey: signatures.accessSignature,
             }),
         };
@@ -80,7 +85,10 @@ class TokenSecurityUtil {
                 ? signatures.accessSignature
                 : "",
         });
-        if (!payload.id || !payload.iat || !payload.jti) {
+        if (!payload.id ||
+            !payload.iat ||
+            !payload.jti ||
+            !payload.applicationType) {
             throw new BadRequestException(StringConstants.INVALID_TOKEN_PAYLOAD_MESSAGE);
         }
         if (await this._revokedTokenRepository.findOne({
@@ -89,7 +97,16 @@ class TokenSecurityUtil {
             throw new BadRequestException(StringConstants.TOKEN_REVOKED_MESSAGE);
         }
         const user = await this._userRepository.findOne({
-            filter: { _id: payload.id, freezed: { $exists: false } },
+            filter: { _id: payload.id },
+            options: {
+                populate: [
+                    {
+                        path: "careerPath.id",
+                        match: { paranoid: false },
+                        select: "title slug pictureUrl freezed",
+                    },
+                ],
+            },
         });
         if (!user?.confirmedAt) {
             throw new BadRequestException(StringConstants.INVALID_USER_ACCOUNT_MESSAGE);
@@ -108,7 +125,7 @@ class TokenSecurityUtil {
             case LogoutFlagsEnum.all:
                 await this._userRepository
                     .updateOne({
-                    filter: { _id: userId },
+                    filter: { _id: userId, __v: undefined },
                     update: {
                         changeCredentialsTime: Date.now(),
                     },

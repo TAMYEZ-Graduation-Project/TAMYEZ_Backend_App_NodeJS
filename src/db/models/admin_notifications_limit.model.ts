@@ -27,7 +27,10 @@ const adminNotificationsLimitSchema =
         },
         validate: {
           validator: function (value) {
-            return !value && this.type === AdminNotificationTypesEnum.allUsers;
+            return (
+              (!value && this.type === AdminNotificationTypesEnum.allUsers) ||
+              (value && this.type === AdminNotificationTypesEnum.careerSpecific)
+            );
           },
           message:
             "careerId shouldn't have a value when type of the limit is AllUsers notifications",
@@ -41,7 +44,7 @@ const adminNotificationsLimitSchema =
       toJSON: { virtuals: true },
       toObject: { virtuals: true },
       id: false,
-    }
+    },
   );
 
 adminNotificationsLimitSchema.virtual("id").get(function () {
@@ -50,7 +53,7 @@ adminNotificationsLimitSchema.virtual("id").get(function () {
 
 adminNotificationsLimitSchema.methods.toJSON = function () {
   const adminLimit = DocumentFormat.getIdFrom_Id<IAdminNotificationsLimit>(
-    this.toObject()
+    this.toObject(),
   );
 
   return {
@@ -61,7 +64,7 @@ adminNotificationsLimitSchema.methods.toJSON = function () {
     expiresAt: adminLimit.expiresAt,
     createdAt: adminLimit?.createdAt,
     updatedAt: adminLimit?.updatedAt,
-    __v: adminLimit?.__v,
+    v: adminLimit?.v,
   };
 };
 
@@ -70,7 +73,7 @@ const AdminNotificationsLimitModel =
     .AdminNotificationsLimit as Model<IAdminNotificationsLimit>) ||
   mongoose.model<IAdminNotificationsLimit>(
     ModelsNames.adminNotificationsLimit,
-    adminNotificationsLimitSchema
+    adminNotificationsLimitSchema,
   );
 
 export default AdminNotificationsLimitModel;

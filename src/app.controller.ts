@@ -16,21 +16,25 @@ import uploadsRouter from "./uploads/uploads.routes.ts";
 import QuizModel from "./db/models/quiz.model.ts";
 import NotificationPushDeviceModel from "./db/models/notifiction_push_device.model.ts";
 import startAllCronJobs from "./utils/cron_jobs/cron_jobs.controller.ts";
+import RoadmapStepModel from "./db/models/roadmap_step.model.ts";
+import CareerModel from "./db/models/career.model.ts";
+import SavedQuizModel from "./db/models/saved_quiz.model.ts";
+import { QuizAttemptModel } from "./db/models/index.ts";
 
 async function bootstrap() {
   const app: Express = express();
 
-  // Security Options
+  // Security Options  
   app.use(cors());
   app.use(helmet());
   app.use(
-    morgan(process.env.MOOD === ProjectMoodsEnum.dev ? "dev" : "combined")
+    morgan(process.env.MOOD === ProjectMoodsEnum.dev ? "dev" : "combined"),
   );
   app.use(
     rateLimit({
-      limit: 200,
-      windowMs: 15 * 60 * 60 * 1000,
-    })
+      limit: 300,
+      windowMs: 15 * 60 * 1000,
+    }),
   );
 
   if (!(await connnectToDB())) {
@@ -41,9 +45,16 @@ async function bootstrap() {
     });
   } else {
     // Routes
-    await UserModel.syncIndexes();
-    await QuizModel.syncIndexes();
-    await NotificationPushDeviceModel.syncIndexes();
+    if (process.env.MOOD === ProjectMoodsEnum.dev) {
+      await UserModel.syncIndexes();
+      await QuizModel.syncIndexes();
+      await SavedQuizModel.syncIndexes();
+      await QuizAttemptModel.syncIndexes();
+      await NotificationPushDeviceModel.syncIndexes();
+      await RoadmapStepModel.syncIndexes();
+      await CareerModel.syncIndexes();
+    }
+
     app.use(protocolAndHostHanlder);
     app.use(express.json());
     app.use(RoutePaths.uploads, uploadsRouter);

@@ -1,4 +1,4 @@
-import mongoose, { Model } from "mongoose";
+import mongoose, { Model, Types } from "mongoose";
 import type {
   FullISavedQuestion,
   FullISavedQuiz,
@@ -78,7 +78,7 @@ const savedQuestionSchema = new mongoose.Schema<ISavedQuestion>(
       },
     },
   },
-  { strictQuery: true, timestamps: true, id: false }
+  { strictQuery: true, timestamps: true, id: false },
 );
 
 savedQuestionSchema.virtual("id").get(function () {
@@ -122,6 +122,18 @@ const savedQuizSchema = new mongoose.Schema<ISavedQuiz>(
       ref: ModelsNames.userModel,
     },
 
+    careerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: ModelsNames.careerModel,
+    },
+
+    roadmapStepId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: ModelsNames.careerModel,
+    },
+
     questions: {
       type: [savedQuestionSchema],
       required: true,
@@ -139,10 +151,14 @@ const savedQuizSchema = new mongoose.Schema<ISavedQuiz>(
     toObject: { virtuals: true },
     id: false,
     strictQuery: true,
-  }
+  },
 );
 
 savedQuizSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+
+savedQuizSchema.index({ careerId: 1 });
+
+savedQuizSchema.index({ roadmapStepId: 1 });
 
 savedQuizSchema.virtual("id").get(function () {
   return this._id;
@@ -153,7 +169,7 @@ savedQuizSchema.methods.toJSON = function () {
     this.toObject() as FullISavedQuiz;
 
   let quiz;
-  if (typeof quizId === "object" && (quizId as unknown as FullIQuiz)._id) {
+  if (!Types.ObjectId.isValid(quizId.toString())) {
     const { _id, ...restObj } = quizId as unknown as FullIQuiz;
     quiz = { id: _id, ...restObj };
   }

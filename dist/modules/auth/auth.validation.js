@@ -26,11 +26,16 @@ class AuthValidators {
             password: generalValidationConstants.password(),
         }),
     };
-    static signUp = {
+    static adminLogIn = {
         body: z.strictObject({
-            fullName: generalValidationConstants.fullName,
             email: generalValidationConstants.email,
             password: generalValidationConstants.password(),
+        }),
+    };
+    static signUp = {
+        body: this.adminLogIn.body
+            .extend({
+            fullName: generalValidationConstants.fullName,
             confirmPassword: z.string({
                 error: StringConstants.PATH_REQUIRED_MESSAGE("confirmPassword"),
             }),
@@ -48,12 +53,20 @@ class AuthValidators {
             idToken: generalValidationConstants.token,
         }),
     };
+    static adminLogInGmail = {
+        body: z.strictObject({
+            idToken: generalValidationConstants.token,
+        }),
+    };
     static verifyEmail = {
         query: z.strictObject({
             token: z
                 .string({ error: StringConstants.PATH_REQUIRED_MESSAGE("token") })
                 .nonempty({ error: StringConstants.PATH_NOEMPTY_MESSAGE("token") }),
         }),
+    };
+    static restoreEmail = {
+        query: this.verifyEmail.query,
     };
     static resendEmailVerificationLink = {
         body: z.strictObject({

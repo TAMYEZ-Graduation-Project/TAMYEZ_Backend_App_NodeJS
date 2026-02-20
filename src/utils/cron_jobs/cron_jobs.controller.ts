@@ -11,7 +11,7 @@ const dailyNotificationJob = CronJob.from({
   cronTime: process.env[EnvFields.DAILY_MOTIVATIONAL_NOTIFICATION_TIME]!,
   onTick: () => {
     notificationEvents.publish({
-      eventName: NotificationEventsEnum.mutlipleNotifications,
+      eventName: NotificationEventsEnum.allUsers,
       payload: {
         title: process.env[EnvFields.DAILY_MOTIVATIONAL_NOTIFICATION_TITLE]!,
         body: process.env[EnvFields.DAILY_MOTIVATIONAL_NOTIFICATION_BODY]!,

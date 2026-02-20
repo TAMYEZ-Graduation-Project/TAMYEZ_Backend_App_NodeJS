@@ -1,6 +1,7 @@
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import type { ITokenPayload } from "../constants/interface.constants.ts";
 import {
+  ApplicationTypeEnum,
   LogoutFlagsEnum,
   RolesEnum,
   SignatureLevelsEnum,
@@ -25,7 +26,7 @@ import type { Types } from "mongoose";
 class TokenSecurityUtil {
   private static _userRepository = new UserRepository(UserModel);
   private static _revokedTokenRepository = new RevokedTokenRepository(
-    RevokedTokenModel
+    RevokedTokenModel,
   );
 
   static generateToken = ({
@@ -49,7 +50,11 @@ class TokenSecurityUtil {
     token: string;
     secretKey: string;
   }): ITokenPayload => {
-    return jwt.verify(token, secretKey) as ITokenPayload;
+    try {
+      return jwt.verify(token, secretKey) as ITokenPayload;
+    } catch (e: any) {
+      throw new BadRequestException(e.message || "Invalid token ❌");
+    }
   };
 
   static getSignatureLevel = ({
@@ -78,7 +83,7 @@ class TokenSecurityUtil {
   }): { accessSignature: string } => {
     if ((!signatureLevel && !userRole) || (signatureLevel && userRole)) {
       throw new ServerException(
-        "Either signatureLever or userRole should be only provided ⚠️"
+        "Either signatureLever or userRole should be only provided ⚠️",
       );
     }
 
@@ -110,8 +115,10 @@ class TokenSecurityUtil {
 
   static getTokensBasedOnRole = ({
     user,
+    applicationType,
   }: {
     user: HIUserType;
+    applicationType: ApplicationTypeEnum;
   }): { accessToken: string } => {
     const signatures = this.getSignatures({
       signatureLevel: this.getSignatureLevel({ role: user.role }),
@@ -119,7 +126,7 @@ class TokenSecurityUtil {
     const jti: string = IdSecurityUtil.generateAlphaNumericId(); // jti = jwtId
     return {
       accessToken: this.generateToken({
-        payload: { id: user.id, jti },
+        payload: { id: user.id, jti, applicationType },
         secretKey: signatures.accessSignature,
       }),
     };
@@ -135,13 +142,13 @@ class TokenSecurityUtil {
     const [bearer, token] = authorization.split(" ");
     if (!bearer || !token) {
       throw new UnauthorizedException(
-        StringConstants.MISSING_TOKEN_PARTS_MESSAGE
+        StringConstants.MISSING_TOKEN_PARTS_MESSAGE,
       );
     }
 
     if (
       !Object.values(SignatureLevelsEnum).includes(
-        bearer as SignatureLevelsEnum
+        bearer as SignatureLevelsEnum,
       )
     ) {
       throw new BadRequestException(StringConstants.INVALID_BEARER_KEY_MESSAGE);
@@ -150,7 +157,6 @@ class TokenSecurityUtil {
     const signatures = this.getSignatures({
       signatureLevel: bearer as SignatureLevelsEnum,
     });
-
     const payload = this.verifyToken({
       token,
       secretKey:
@@ -158,9 +164,14 @@ class TokenSecurityUtil {
           ? signatures.accessSignature
           : "",
     });
-    if (!payload.id || !payload.iat || !payload.jti) {
+    if (
+      !payload.id ||
+      !payload.iat ||
+      !payload.jti ||
+      !payload.applicationType
+    ) {
       throw new BadRequestException(
-        StringConstants.INVALID_TOKEN_PAYLOAD_MESSAGE
+        StringConstants.INVALID_TOKEN_PAYLOAD_MESSAGE,
       );
     }
 
@@ -173,18 +184,25 @@ class TokenSecurityUtil {
     }
 
     const user = await this._userRepository.findOne({
-      filter: { _id: payload.id, freezed: { $exists: false } },
+      filter: { _id: payload.id },
+      options: {
+        populate: [
+          {
+            path: "careerPath.id",
+            match: { paranoid: false },
+            select: "title slug pictureUrl freezed",
+          },
+        ],
+      },
     });
     if (!user?.confirmedAt) {
       throw new BadRequestException(
-        StringConstants.INVALID_USER_ACCOUNT_MESSAGE
+        StringConstants.INVALID_USER_ACCOUNT_MESSAGE,
       );
     }
-
     if ((user?.changeCredentialsTime?.getTime() || 0) > payload.iat * 1000) {
       throw new BadRequestException(StringConstants.TOKEN_REVOKED_MESSAGE);
     }
-
     return {
       user,
       payload,
@@ -205,14 +223,14 @@ class TokenSecurityUtil {
       case LogoutFlagsEnum.all:
         await this._userRepository
           .updateOne({
-            filter: { _id: userId },
+            filter: { _id: userId, __v: undefined },
             update: {
               changeCredentialsTime: Date.now(),
             },
           })
           .catch((err) => {
             throw new ServerException(
-              StringConstants.FAILED_REVOKE_TOKEN_MESSAGE
+              StringConstants.FAILED_REVOKE_TOKEN_MESSAGE,
             );
           });
         break;
@@ -225,7 +243,7 @@ class TokenSecurityUtil {
                 expiresAt: new Date(
                   (tokenPayload.iat! +
                     Number(process.env[EnvFields.ACCESS_TOKEN_EXPIRES_IN])) *
-                    1000
+                    1000,
                 ),
                 userId,
               },
@@ -233,7 +251,7 @@ class TokenSecurityUtil {
           })
           .catch((err) => {
             throw new ServerException(
-              StringConstants.FAILED_REVOKE_TOKEN_MESSAGE
+              StringConstants.FAILED_REVOKE_TOKEN_MESSAGE,
             );
           });
         statusCode = 201;
@@ -267,7 +285,7 @@ class TokenSecurityUtil {
     });
     if (!payload.id || !payload.iat || !payload.jti || !payload.exp) {
       throw new BadRequestException(
-        StringConstants.INVALID_TOKEN_PAYLOAD_MESSAGE
+        StringConstants.INVALID_TOKEN_PAYLOAD_MESSAGE,
       );
     }
 

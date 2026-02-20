@@ -7,5 +7,9 @@ class ModelsNames {
     static quizCooldownModel = "QuizCooldown";
     static notificationPushDevice = "NotificationPushDevice";
     static adminNotificationsLimit = "AdminNotificationsLimit";
+    static careerModel = "Career";
+    static roadmapStepModel = "RoadmapStep";
+    static dashboardReviewModel = "DashboardReview";
+    static feedbackModel = "Feedback";
 }
 export default ModelsNames;

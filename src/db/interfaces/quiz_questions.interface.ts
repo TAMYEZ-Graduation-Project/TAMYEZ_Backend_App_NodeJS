@@ -2,6 +2,7 @@ import type { Default__v, HydratedDocument, Require_id, Types } from "mongoose";
 import type {
   OptionIdsEnum,
   QuestionTypesEnum,
+  QuizTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import type { IQuizQuestionOption } from "./common.interface.ts";
 
@@ -24,6 +25,12 @@ export interface IQuizAttempt {
   quizId: Types.ObjectId;
 
   userId: Types.ObjectId;
+
+  careerId?: Types.ObjectId;
+
+  roadmapStepId?: Types.ObjectId;
+
+  attemptType: QuizTypesEnum;
 
   questions: IQuestion[];
 

@@ -5,5 +5,17 @@ class S3FoldersPaths {
     static profileFolderPath = (userId) => {
         return `${this.userFolderPath(userId)}/profile`;
     };
+    static careerFolderPath = (assetFolderId) => {
+        return `careers/${assetFolderId}`;
+    };
+    static careerResourceFolderPath = (assetFolderId, resourceName) => {
+        return `careers/${assetFolderId}/${resourceName}`;
+    };
+    static roadmapStepFolderPath = (assetFolderId, stepId) => {
+        return `careers/${assetFolderId}/roadmap/${stepId.toString()}`;
+    };
+    static roadmapStepResourceFolderPath = (assetFolderId, resourceName, stepId) => {
+        return `careers/${assetFolderId}/roadmap/${stepId.toString()}/${resourceName}`;
+    };
 }
 export default S3FoldersPaths;

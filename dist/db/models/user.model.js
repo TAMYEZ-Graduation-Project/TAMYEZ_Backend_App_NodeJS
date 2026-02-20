@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { GenderEnum, ProvidersEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
 import ModelsNames from "../../utils/constants/models.names.constants.js";
 import { softDeleteFunction } from "../../utils/soft_delete/soft_delete.js";
@@ -6,6 +6,15 @@ import DocumentFormat from "../../utils/formats/document.format.js";
 import { atByObjectSchema, codeExpireCountObjectSchema, idSelectedAtObjectSchema, profilePictureObjectSchema, } from "./common_schemas.model.js";
 import HashingSecurityUtil from "../../utils/security/hash.security.js";
 import EncryptionSecurityUtil from "../../utils/security/encryption.security.js";
+import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
+import EnvFields from "../../utils/constants/env_fields.constants.js";
+const careerDeletedSchema = new mongoose.Schema({
+    message: { type: String, required: true },
+    newSuggestedCareer: {
+        type: mongoose.Schema.ObjectId,
+        ref: ModelsNames.careerModel,
+    },
+});
 const quizAttemptsSchema = new mongoose.Schema({
     count: { type: Number, required: true, min: 0, max: 5 },
     lastAttempt: { type: Date, required: true },
@@ -21,6 +30,9 @@ const userSchema = new mongoose.Schema({
     },
     confirmedAt: { type: Date },
     confirmEmailLink: {
+        type: codeExpireCountObjectSchema,
+    },
+    restoreEmailLink: {
         type: codeExpireCountObjectSchema,
     },
     password: {
@@ -62,7 +74,10 @@ const userSchema = new mongoose.Schema({
     profilePicture: {
         type: profilePictureObjectSchema,
     },
-    careerPath: { type: idSelectedAtObjectSchema },
+    careerPath: {
+        type: idSelectedAtObjectSchema({ ref: ModelsNames.careerModel }),
+    },
+    careerDeleted: { type: careerDeletedSchema },
     quizAttempts: quizAttemptsSchema,
     freezed: atByObjectSchema,
     restored: atByObjectSchema,
@@ -72,6 +87,7 @@ const userSchema = new mongoose.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
 });
+userSchema.index({ "careerPath.id": 1 }, { partialFilterExpression: { "careerPath.id": { $exists: true } } });
 userSchema
     .virtual("fullName")
     .get(function () {
@@ -83,21 +99,34 @@ userSchema
 });
 userSchema.methods.toJSON = function () {
     const userObject = DocumentFormat.getIdFrom_Id(this.toObject());
+    if (userObject?.careerPath &&
+        !Types.ObjectId.isValid(userObject.careerPath.id.toString())) {
+        const careerObj = userObject.careerPath.id;
+        careerObj.pictureUrl =
+            careerObj.pictureUrl === process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
+                ? careerObj.pictureUrl
+                : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObj.pictureUrl);
+        userObject.careerPath.id = DocumentFormat.getIdFrom_Id(userObject.careerPath.id);
+    }
     return {
-        id: userObject.id,
-        fullName: userObject.firstName
+        id: userObject?.id,
+        fullName: userObject?.firstName
             ? `${userObject.firstName} ${userObject.lastName}`
             : undefined,
-        email: userObject.email,
-        phoneNumber: userObject.phoneNumber,
-        gender: userObject.gender,
-        role: userObject.role,
+        email: userObject?.email,
+        phoneNumber: userObject?.phoneNumber,
+        gender: userObject?.gender,
+        role: userObject?.role,
         profilePicture: userObject?.profilePicture?.url
-            ? DocumentFormat.getFullURLFromSubKey(userObject.profilePicture.url)
+            ? userObject.profilePicture.provider === ProvidersEnum.local
+                ? S3KeyUtil.generateS3UploadsUrlFromSubKey(userObject.profilePicture.url)
+                : userObject.profilePicture.url
             : undefined,
-        createdAt: userObject.createdAt,
-        updatedAt: userObject.updatedAt,
-        confirmedAt: userObject.confirmedAt,
+        careerPath: userObject?.careerPath,
+        createdAt: userObject?.createdAt,
+        updatedAt: userObject?.updatedAt,
+        confirmedAt: userObject?.confirmedAt,
+        v: userObject?.v,
     };
 };
 userSchema.pre("save", async function (next) {
@@ -131,7 +160,7 @@ userSchema.pre(["updateOne", "findOneAndUpdate"], async function () {
     }
     this.setUpdate(updateObject);
 });
-userSchema.pre(["find", "findOne", "findOneAndUpdate", "countDocuments"], function (next) {
+userSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"], function (next) {
     softDeleteFunction(this);
     next();
 });

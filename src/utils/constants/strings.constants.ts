@@ -7,6 +7,7 @@ import {
 import type { RequestKeysType } from "../types/valdiation_schema.type.ts";
 
 class StringConstants {
+  static readonly ALL = "All";
   static readonly GENERIC_ERROR_MESSAGE =
     "An unexpected error occurred. Please try again later. 🤔";
 
@@ -29,6 +30,9 @@ class StringConstants {
 
   static readonly USE_EMAIL_VERIFICATION_LINK_MESSAGE =
     "Please use the Link below to verify your Email.";
+
+  static readonly USE_EMAIL_RESTORATION_LINK_MESSAGE =
+    "Please use the Link below to restore your Email.";
 
   static readonly USE_FORGET_PASSWORD_OTP_MESSAGE =
     "Please use the OTP below to verify your Forget Password Attempt.";
@@ -53,7 +57,7 @@ class StringConstants {
     "confirmPassword mismatch password ☹️";
 
   static readonly INVALID_GENDER_MESSAGE = `Invalid gender, it must be either [${Object.values(
-    GenderEnum
+    GenderEnum,
   )}] 🚻`;
 
   static readonly SINGED_UP_SUCCESSFUL_WITH_LINK_MESSAGE =
@@ -110,7 +114,7 @@ class StringConstants {
   static readonly INVALID_VALIDATION_TOKEN_MESSAGE = `Token must consist of three parts having any characters accept line terimantors, each part seperated with dot ❌`;
 
   static readonly INVALID_VALIDATION_BEARER_TOKEN_MESSAGE = `Token must start with one of ${Object.values(
-    SignatureLevelsEnum
+    SignatureLevelsEnum,
   )} followed by a space, and ${this.INVALID_VALIDATION_TOKEN_MESSAGE}`;
 
   static readonly FAILED_VERIFY_GMAIL_ACCOUNT_MESSAGE =
@@ -118,6 +122,8 @@ class StringConstants {
 
   static readonly INVALID_GMAIL_CREDENTIALS_MESSAGE =
     "Invaild gmail account credentials 🇬🪪";
+
+  static readonly INVALID_VERSION_MESSAGE = `Version doesn't match ❌`;
 
   static readonly EMAIL_EXISTS_PROVIDER_MESSAGE =
     "Email exists with another provider ✉️❌";
@@ -131,6 +137,8 @@ class StringConstants {
 
   static readonly INVALID_VALIDATION_DURATION_MESSAGE =
     "duration must be an integer number between 60s and 36_000s 🕛";
+
+  static readonly INVALID_LOGIN_GATEWAY_MESSAGE = "Invalid login gateway ❌🚪";
 
   static readonly INVALID_DURATION_EXIST_MESSAGE = `${QuizTypesEnum.careerAssessment} must not have a duration value 🕛`;
 
@@ -181,7 +189,7 @@ class StringConstants {
     theEnum: Record<string, any>;
   }): string {
     return `Invalid ${enumValueName}, allowed values are ${Object.values(
-      theEnum
+      theEnum,
     )}`;
   }
 

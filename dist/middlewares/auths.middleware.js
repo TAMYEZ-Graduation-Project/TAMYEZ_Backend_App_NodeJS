@@ -1,12 +1,14 @@
 import TokenSecurityUtil from "../utils/security/token.security.js";
-import { RolesEnum, TokenTypesEnum, } from "../utils/constants/enum.constants.js";
+import { ApplicationTypeEnum, RolesEnum, TokenTypesEnum, } from "../utils/constants/enum.constants.js";
 import { z } from "zod";
 import AppRegex from "../utils/constants/regex.constants.js";
 import { ForbiddenException, ValidationException, } from "../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../utils/constants/strings.constants.js";
 class Auths {
-    static authenticationMiddleware = ({ tokenType = TokenTypesEnum.accessToken, } = {}) => {
+    static authenticationMiddleware = ({ tokenType = TokenTypesEnum.accessToken, isOptional = false, } = {}) => {
         return async (req, res, next) => {
+            if (isOptional && !req.headers.authorization)
+                return next();
             const result = await z
                 .object({
                 authorization: z
@@ -44,10 +46,31 @@ class Auths {
             return next();
         };
     };
+    static gatewayMiddleware = ({ applicationType, }) => {
+        return (req, res, next) => {
+            if (req.tokenPayload?.applicationType !== applicationType) {
+                throw new ForbiddenException(StringConstants.INVALID_LOGIN_GATEWAY_MESSAGE);
+            }
+            return next();
+        };
+    };
     static combined = ({ tokenType = TokenTypesEnum.accessToken, accessRoles, }) => {
         return [
             this.authenticationMiddleware({ tokenType }),
             this.authorizationMiddleware({ accessRoles }),
+        ];
+    };
+    static combinedWithGateway = ({ tokenType = TokenTypesEnum.accessToken, accessRoles, applicationType, }) => {
+        return [
+            this.authenticationMiddleware({ tokenType }),
+            this.authorizationMiddleware({ accessRoles }),
+            this.gatewayMiddleware({ applicationType }),
+        ];
+    };
+    static authenticationWithGateway = ({ tokenType = TokenTypesEnum.accessToken, applicationType, }) => {
+        return [
+            this.authenticationMiddleware({ tokenType }),
+            this.gatewayMiddleware({ applicationType }),
         ];
     };
 }

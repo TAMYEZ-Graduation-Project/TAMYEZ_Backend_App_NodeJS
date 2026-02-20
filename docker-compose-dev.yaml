@@ -1,0 +1,14 @@
+services:
+  tamyez-app-dev:
+    build: 
+      context: .
+      target: dev
+    
+    container_name: tamyez-app-dev-cont
+    env_file:
+      - ./config/.env.development
+    
+    volumes:
+      - ./src:/TAMYEZ_APP/src:ro
+    ports:
+      - "4000:3002"

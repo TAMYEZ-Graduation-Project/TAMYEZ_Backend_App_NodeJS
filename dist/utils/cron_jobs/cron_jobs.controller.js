@@ -1,24 +1,23 @@
 import { CronJob } from "cron";
 import notificationEvents from "../events/notifications.events.js";
 import { NotificationEventsEnum } from "../constants/enum.constants.js";
+import EnvFields from "../constants/env_fields.constants.js";
 const startAllCronJobs = () => {
     dailyNotificationJob.start();
 };
 const dailyNotificationJob = CronJob.from({
-    cronTime: "0 10 * * *",
+    cronTime: process.env[EnvFields.DAILY_MOTIVATIONAL_NOTIFICATION_TIME],
     onTick: () => {
-        console.log("Inside cron Job");
         notificationEvents.publish({
-            eventName: NotificationEventsEnum.mutlipleNotifications,
+            eventName: NotificationEventsEnum.allUsers,
             payload: {
-                title: "Your Future Is Taking Shape 🚀",
-                body: "One step today brings you closer to the professional you’re becoming—TAMYEZ will guide you all the way.",
-                imageUrl: "https://raw.githubusercontent.com/TAMYEZ-Graduation-Project/TAMYEZ_Backend_App_NodeJS/refs/heads/main/assets/daily_motivation_notification_50.png",
+                title: process.env[EnvFields.DAILY_MOTIVATIONAL_NOTIFICATION_TITLE],
+                body: process.env[EnvFields.DAILY_MOTIVATIONAL_NOTIFICATION_BODY],
+                imageUrl: process.env[EnvFields.DAILY_MOTIVATIONAL_NOTIFICATION_IMAGE_URL],
             },
         });
     },
     onComplete: null,
-    start: true,
     timeZone: "Africa/Cairo",
 });
 export default startAllCronJobs;

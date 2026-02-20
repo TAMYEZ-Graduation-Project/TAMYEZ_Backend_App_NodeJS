@@ -22,14 +22,16 @@ export const profilePictureObjectSchema = new mongoose.Schema({
         default: ProvidersEnum.local,
     },
 }, { _id: false });
-export const idSelectedAtObjectSchema = new mongoose.Schema({
-    id: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        ref: ModelsNames.userModel,
-    },
-    selectedAt: { type: Date, required: true },
-}, { _id: false });
+export const idSelectedAtObjectSchema = ({ ref }) => {
+    return new mongoose.Schema({
+        id: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: true,
+            ref,
+        },
+        selectedAt: { type: Date, required: true },
+    }, { _id: false });
+};
 export const questionOptionSchema = new mongoose.Schema({
     id: { type: String, enum: Object.values(OptionIdsEnum), required: true },
     text: { type: String, required: true },

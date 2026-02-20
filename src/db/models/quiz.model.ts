@@ -65,34 +65,36 @@ const quizSchema = new mongoose.Schema<IQuiz>(
     strictQuery: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 quizSchema.methods.toJSON = function () {
   const quizObject = DocumentFormat.getIdFrom_Id<IQuiz>(this.toObject());
 
   return {
-    id: quizObject.id,
-    title: quizObject.title,
-    description: quizObject.description,
-    aiPrompt: quizObject.aiPrompt,
-    type: quizObject.type,
-    duration: quizObject.duration,
-    tags: quizObject.tags,
-    createdBy: quizObject.createdBy,
-    createdAt: quizObject.createdAt,
-    updatedAt: quizObject.updatedAt,
-    freezed: quizObject.freezed,
-    restored: quizObject.restored,
+    id: quizObject?.id,
+    title: quizObject?.title,
+    description: quizObject?.description,
+    aiPrompt: quizObject?.aiPrompt,
+    uniqueKey: quizObject?.uniqueKey,
+    type: quizObject?.type,
+    duration: quizObject?.duration,
+    tags: quizObject?.tags,
+    createdBy: quizObject?.createdBy,
+    createdAt: quizObject?.createdAt,
+    updatedAt: quizObject?.updatedAt,
+    freezed: quizObject?.freezed,
+    restored: quizObject?.restored,
+    v: quizObject?.v,
   };
 };
 
 quizSchema.pre(
-  ["find", "findOne", "findOneAndUpdate", "countDocuments"],
+  ["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"],
   function (next) {
     softDeleteFunction(this);
     next();
-  }
+  },
 );
 
 const QuizModel =

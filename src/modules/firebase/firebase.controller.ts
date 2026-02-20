@@ -5,57 +5,72 @@ import firebaseAuthorizationEndpoints from "./firebase.authorization.ts";
 import validationMiddleware from "../../middlewares/validation.middleware.ts";
 import FirebaseValidators from "./firebase.validation.ts";
 import FirebaseService from "./firebase.service.ts";
+import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.ts";
 
-const firebaseRouter = Router();
+export const firebaseRouter = Router();
+export const adminFirebaseRouter = Router();
 
 const firebaseService = new FirebaseService();
 
-firebaseRouter.post(
-  RoutePaths.sendNotification,
-  Auths.combined({
-    accessRoles: firebaseAuthorizationEndpoints.sendNotification,
-  }),
-  validationMiddleware({ schema: FirebaseValidators.sendNotification }),
-  firebaseService.sendFirebaseNotification
-);
-
-firebaseRouter.post(
-  RoutePaths.sendMultipleNotifications,
-  Auths.combined({
-    accessRoles: firebaseAuthorizationEndpoints.sendNotification,
-  }),
-  validationMiddleware({ schema: FirebaseValidators.sendMultiNotifications }),
-  firebaseService.sendMultipleFirebaseNotifications
-);
-
-firebaseRouter.post(
-  RoutePaths.sendNotificationsToAllUsers,
-  Auths.combined({
-    accessRoles: firebaseAuthorizationEndpoints.sendNotification,
-  }),
-  validationMiddleware({ schema: FirebaseValidators.sendNotificationsToAllUsers }),
-  firebaseService.sendNotificationsToAllUsers
-);
-
+// normal user apis
 firebaseRouter.post(
   RoutePaths.enableNotifications,
-  Auths.authenticationMiddleware(),
+  Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+  }),
   validationMiddleware({ schema: FirebaseValidators.enableNotifications }),
-  firebaseService.enableNotifications
+  firebaseService.enableNotifications,
 );
 
 firebaseRouter.post(
   RoutePaths.refreshFcmToken,
-  Auths.authenticationMiddleware(),
+  Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+  }),
   validationMiddleware({ schema: FirebaseValidators.refreshFcmToken }),
-  firebaseService.refreshFcmToken
+  firebaseService.refreshFcmToken,
 );
 
 firebaseRouter.post(
   RoutePaths.disableNotifications,
-  Auths.authenticationMiddleware(),
+  Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+  }),
   validationMiddleware({ schema: FirebaseValidators.disableNotifications }),
-  firebaseService.disableNotifications
+  firebaseService.disableNotifications,
 );
 
-export default firebaseRouter;
+// admin apis
+adminFirebaseRouter.use(
+  Auths.combinedWithGateway({
+    accessRoles: firebaseAuthorizationEndpoints.sendNotification,
+    applicationType: ApplicationTypeEnum.adminDashboard,
+  }),
+);
+adminFirebaseRouter.post(
+  RoutePaths.sendNotification,
+  validationMiddleware({ schema: FirebaseValidators.sendNotification }),
+  firebaseService.sendFirebaseNotification,
+);
+
+adminFirebaseRouter.post(
+  RoutePaths.sendMultipleNotifications,
+  validationMiddleware({ schema: FirebaseValidators.sendMultiNotifications }),
+  firebaseService.sendMultipleFirebaseNotifications,
+);
+
+adminFirebaseRouter.post(
+  RoutePaths.sendNotificationsToAllUsers,
+  validationMiddleware({
+    schema: FirebaseValidators.sendNotificationsToAllUsers,
+  }),
+  firebaseService.sendNotificationsToAllUsers,
+);
+
+adminFirebaseRouter.post(
+  RoutePaths.sendNotificationToCareerUsers,
+  validationMiddleware({
+    schema: FirebaseValidators.sendNotificationToCareerUsers,
+  }),
+  firebaseService.sendNotificationsToCareerUsers,
+);

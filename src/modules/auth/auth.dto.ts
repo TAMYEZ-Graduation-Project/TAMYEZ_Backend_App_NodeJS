@@ -8,6 +8,10 @@ export type VerifyEmailQueryDtoType = z.infer<
   typeof AuthValidators.verifyEmail.query
 >;
 
+export type RestoreEmailQueryDtoType = z.infer<
+  typeof AuthValidators.restoreEmail.query
+>;
+
 export type ResendEmailVerificationLinkBodyDtoType = z.infer<
   typeof AuthValidators.resendEmailVerificationLink.body
 >;

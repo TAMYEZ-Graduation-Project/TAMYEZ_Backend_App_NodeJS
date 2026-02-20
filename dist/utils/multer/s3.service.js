@@ -1,28 +1,24 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, ObjectCannedACL, } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, ObjectCannedACL, } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { StorageTypesEnum } from "../constants/enum.constants.js";
+import { BucketProvidersEnum, StorageTypesEnum, } from "../constants/enum.constants.js";
 import { createReadStream } from "node:fs";
 import { S3Exception } from "../exceptions/custom.exceptions.js";
-import KeyUtil from "./key.multer.js";
-import EnvFields from "../constants/env_fields.constants.js";
+import S3KeyUtil from "./s3_key.multer.js";
+import S3ClientFactory from "./s3_client_factory.js";
 class S3Service {
-    static _s3ClientObject = new S3Client({
-        region: process.env[EnvFields.AWS_REGION],
-        credentials: {
-            accessKeyId: process.env[EnvFields.AWS_ACCESS_KEY_ID],
-            secretAccessKey: process.env[EnvFields.AWS_SECRET_ACCESS_KEY],
-        },
+    static _s3ClientObject = S3ClientFactory.createS3Client({
+        bucketProvider: BucketProvidersEnum.cloudflare,
     });
     static uploadFile = async ({ StorageApproach = StorageTypesEnum.memory, Bucket = process.env.AWS_BUCKET_NAME, ACL = "private", Path = "general", File, }) => {
-        const subKey = KeyUtil.generateS3SubKey({
+        const subKey = S3KeyUtil.generateS3SubKey({
             Path,
             originalname: File.originalname,
         });
         const command = new PutObjectCommand({
             Bucket,
             ACL,
-            Key: KeyUtil.generateS3KeyFromSubKey(subKey),
+            Key: S3KeyUtil.generateS3KeyFromSubKey(subKey),
             Body: StorageApproach === StorageTypesEnum.memory
                 ? File.buffer
                 : createReadStream(File.path),
@@ -50,7 +46,7 @@ class S3Service {
         return subKeys;
     };
     static uploadLargeFile = async ({ StorageApproach = StorageTypesEnum.disk, Bucket = process.env.AWS_BUCKET_NAME, ACL = "private", Path = "general", File, }) => {
-        const subKey = KeyUtil.generateS3SubKey({
+        const subKey = S3KeyUtil.generateS3SubKey({
             Path,
             originalname: File.originalname,
         });
@@ -59,7 +55,7 @@ class S3Service {
             params: {
                 Bucket,
                 ACL,
-                Key: KeyUtil.generateS3KeyFromSubKey(subKey),
+                Key: S3KeyUtil.generateS3KeyFromSubKey(subKey),
                 Body: StorageApproach === StorageTypesEnum.memory
                     ? File.buffer
                     : createReadStream(File.path),
@@ -92,14 +88,14 @@ class S3Service {
         return subKeys;
     };
     static createPresignedUploadUrl = async ({ Bucket = process.env.AWS_BUCKET_NAME, originalname, Path = "general", contentType, expiresIn = Number(process.env.AWS_PRESIGNED_URL_EXPIRES_IN_SECONDS), }) => {
-        const subKey = KeyUtil.generateS3SubKey({
+        const subKey = S3KeyUtil.generateS3SubKey({
             Path,
             tag: "presigned",
             originalname,
         });
         const command = new PutObjectCommand({
             Bucket,
-            Key: KeyUtil.generateS3KeyFromSubKey(subKey),
+            Key: S3KeyUtil.generateS3KeyFromSubKey(subKey),
             ContentType: contentType,
         });
         const url = await getSignedUrl(this._s3ClientObject, command, {
@@ -115,7 +111,7 @@ class S3Service {
     static createPresignedGetUrl = async ({ Bucket = process.env.AWS_BUCKET_NAME, SubKey, expiresIn = Number(process.env.AWS_PRESIGNED_URL_EXPIRES_IN_SECONDS), download = "false", downloadName, }) => {
         const command = new GetObjectCommand({
             Bucket,
-            Key: KeyUtil.generateS3KeyFromSubKey(SubKey),
+            Key: S3KeyUtil.generateS3KeyFromSubKey(SubKey),
             ResponseContentDisposition: download === "true"
                 ? `attachment; filename="${downloadName
                     ? `${downloadName}.${SubKey.split(".").pop() ?? ""}`
@@ -135,7 +131,7 @@ class S3Service {
     static getFile = async ({ Bucket = process.env.AWS_BUCKET_NAME, SubKey, }) => {
         const command = new GetObjectCommand({
             Bucket,
-            Key: KeyUtil.generateS3KeyFromSubKey(SubKey),
+            Key: S3KeyUtil.generateS3KeyFromSubKey(SubKey),
         });
         return this._s3ClientObject.send(command).catch((error) => {
             throw new S3Exception(error, `Failed to fetch this asset ☹️.`);
@@ -144,7 +140,7 @@ class S3Service {
     static deleteFile = async ({ Bucket = process.env.AWS_BUCKET_NAME, SubKey, }) => {
         const command = new DeleteObjectCommand({
             Bucket,
-            Key: KeyUtil.generateS3KeyFromSubKey(SubKey),
+            Key: S3KeyUtil.generateS3KeyFromSubKey(SubKey),
         });
         return this._s3ClientObject.send(command).catch((error) => {
             throw new S3Exception(error, `Failed to delete this asset ☹️.`);
@@ -159,7 +155,7 @@ class S3Service {
                 return { Key };
             })
             : SubKeys.map((SubKey) => {
-                return { Key: KeyUtil.generateS3KeyFromSubKey(SubKey) };
+                return { Key: S3KeyUtil.generateS3KeyFromSubKey(SubKey) };
             });
         const command = new DeleteObjectsCommand({
             Bucket,
@@ -175,14 +171,9 @@ class S3Service {
     static listDirectoryFiles = async ({ Bucket = process.env.AWS_BUCKET_NAME, FolderPath, }) => {
         const command = new ListObjectsV2Command({
             Bucket,
-            Prefix: KeyUtil.generateS3KeyFromSubKey(FolderPath),
+            Prefix: S3KeyUtil.generateS3KeyFromSubKey(FolderPath),
         });
-        const result = await this._s3ClientObject.send(command).catch((error) => {
-            throw new S3Exception(error, `Failed to list files in this directory ☹️.`);
-        });
-        if (!result.Contents || result.Contents.length === 0) {
-            throw new S3Exception(undefined, "No files found in this directory ☹️");
-        }
+        const result = await this._s3ClientObject.send(command);
         return result;
     };
     static deleteFolderByPrefix = async ({ Bucket = process.env.AWS_BUCKET_NAME, FolderPath, Quiet, }) => {
@@ -190,7 +181,9 @@ class S3Service {
             Bucket,
             FolderPath,
         });
-        const Keys = listedObjects.Contents.map((item) => item.Key);
+        const Keys = listedObjects.Contents?.map((item) => item.Key);
+        if (!Keys)
+            return;
         return this.deleteFiles({ Bucket, Keys, Quiet });
     };
 }

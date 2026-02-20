@@ -1,11 +1,7 @@
-import EnvFields from "../constants/env_fields.constants.js";
-class DocumentFromat {
+class DocumentFormat {
     static getIdFrom_Id = (documentInstance) => {
-        const { _id, ...restObject } = documentInstance;
-        return { id: _id ? _id : undefined, ...restObject };
-    };
-    static getFullURLFromSubKey = (subKey) => {
-        return `${process.env[EnvFields.PROTOCOL]}://${process.env[EnvFields.HOST]}/uploads/${subKey}`;
+        const { _id, __v, ...restObject } = documentInstance;
+        return { id: _id, ...restObject, v: __v };
     };
 }
-export default DocumentFromat;
+export default DocumentFormat;

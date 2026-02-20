@@ -1,5 +1,5 @@
 import IdSecurityUtil from "../security/id.security.js";
-class KeyUtil {
+class S3KeyUtil {
     static generateS3Key = ({ Path, tag, originalname, }) => {
         return `${process.env.APP_NAME}/${Path}/${IdSecurityUtil.generateAlphaNumericId({
             size: 24,
@@ -17,4 +17,4 @@ class KeyUtil {
         return `${req.protocol}://${req.host}/uploads/${subKey}`;
     };
 }
-export default KeyUtil;
+export default S3KeyUtil;

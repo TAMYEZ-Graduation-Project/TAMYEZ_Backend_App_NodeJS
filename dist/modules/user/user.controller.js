@@ -8,10 +8,16 @@ import CloudMulter from "../../utils/multer/cloud.multer.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import fileValidation from "../../utils/multer/file_validation.multer.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
-const userRouter = Router();
+import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.js";
+import { userAuthorizationEndpoints } from "./user.authorization.js";
+export const userRouter = Router();
+export const adminUserRouter = Router();
 const userService = new UserService();
-userRouter.get(RoutePaths.userProfile, Auths.authenticationMiddleware(), userService.getProfile);
-userRouter.post(RoutePaths.logout, validationMiddleware({ schema: UserValidators.logout }), Auths.authenticationMiddleware(), userService.logout);
+userRouter.get(RoutePaths.userProfile, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.getProfile }), userService.getProfile());
+userRouter.post(RoutePaths.logout, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.logout }), userService.logout);
+userRouter.post(RoutePaths.submitFeedback, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: UserValidators.submitFeedback }), userService.submitFeedback);
 userRouter.patch(RoutePaths.profilePicture, Auths.authenticationMiddleware(), CloudMulter.handleSingleFileUpload({
     fieldName: StringConstants.ATTACHMENT_FIELD_NAME,
     maxFileSize: Number(process.env[EnvFields.PROFILE_PICTURE_SIZE]),
@@ -19,4 +25,18 @@ userRouter.patch(RoutePaths.profilePicture, Auths.authenticationMiddleware(), Cl
 }), validationMiddleware({ schema: UserValidators.uploadProfilePicture }), userService.uploadProfilePicture);
 userRouter.patch(RoutePaths.updateProfile, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.updateProfile }), userService.updateProfile);
 userRouter.patch(RoutePaths.changePassword, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.changePassword }), userService.changePassword);
-export default userRouter;
+userRouter.patch(RoutePaths.archiveAccount, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.archiveAccount }), userService.archiveAccount);
+userRouter.delete(RoutePaths.deleteAccount, Auths.authenticationMiddleware(), validationMiddleware({ schema: UserValidators.deleteAccount }), userService.deleteAccount);
+adminUserRouter.use(Auths.combinedWithGateway({
+    accessRoles: userAuthorizationEndpoints.getUsers,
+    applicationType: ApplicationTypeEnum.adminDashboard,
+}));
+adminUserRouter.get(RoutePaths.getAdminDashboardData, userService.getAdminDashboardData);
+adminUserRouter.get(RoutePaths.getUsers, validationMiddleware({ schema: UserValidators.getUsers }), userService.getUsers());
+adminUserRouter.get(RoutePaths.getArchivedUsers, validationMiddleware({ schema: UserValidators.getUsers }), userService.getUsers({ archived: true }));
+adminUserRouter.get(RoutePaths.getFeedbacks, validationMiddleware({ schema: UserValidators.getFeedbacks }), userService.getFeedbacks);
+adminUserRouter.get(RoutePaths.archivedUserProfile, validationMiddleware({ schema: UserValidators.getProfile }), userService.getProfile({ archived: true }));
+adminUserRouter.post(RoutePaths.replyToFeedback, validationMiddleware({ schema: UserValidators.replyToFeedback }), userService.replyToFeedback);
+adminUserRouter.patch(RoutePaths.changeRole, validationMiddleware({ schema: UserValidators.changeRole }), userService.changeRole);
+adminUserRouter.patch(RoutePaths.restoreAccount, validationMiddleware({ schema: UserValidators.restoreAccount }), userService.restoreAccount);
+adminUserRouter.delete(RoutePaths.deleteFeedback, validationMiddleware({ schema: UserValidators.deleteFeedback }), userService.deleteFeedback);
