@@ -5,6 +5,7 @@
   "main": "./dist/index.js",
   "type": "module",
   "scripts": {
+    "start:tsc":"tsc-watch",
     "start:dev": "tsc-watch --onSuccess \"node --env-file=./config/.env.development ./dist/index.js\"",
     "start:dev_docker": "tsc-watch --onSuccess \"node ./dist/index.js\"",
     "start:prod": "node --env-file=./config/.env.production ./dist/index.js",
