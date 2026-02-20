@@ -24,7 +24,7 @@ import { QuizAttemptModel } from "./db/models/index.ts";
 async function bootstrap() {
   const app: Express = express();
 
-  // Security Options
+  // Security Options  
   app.use(cors());
   app.use(helmet());
   app.use(

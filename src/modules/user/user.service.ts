@@ -178,8 +178,8 @@ class UserService {
               ],
             },
           })) ?? undefined,
-        notificationSent: await this._adminNotificationsLimitRepository.findOne(
-          {
+        notificationSent:
+          (await this._adminNotificationsLimitRepository.findOne({
             options: {
               sort: { createdAt: -1 },
               projection: { type: 1, careerId: 1, createdAt: 1 },
@@ -191,8 +191,7 @@ class UserService {
                 },
               ],
             },
-          },
-        ),
+          })) ?? undefined,
         userFeedbackReceived:
           (await this._feedbackRepository.findOne({
             options: {
