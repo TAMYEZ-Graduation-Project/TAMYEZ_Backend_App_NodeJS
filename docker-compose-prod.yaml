@@ -1,0 +1,12 @@
+services:
+  tamyez-app-prod:
+    build: 
+      context: .
+      target: prod
+    
+    container_name: tamyez-app-prod-cont
+    env_file:
+      - ./config/.env.production
+    
+    ports:
+      - "4001:3002"

@@ -1,20 +1,24 @@
 import type {
-  AnyBulkWriteOperation,
-  DeleteResult,
-  MongooseBaseQueryOptions,
-  MongooseBulkWriteResult,
-  PipelineStage,
-  UpdateWriteOpResult,
-} from "mongoose";
-import type {
   HydratedDocument,
   MongooseUpdateQueryOptions,
   ProjectionType,
   RootFilterQuery,
   Types,
   UpdateQuery,
+  CreateOptions,
+  Model,
+  MongooseBulkWriteOptions,
+  InferId,
+  AggregateOptions,
+  Aggregate,
+  AnyBulkWriteOperation,
+  DeleteResult,
+  MongooseBaseQueryOptions,
+  MongooseBulkWriteResult,
+  PipelineStage,
+  UpdateWriteOpResult,
+  mongo,
 } from "mongoose";
-import type { CreateOptions, Model } from "mongoose";
 import {
   BadRequestException,
   ContentTooLargeException,
@@ -33,11 +37,6 @@ import type {
   UpdateType,
 } from "../../utils/types/update_functions.type.ts";
 import type { PartialUndefined } from "../../utils/types/partial_undefined.type.ts";
-import type { UpdateOptions } from "mongodb";
-import type { MongooseBulkWriteOptions } from "mongoose";
-import type { InferId } from "mongoose";
-import type { AggregateOptions } from "mongoose";
-import type { Aggregate } from "mongoose";
 
 abstract class DatabaseRepository<TDocument> {
   constructor(protected readonly model: Model<TDocument>) {}
@@ -156,7 +155,7 @@ abstract class DatabaseRepository<TDocument> {
   }: {
     filter?: RootFilterQuery<TDocument>;
     update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
-    options?: UpdateOptions & MongooseUpdateQueryOptions<TDocument>;
+    options?: mongo.UpdateOptions & MongooseUpdateQueryOptions<TDocument>;
   }): Promise<UpdateWriteOpResult> => {
     if (Array.isArray(update)) {
       update.push({
@@ -179,7 +178,7 @@ abstract class DatabaseRepository<TDocument> {
     operations = [],
     options = { ordered: false },
   }: {
-    operations?: Array<AnyBulkWriteOperation<TDocument>>;
+    operations?: Array<AnyBulkWriteOperation<any>>;
     options?: MongooseBulkWriteOptions;
   }): Promise<MongooseBulkWriteResult> => {
     return this.model.bulkWrite(operations, options);
@@ -192,7 +191,7 @@ abstract class DatabaseRepository<TDocument> {
   }: {
     filter?: RootFilterQuery<TDocument> & { __v?: number | undefined };
     update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
-    options?: UpdateOptions & MongooseUpdateQueryOptions<TDocument>;
+    options?: mongo.UpdateOptions & MongooseUpdateQueryOptions<TDocument>;
   }): Promise<UpdateWriteOpResult> => {
     if (Array.isArray(update)) {
       update.push({
