@@ -10,6 +10,7 @@ COPY . .
 CMD [ "npm", "run", "start:dev_docker" ]
 
 FROM base AS prod
+RUN npm install pm2 -g
 RUN npm i --only=production
 COPY . .
 CMD [ "npm", "run", "start:prod_docker" ]

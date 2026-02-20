@@ -10,3 +10,4 @@ services:
     
     ports:
       - "4001:3002"
+    restart: always
