@@ -28,6 +28,8 @@ async function bootstrap() {
         limit: 300,
         windowMs: 15 * 60 * 1000,
     }));
+    if (process.env.MOOD === ProjectMoodsEnum.prod)
+        app.set("trust proxy", 1);
     if (!(await connnectToDB())) {
         app.use(RoutePaths.ALL_PATH, (req, res) => {
             res.status(500).json({
