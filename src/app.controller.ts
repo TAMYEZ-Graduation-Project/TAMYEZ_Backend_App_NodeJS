@@ -24,7 +24,7 @@ import { QuizAttemptModel } from "./db/models/index.ts";
 async function bootstrap() {
   const app: Express = express();
 
-  // Security Options  
+  // Security Options
   app.use(cors());
   app.use(helmet());
   app.use(
@@ -36,7 +36,8 @@ async function bootstrap() {
       windowMs: 15 * 60 * 1000,
     }),
   );
-
+  // trust the first proxy (NGINX)
+  if (process.env.MOOD === ProjectMoodsEnum.prod) app.set("trust proxy", 1);
   if (!(await connnectToDB())) {
     app.use(RoutePaths.ALL_PATH, (req: Request, res: Response) => {
       res.status(500).json({
