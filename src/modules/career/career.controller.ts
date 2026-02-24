@@ -36,6 +36,15 @@ careerRouter.get(
   careerService.getCareer(),
 );
 
+careerRouter.post(
+  RoutePaths.checkCareerAssessment,
+  Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+  }),
+  validationMiddleware({ schema: CareerValidators.checkCareerAssessment }),
+  careerService.checkCareerAssessment,
+);
+
 // admin apis
 adminCareerRouter.use(
   Auths.combinedWithGateway({

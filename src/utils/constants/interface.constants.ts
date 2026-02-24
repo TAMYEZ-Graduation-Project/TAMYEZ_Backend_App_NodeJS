@@ -92,6 +92,22 @@ export interface IAIModelCheckWrittenQuestionsRequest extends IAIModelGeneratedQ
   }[];
 }
 
+export interface IAIModelCheckCareerAssessmentQuestionsRequest {
+  careerList: { careerId: Types.ObjectId; title: string; summary: string }[];
+  answers: {
+    text: string;
+    options?: { id: OptionIdsEnum; text: string }[] | undefined;
+    userAnswer: string | OptionIdsEnum[];
+  }[];
+}
+
+export interface IAIModelCheckCareerAssessmentQuestionsResponse {
+  suggestedCareers: {
+    title: string;
+    confidence: number;
+  }[];
+}
+
 export interface IAIModelCheckWrittenQuestionsResponse {
   questionId: string;
   isCorrect: boolean;

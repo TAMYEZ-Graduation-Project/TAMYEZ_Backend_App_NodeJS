@@ -66,6 +66,8 @@ const careerSchema = new mongoose.Schema<ICareer>(
 
     description: { type: String, min: 5, max: 10_000, required: true },
 
+    summary: { type: String, min: 5, max: 150, required: true },
+
     assetFolderId: { type: String, required: true },
 
     isActive: { type: Boolean, default: false },
@@ -89,6 +91,7 @@ const careerSchema = new mongoose.Schema<ICareer>(
     },
 
     stepsCount: { type: Number, default: 0 },
+    orderEpoch: { type: Number, default: 0 },
 
     freezed: atByObjectSchema,
 
@@ -152,6 +155,7 @@ careerSchema.methods.toJSON = function () {
       );
     }),
     stepsCount: careerObject?.stepsCount,
+    orderEpoch: careerObject?.orderEpoch,
     roadmap: careerObject?.roadmap?.map((step) => {
       return {
         id: (step as FullIRoadmapStep)?._id,

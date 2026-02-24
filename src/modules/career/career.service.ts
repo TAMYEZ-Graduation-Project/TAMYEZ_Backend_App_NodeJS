@@ -16,6 +16,8 @@ import successHandler from "../../utils/handlers/success.handler.ts";
 import type {
   ArchiveCareerBodyDto,
   ArchiveCareerParamsDto,
+  CheckCareerAssessmentBodyDto,
+  CheckCareerAssessmentParamsDto,
   CreateCareerBodyDto,
   DeleteCareerBodyDto,
   DeleteCareerParamsDto,
@@ -35,6 +37,7 @@ import {
   ConflictException,
   NotFoundException,
   ServerException,
+  ValidationException,
 } from "../../utils/exceptions/custom.exceptions.ts";
 import type {
   FullICareerResource,
@@ -48,6 +51,7 @@ import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
 import {
   ApplicationTypeEnum,
   CareerResourceAppliesToEnum,
+  QuizTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import { Types, type FilterQuery } from "mongoose";
 import type { ICareer } from "../../db/interfaces/career.interface.ts";
@@ -58,6 +62,16 @@ import type {
   UploadCareerPictureResponse,
 } from "./career.entity.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
+import type { HIQuiz } from "../../db/interfaces/quiz.interface.ts";
+import StringConstants from "../../utils/constants/strings.constants.ts";
+import type {
+  FullIQuestion,
+  HIQuestion,
+} from "../../db/interfaces/quiz_questions.interface.ts";
+import type {
+  IAIModelCheckCareerAssessmentQuestionsRequest,
+  IAIModelCheckCareerAssessmentQuestionsResponse,
+} from "../../utils/constants/interface.constants.ts";
 
 class CareerService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -73,8 +87,17 @@ class CareerService {
   );
 
   createCareer = async (req: Request, res: Response): Promise<Response> => {
-    const { title, description, courses, youtubePlaylists, books } = req
-      .validationResult.body as CreateCareerBodyDto;
+    const { title, description, summary, courses, youtubePlaylists, books } =
+      req.validationResult.body as CreateCareerBodyDto;
+
+    const careersCount = await this._careerRepository.countDocuments({
+      filter: { paranoid: false },
+    });
+    if (careersCount >= 100) {
+      throw new BadRequestException(
+        `Maximum number of careers reached ${careersCount} ❌`,
+      );
+    }
 
     const careerExists = await this._careerRepository.findOne({
       filter: { title, paranoid: false },
@@ -92,6 +115,7 @@ class CareerService {
         {
           title,
           description,
+          summary,
           assetFolderId: IdSecurityUtil.generateAlphaNumericId(),
           pictureUrl: process.env[
             EnvFields.CAREER_DEFAULT_PICTURE_URL
@@ -539,6 +563,137 @@ class CareerService {
         v: result.__v,
       },
     });
+  };
+
+  aiModelCheckCareerAssessmentQuestions = ({
+    careerList,
+    answers,
+  }: IAIModelCheckCareerAssessmentQuestionsRequest): Promise<IAIModelCheckCareerAssessmentQuestionsResponse> => {
+    return new Promise((res) => {
+      setTimeout(() => {
+        console.log({ answers });
+        const suggestedCareers: {
+          careerId: Types.ObjectId;
+          title: string;
+          confidence: number;
+        }[] = [];
+        for (let i = 0; i < 3; i++) {
+          const index = Math.floor(Math.random() * careerList.length);
+          suggestedCareers.push({
+            careerId: careerList[index]!.careerId,
+            title: careerList[index]!.title,
+            confidence: Math.floor(Math.random() * (100 - 60)) + 60,
+          });
+        }
+        res({
+          suggestedCareers: suggestedCareers.sort(
+            (a, b) => b.confidence - a.confidence,
+          ),
+        });
+      }, 1500);
+    });
+  };
+
+  checkCareerAssessment = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
+    const { quizAttemptId } = req.params as CheckCareerAssessmentParamsDto;
+    const { answers } = req.validationResult
+      .body as CheckCareerAssessmentBodyDto;
+
+    const quizAttempt = await this._quizAttemptRepository.findOne({
+      filter: {
+        _id: quizAttemptId,
+        userId: req.user!._id!,
+        attemptType: QuizTypesEnum.careerAssessment,
+      },
+      options: {
+        populate: [
+          {
+            path: "quizId",
+            match: { paranoid: false },
+            select: "title aiPrompt",
+          },
+        ],
+      },
+    });
+
+    if (!quizAttempt) {
+      throw new NotFoundException(
+        "No career assessment quiz attempt found for the given quizAttemptId and user 🚫",
+      );
+    }
+
+    if (
+      (quizAttempt.quizId as unknown as HIQuiz).title !==
+      StringConstants.CAREER_ASSESSMENT
+    ) {
+      throw new BadRequestException(
+        `Answers of a NON ${StringConstants.CAREER_ASSESSMENT} quiz, use check quiz answers API 🚫`,
+      );
+    }
+
+    if (answers.length !== quizAttempt.questions.length) {
+      throw new ValidationException(
+        "Number of answers provided does not match number of questions ❌",
+      );
+    }
+
+    // ---- Build maps once (O(n)) ----
+    const questions = quizAttempt.questions as HIQuestion[];
+    const qById = new Map<string, { index: number } & FullIQuestion>();
+    for (let i = 0; i < questions.length; i++) {
+      const qid = questions[i]!.id?.toString()!;
+      qById.set(qid, { index: i, ...questions[i]?.toObject()! } as {
+        index: number;
+      } & HIQuestion);
+    }
+
+    const answersForAI: IAIModelCheckCareerAssessmentQuestionsRequest["answers"] =
+      [];
+    for (const answer of answers) {
+      const question = qById.get(answer.questionId);
+
+      if (!question) {
+        throw new NotFoundException(
+          `Not found questionId in the quiz questions ${answer.questionId} ❌`,
+        );
+      } else if (question.type !== answer.type) {
+        throw new ValidationException(
+          `Question type mismatch for questionId ${answer.questionId} ❌`,
+        );
+      }
+
+      answersForAI.push({
+        text: question.text!,
+        options: question.options,
+        userAnswer: answer.answer,
+      });
+    }
+
+    const careers = await this._careerRepository.find({
+      options: { projection: { title: 1, summary: 1 } },
+    });
+
+    if (!careers || careers.length === 0) {
+      throw new NotFoundException(
+        "No careers found to suggest from, please try again later ❌",
+      );
+    }
+    const aiModelResponse = await this.aiModelCheckCareerAssessmentQuestions({
+      careerList: careers.map((c) => ({
+        careerId: c._id,
+        title: c.title,
+        summary: c.summary,
+      })),
+      answers: answersForAI,
+    });
+
+    // TODO: save suggested careers
+
+    //await quizAttempt.deleteOne();
+    return successHandler({ res, body: aiModelResponse });
   };
 
   archiveCareer = async (req: Request, res: Response): Promise<Response> => {

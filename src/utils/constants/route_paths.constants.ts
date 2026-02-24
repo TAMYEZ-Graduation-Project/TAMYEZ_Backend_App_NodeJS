@@ -54,6 +54,7 @@ class RoutePaths {
   static readonly updateCareer = "/:careerId";
   static readonly uploadCareerPicture = "/:careerId/picture";
   static readonly updateCareerResource = "/:careerId/:resourceName/:resourceId";
+  static readonly checkCareerAssessment = "/:quizAttemptId/check-assessment";
   static readonly archiveCareer = "/:careerId/archive";
   static readonly restoreCareer = "/:careerId/restore";
   static readonly deleteCareer = "/:careerId/delete";

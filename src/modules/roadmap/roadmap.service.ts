@@ -206,7 +206,7 @@ class RoadmapService {
 
     await this._careerRepository.updateOne({
       filter: { _id: careerId, __v: career.__v },
-      update: { $inc: { stepsCount: 1 } },
+      update: { $inc: { stepsCount: 1, orderEpoch: 1 } },
     });
 
     return successHandler({
@@ -470,7 +470,6 @@ class RoadmapService {
     roadmapStepId: string | Types.ObjectId;
     v: number;
   }): Promise<HIRoadmapStepType> => {
-
     const roadmapStep = await this._roadmapStepRepository.findOne({
       filter: {
         _id: roadmapStepId,
@@ -638,6 +637,14 @@ class RoadmapService {
               order: body.order < roadmapStep.order ? -699 : -701,
             },
           },
+          options: { session },
+        });
+        await this._careerRepository.updateOne({
+          filter: {
+            _id: (roadmapStep.careerId as unknown as FullICareer)._id,
+            __v: (roadmapStep.careerId as unknown as FullICareer).__v,
+          },
+          update: { $inc: { orderEpoch: 1 } },
           options: { session },
         });
       }
@@ -906,15 +913,30 @@ class RoadmapService {
     const { roadmapStepId } = req.params as ArchiveRoadmapStepParamsDto;
     const { v } = req.body as ArchiveRoadmapStepBodyDto;
 
-    await this._checkRoadmapStepAndCareer({ roadmapStepId, v });
-
-    await this._roadmapStepRepository.updateOne({
-      filter: { _id: roadmapStepId, __v: v },
-      update: {
-        freezed: { at: new Date(), by: req.user!._id },
-        $unset: { restored: 1 },
-      },
+    const roadmapStep = await this._checkRoadmapStepAndCareer({
+      roadmapStepId,
+      v,
     });
+
+    if (
+      (
+        await this._roadmapStepRepository.updateOne({
+          filter: { _id: roadmapStepId, __v: v },
+          update: {
+            freezed: { at: new Date(), by: req.user!._id },
+            $unset: { restored: 1 },
+          },
+        })
+      ).modifiedCount
+    ) {
+      await this._careerRepository.updateOne({
+        filter: {
+          _id: (roadmapStep.careerId as unknown as FullICareer)._id,
+          __v: (roadmapStep.careerId as unknown as FullICareer).__v,
+        },
+        update: { $inc: { orderEpoch: 1 } },
+      });
+    }
 
     return successHandler({ res });
   };
@@ -926,7 +948,7 @@ class RoadmapService {
     const { roadmapStepId } = req.params as RestoreRoadmapStepParamsDto;
     const { v, quizId } = req.body as RestoreRoadmapStepBodyDto;
 
-    const { quizzesIds } = await this._checkRoadmapStepAndCareer({
+    const { quizzesIds, careerId } = await this._checkRoadmapStepAndCareer({
       roadmapStepId,
       v,
       checkForRoadmapStepFreezed: true,
@@ -958,19 +980,31 @@ class RoadmapService {
       newQuizzesIds.push(Types.ObjectId.createFromHexString(quizId!));
     }
 
-    await this._roadmapStepRepository.updateOne({
-      filter: {
-        _id: roadmapStepId,
-        __v: v,
-        paranoid: false,
-        freezed: { $exists: true },
-      },
-      update: {
-        restored: { at: new Date(), by: req.user!._id },
-        quizzesIds: newQuizzesIds,
-        $unset: { freezed: 1 },
-      },
-    });
+    if (
+      (
+        await this._roadmapStepRepository.updateOne({
+          filter: {
+            _id: roadmapStepId,
+            __v: v,
+            paranoid: false,
+            freezed: { $exists: true },
+          },
+          update: {
+            restored: { at: new Date(), by: req.user!._id },
+            quizzesIds: newQuizzesIds,
+            $unset: { freezed: 1 },
+          },
+        })
+      ).modifiedCount
+    ) {
+      await this._careerRepository.updateOne({
+        filter: {
+          _id: (careerId as unknown as FullICareer)._id,
+          __v: (careerId as unknown as FullICareer).__v,
+        },
+        update: { $inc: { orderEpoch: 1 } },
+      });
+    }
 
     return successHandler({
       res,
@@ -1012,6 +1046,13 @@ class RoadmapService {
       ).deletedCount
     ) {
       await Promise.all([
+        this._careerRepository.updateOne({
+          filter: {
+            _id: (roadmapStep.careerId as unknown as FullICareer)._id,
+            __v: (roadmapStep.careerId as unknown as FullICareer).__v,
+          },
+          update: { $inc: { stepsCount: -1, orderEpoch: 1 } },
+        }),
         S3Service.deleteFolderByPrefix({
           FolderPath: S3FoldersPaths.roadmapStepFolderPath(
             (roadmapStep.careerId as unknown as FullICareer).assetFolderId,

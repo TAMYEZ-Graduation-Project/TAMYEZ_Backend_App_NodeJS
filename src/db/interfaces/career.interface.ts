@@ -10,6 +10,7 @@ export interface ICareer {
   slug?: string;
   pictureUrl: string;
   description: string;
+  summary: string;
 
   assetFolderId: string;
 
@@ -22,6 +23,8 @@ export interface ICareer {
   roadmap?: Partial<IRoadmapStep>[]; // virtual
 
   stepsCount: number;
+
+  orderEpoch: number;
 
   freezed?: IAtByObject;
   restored?: IAtByObject;

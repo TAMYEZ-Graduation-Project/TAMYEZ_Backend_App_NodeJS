@@ -7,6 +7,6 @@ export interface IGetQuizDetailsResponse {
 }
 
 export interface IGetQuizQuestionsResponse {
-  quiz: Partial<FlattenMaps<FullIQuizAttempt>>
+  quizAttempt: Partial<FlattenMaps<FullIQuizAttempt>>
 }
 

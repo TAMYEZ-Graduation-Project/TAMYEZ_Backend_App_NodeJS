@@ -9,6 +9,7 @@ import AppRegex from "../../utils/constants/regex.constants.ts";
 import fileValidation from "../../utils/multer/file_validation.multer.ts";
 import EnvFields from "../../utils/constants/env_fields.constants.ts";
 import { RoadmapValidators } from "../roadmap/index.ts";
+import { QuizValidators } from "../quiz/index.ts";
 
 class CareerValidators {
   static careerResource = {
@@ -58,6 +59,7 @@ class CareerValidators {
           .min(3)
           .max(100),
         description: z.string().min(5).max(10_000),
+        summary: z.string().min(5).max(150),
         courses: z
           .array(RoadmapValidators.roadmapStepResource.body)
           .max(5)
@@ -132,6 +134,8 @@ class CareerValidators {
   static getCareer = {
     params: this.uploadCareerPicture.params,
   };
+
+  static checkCareerAssessment = QuizValidators.checkQuizAnswers;
 
   static updateCareer = {
     params: this.uploadCareerPicture.params,
