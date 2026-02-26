@@ -103,7 +103,9 @@ export interface IAIModelCheckCareerAssessmentQuestionsRequest {
 
 export interface IAIModelCheckCareerAssessmentQuestionsResponse {
   suggestedCareers: {
+    careerId: Types.ObjectId;
     title: string;
+    reason: string;
     confidence: number;
   }[];
 }

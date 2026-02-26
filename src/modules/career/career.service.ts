@@ -1,15 +1,19 @@
 import type { Request, Response } from "express";
 import {
   CareerModel,
+  CareerSuggestionAttemptModel,
   QuizAttemptModel,
   RoadmapStepModel,
   SavedQuizModel,
+  UserCareerProgressModel,
   UserModel,
 } from "../../db/models/index.ts";
 import {
   CareerRepository,
+  CareerSuggestionAttemptRepository,
   QuizAttemptRepository,
   RoadmapStepRepository,
+  UserCareerProgressRepository,
   UserRepository,
 } from "../../db/repositories/index.ts";
 import successHandler from "../../utils/handlers/success.handler.ts";
@@ -18,6 +22,7 @@ import type {
   ArchiveCareerParamsDto,
   CheckCareerAssessmentBodyDto,
   CheckCareerAssessmentParamsDto,
+  ChooseSuggestedCareerParamsDto,
   CreateCareerBodyDto,
   DeleteCareerBodyDto,
   DeleteCareerParamsDto,
@@ -53,7 +58,7 @@ import {
   CareerResourceAppliesToEnum,
   QuizTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
-import { Types, type FilterQuery } from "mongoose";
+import { startSession, Types, type FilterQuery } from "mongoose";
 import type { ICareer } from "../../db/interfaces/career.interface.ts";
 import { RoadmapService } from "../roadmap/index.ts";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.ts";
@@ -67,7 +72,7 @@ import StringConstants from "../../utils/constants/strings.constants.ts";
 import type {
   FullIQuestion,
   HIQuestion,
-} from "../../db/interfaces/quiz_questions.interface.ts";
+} from "../../db/interfaces/quiz_attempt.interface.ts";
 import type {
   IAIModelCheckCareerAssessmentQuestionsRequest,
   IAIModelCheckCareerAssessmentQuestionsResponse,
@@ -85,6 +90,10 @@ class CareerService {
   private readonly _quizAttemptRepository = new QuizAttemptRepository(
     QuizAttemptModel,
   );
+  private readonly _careerSuggestionAttemptRepository =
+    new CareerSuggestionAttemptRepository(CareerSuggestionAttemptModel);
+  private readonly _userCareerProgressRepository =
+    new UserCareerProgressRepository(UserCareerProgressModel);
 
   createCareer = async (req: Request, res: Response): Promise<Response> => {
     const { title, description, summary, courses, youtubePlaylists, books } =
@@ -572,16 +581,20 @@ class CareerService {
     return new Promise((res) => {
       setTimeout(() => {
         console.log({ answers });
-        const suggestedCareers: {
-          careerId: Types.ObjectId;
-          title: string;
-          confidence: number;
-        }[] = [];
+        const suggestedCareers: IAIModelCheckCareerAssessmentQuestionsResponse["suggestedCareers"] =
+          [];
         for (let i = 0; i < 3; i++) {
           const index = Math.floor(Math.random() * careerList.length);
+          if (
+            suggestedCareers.find((c) =>
+              c.careerId.equals(careerList[index]!.careerId),
+            )
+          )
+            continue; // avoid duplicates
           suggestedCareers.push({
             careerId: careerList[index]!.careerId,
             title: careerList[index]!.title,
+            reason: `Because you answers indicates your interest in ${careerList[index]!.title} field.`,
             confidence: Math.floor(Math.random() * (100 - 60)) + 60,
           });
         }
@@ -690,10 +703,124 @@ class CareerService {
       answers: answersForAI,
     });
 
-    // TODO: save suggested careers
+    const suggestedCareerIds = new Set(
+      aiModelResponse.suggestedCareers.map((c) => c.careerId),
+    );
 
-    //await quizAttempt.deleteOne();
+    if (
+      (await this._careerRepository.countDocuments({
+        filter: { _id: { $in: Array.from(suggestedCareerIds) } },
+      })) !== suggestedCareerIds.size
+    ) {
+      throw new BadRequestException(
+        "Some AI suggested careers are not available ❌",
+      );
+    }
+
+    // TODO: save suggested careers
+    if (
+      !(
+        await this._careerSuggestionAttemptRepository.replaceOne({
+          filter: { userId: req.user!._id! },
+          replacement: {
+            userId: req.user!._id!,
+            suggestions: aiModelResponse.suggestedCareers,
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000), // expire after 30 minutes
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          options: { upsert: true },
+        })
+      ).acknowledged
+    ) {
+      throw new ServerException(
+        "Failed to save career suggestions, please try again later ❌",
+      );
+    }
+
+    await quizAttempt.deleteOne();
     return successHandler({ res, body: aiModelResponse });
+  };
+
+  chooseSuggestedCareer = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
+    const { careerId } = req.params as ChooseSuggestedCareerParamsDto;
+
+    const careerSuggestionAttempt =
+      await this._careerSuggestionAttemptRepository.findOne({
+        filter: {
+          userId: req.user!._id!,
+          "suggestions.careerId": Types.ObjectId.createFromHexString(careerId),
+        },
+      });
+
+    if (!careerSuggestionAttempt) {
+      throw new NotFoundException(
+        "No career suggestion attempt found for the user with the given careerId, or the suggestion has expired ❌",
+      );
+    }
+    const chosenCareer = await this._careerRepository.findOne({
+      filter: { _id: careerId },
+      options: { projection: { title: 1, orderEpoch: 1 } },
+    });
+    if (!chosenCareer) {
+      throw new NotFoundException(
+        "The suggested career is no longer available ❌",
+      );
+    }
+
+    if (
+      careerSuggestionAttempt.suggestions.find((c) =>
+        c.careerId.equals(careerId),
+      )?.confidence! < 60
+    ) {
+      throw new BadRequestException(
+        "The suggested career confidence is less than 60% ❌",
+      );
+    }
+
+    const session = await startSession();
+    await session.withTransaction(async () => {
+      await Promise.all([
+        this._userRepository.updateOne({
+          filter: { _id: req.user!._id! },
+          update: {
+            careerPath: {
+              id: Types.ObjectId.createFromHexString(careerId),
+              selectedAt: new Date(),
+            },
+          },
+          options: { session },
+        }),
+        this._userCareerProgressRepository.create({
+          data: [
+            {
+              userId: req.user!._id!,
+              careerId: Types.ObjectId.createFromHexString(careerId),
+              nextStep: (
+                await this._roadmapStepRepository.exists({
+                  filter: {
+                    careerId: Types.ObjectId.createFromHexString(careerId),
+                    order: 1,
+                  },
+                })
+              )?._id,
+              orderEpoch: chosenCareer.orderEpoch,
+            },
+          ],
+          options: { session },
+        }),
+        this._careerSuggestionAttemptRepository.deleteOne({
+          filter: { userId: req.user!._id! },
+          options: { session },
+        }),
+      ]);
+    });
+    await session.endSession();
+
+    return successHandler({ res });
   };
 
   archiveCareer = async (req: Request, res: Response): Promise<Response> => {

@@ -65,7 +65,7 @@ import type {
   FullIQuestion,
   HIQuestion,
   IQuestion,
-} from "../../db/interfaces/quiz_questions.interface.ts";
+} from "../../db/interfaces/quiz_attempt.interface.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
 import type { ISavedQuestion } from "../../db/interfaces/saved_quiz.interface.ts";
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.ts";

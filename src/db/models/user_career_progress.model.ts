@@ -35,6 +35,9 @@ const userCareerProgressSchema = new mongoose.Schema<IUserCareerProgress>(
       type: mongoose.Schema.Types.ObjectId,
       ref: ModelsNames.roadmapStepModel,
     },
+
+    orderEpoch: { type: Number, default: 0 },
+    percentageCompleted: { type: Number, default: 0 },
   },
   {
     timestamps: true,
@@ -72,7 +75,7 @@ userCareerProgressSchema.methods.toJSON = function () {
 //   },
 // );
 
-const UserCareerProgressModel =   
+const UserCareerProgressModel =
   (mongoose.models.UserCareerProgress as Model<IUserCareerProgress>) ||
   mongoose.model<IUserCareerProgress>(
     ModelsNames.userCareerProgressModel,

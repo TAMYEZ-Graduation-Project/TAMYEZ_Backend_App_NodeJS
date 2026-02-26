@@ -45,6 +45,10 @@ export type CheckCareerAssessmentBodyDto = z.infer<
   typeof CareerValidators.checkCareerAssessment.body
 >;
 
+export type ChooseSuggestedCareerParamsDto = z.infer<
+  typeof CareerValidators.chooseSuggestedCareer.params
+>;
+
 export type ArchiveCareerParamsDto = z.infer<
   typeof CareerValidators.archiveCareer.params
 >;

@@ -5,7 +5,7 @@ import type {
   HIQuestion,
   IQuestion,
   IQuizAttempt,
-} from "../interfaces/quiz_questions.interface.ts";
+} from "../interfaces/quiz_attempt.interface.ts";
 import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import {
   QuestionTypesEnum,

@@ -9,5 +9,6 @@ export { default as AdminNotificationsLimitModel } from "./admin_notifications_l
 export { default as CareerModel } from "./career.model.ts";
 export { default as RoadmapStepModel } from "./roadmap_step.model.ts";
 export { default as UserCareerProgressModel } from "./user_career_progress.model.ts";
+export { default as CareerSuggestionAttemptModel } from "./career_suggestion_attempt.model.ts";
 export { default as DashboardReviewModel } from "./dashboard_review.model.ts";
 export { default as FeedbackModel } from "./feedback.model.ts";

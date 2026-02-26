@@ -137,6 +137,10 @@ class CareerValidators {
 
   static checkCareerAssessment = QuizValidators.checkQuizAnswers;
 
+  static chooseSuggestedCareer = {
+    params: this.uploadCareerPicture.params,
+  };
+
   static updateCareer = {
     params: this.uploadCareerPicture.params,
     body: z

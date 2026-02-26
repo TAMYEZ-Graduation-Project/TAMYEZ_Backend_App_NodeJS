@@ -419,7 +419,7 @@ abstract class DatabaseRepository<TDocument> {
   }): Promise<UpdateWriteOpResult> => {
     const res = await this.model.replaceOne(filter, replacement, options);
 
-    if (!res.matchedCount) {
+    if (!res.matchedCount && filter?.__v != undefined) {
       const { __v, ...baseFilter } = filter;
       const existsIgnoringVersion = await this.model.exists(baseFilter);
       if (existsIgnoringVersion) {

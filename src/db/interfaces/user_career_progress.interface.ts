@@ -13,6 +13,8 @@ export interface IUserCareerProgress {
 
   percentageCompleted: number;
 
+  orderEpoch: number;
+
 
   createdAt: Date;
   updatedAt: Date;

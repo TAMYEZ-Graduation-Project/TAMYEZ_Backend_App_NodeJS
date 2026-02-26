@@ -649,6 +649,7 @@ class RoadmapService {
         });
       }
     });
+    await session.endSession();
 
     return successHandler({ res });
   };
