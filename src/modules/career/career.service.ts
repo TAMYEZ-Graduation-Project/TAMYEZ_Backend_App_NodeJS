@@ -800,11 +800,11 @@ class CareerService {
               userId: req.user!._id!,
               careerId: Types.ObjectId.createFromHexString(careerId),
               nextStep: (
-                await this._roadmapStepRepository.exists({
+                await this._roadmapStepRepository.findOne({
                   filter: {
                     careerId: Types.ObjectId.createFromHexString(careerId),
-                    order: 1,
                   },
+                  options: {sort: { order: 1 }, projection: { _id: 1 } },
                 })
               )?._id,
               orderEpoch: chosenCareer.orderEpoch,

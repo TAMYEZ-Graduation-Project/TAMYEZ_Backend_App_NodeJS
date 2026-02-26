@@ -1,26 +1,34 @@
-import { CareerModel, QuizAttemptModel, RoadmapStepModel, SavedQuizModel, UserModel, } from "../../db/models/index.js";
-import { CareerRepository, QuizAttemptRepository, RoadmapStepRepository, UserRepository, } from "../../db/repositories/index.js";
+import { CareerModel, CareerSuggestionAttemptModel, QuizAttemptModel, RoadmapStepModel, SavedQuizModel, UserCareerProgressModel, UserModel, } from "../../db/models/index.js";
+import { CareerRepository, CareerSuggestionAttemptRepository, QuizAttemptRepository, RoadmapStepRepository, UserCareerProgressRepository, UserRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
-import { BadRequestException, ConflictException, NotFoundException, ServerException, } from "../../utils/exceptions/custom.exceptions.js";
+import { BadRequestException, ConflictException, NotFoundException, ServerException, ValidationException, } from "../../utils/exceptions/custom.exceptions.js";
 import EnvFields from "../../utils/constants/env_fields.constants.js";
 import S3Service from "../../utils/multer/s3.service.js";
 import IdSecurityUtil from "../../utils/security/id.security.js";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
-import { ApplicationTypeEnum, CareerResourceAppliesToEnum, } from "../../utils/constants/enum.constants.js";
-import { Types } from "mongoose";
+import { ApplicationTypeEnum, CareerResourceAppliesToEnum, QuizTypesEnum, } from "../../utils/constants/enum.constants.js";
+import { startSession, Types } from "mongoose";
 import { RoadmapService } from "../roadmap/index.js";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.js";
+import StringConstants from "../../utils/constants/strings.constants.js";
 class CareerService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
     _userRepository = new UserRepository(UserModel);
     _savedQuizRepository = new SavedQuizRepository(SavedQuizModel);
     _quizAttemptRepository = new QuizAttemptRepository(QuizAttemptModel);
+    _careerSuggestionAttemptRepository = new CareerSuggestionAttemptRepository(CareerSuggestionAttemptModel);
+    _userCareerProgressRepository = new UserCareerProgressRepository(UserCareerProgressModel);
     createCareer = async (req, res) => {
-        const { title, description, courses, youtubePlaylists, books } = req
-            .validationResult.body;
+        const { title, description, summary, courses, youtubePlaylists, books } = req.validationResult.body;
+        const careersCount = await this._careerRepository.countDocuments({
+            filter: { paranoid: false },
+        });
+        if (careersCount >= 100) {
+            throw new BadRequestException(`Maximum number of careers reached ${careersCount} ❌`);
+        }
         const careerExists = await this._careerRepository.findOne({
             filter: { title, paranoid: false },
         });
@@ -32,6 +40,7 @@ class CareerService {
                 {
                     title,
                     description,
+                    summary,
                     assetFolderId: IdSecurityUtil.generateAlphaNumericId(),
                     pictureUrl: process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL],
                     courses: courses,
@@ -372,6 +381,174 @@ class CareerService {
                 v: result.__v,
             },
         });
+    };
+    aiModelCheckCareerAssessmentQuestions = ({ careerList, answers, }) => {
+        return new Promise((res) => {
+            setTimeout(() => {
+                console.log({ answers });
+                const suggestedCareers = [];
+                for (let i = 0; i < 3; i++) {
+                    const index = Math.floor(Math.random() * careerList.length);
+                    if (suggestedCareers.find((c) => c.careerId.equals(careerList[index].careerId)))
+                        continue;
+                    suggestedCareers.push({
+                        careerId: careerList[index].careerId,
+                        title: careerList[index].title,
+                        reason: `Because you answers indicates your interest in ${careerList[index].title} field.`,
+                        confidence: Math.floor(Math.random() * (100 - 60)) + 60,
+                    });
+                }
+                res({
+                    suggestedCareers: suggestedCareers.sort((a, b) => b.confidence - a.confidence),
+                });
+            }, 1500);
+        });
+    };
+    checkCareerAssessment = async (req, res) => {
+        const { quizAttemptId } = req.params;
+        const { answers } = req.validationResult
+            .body;
+        const quizAttempt = await this._quizAttemptRepository.findOne({
+            filter: {
+                _id: quizAttemptId,
+                userId: req.user._id,
+                attemptType: QuizTypesEnum.careerAssessment,
+            },
+            options: {
+                populate: [
+                    {
+                        path: "quizId",
+                        match: { paranoid: false },
+                        select: "title aiPrompt",
+                    },
+                ],
+            },
+        });
+        if (!quizAttempt) {
+            throw new NotFoundException("No career assessment quiz attempt found for the given quizAttemptId and user 🚫");
+        }
+        if (quizAttempt.quizId.title !==
+            StringConstants.CAREER_ASSESSMENT) {
+            throw new BadRequestException(`Answers of a NON ${StringConstants.CAREER_ASSESSMENT} quiz, use check quiz answers API 🚫`);
+        }
+        if (answers.length !== quizAttempt.questions.length) {
+            throw new ValidationException("Number of answers provided does not match number of questions ❌");
+        }
+        const questions = quizAttempt.questions;
+        const qById = new Map();
+        for (let i = 0; i < questions.length; i++) {
+            const qid = questions[i].id?.toString();
+            qById.set(qid, { index: i, ...questions[i]?.toObject() });
+        }
+        const answersForAI = [];
+        for (const answer of answers) {
+            const question = qById.get(answer.questionId);
+            if (!question) {
+                throw new NotFoundException(`Not found questionId in the quiz questions ${answer.questionId} ❌`);
+            }
+            else if (question.type !== answer.type) {
+                throw new ValidationException(`Question type mismatch for questionId ${answer.questionId} ❌`);
+            }
+            answersForAI.push({
+                text: question.text,
+                options: question.options,
+                userAnswer: answer.answer,
+            });
+        }
+        const careers = await this._careerRepository.find({
+            options: { projection: { title: 1, summary: 1 } },
+        });
+        if (!careers || careers.length === 0) {
+            throw new NotFoundException("No careers found to suggest from, please try again later ❌");
+        }
+        const aiModelResponse = await this.aiModelCheckCareerAssessmentQuestions({
+            careerList: careers.map((c) => ({
+                careerId: c._id,
+                title: c.title,
+                summary: c.summary,
+            })),
+            answers: answersForAI,
+        });
+        const suggestedCareerIds = new Set(aiModelResponse.suggestedCareers.map((c) => c.careerId));
+        if ((await this._careerRepository.countDocuments({
+            filter: { _id: { $in: Array.from(suggestedCareerIds) } },
+        })) !== suggestedCareerIds.size) {
+            throw new BadRequestException("Some AI suggested careers are not available ❌");
+        }
+        if (!(await this._careerSuggestionAttemptRepository.replaceOne({
+            filter: { userId: req.user._id },
+            replacement: {
+                userId: req.user._id,
+                suggestions: aiModelResponse.suggestedCareers,
+                expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            options: { upsert: true },
+        })).acknowledged) {
+            throw new ServerException("Failed to save career suggestions, please try again later ❌");
+        }
+        await quizAttempt.deleteOne();
+        return successHandler({ res, body: aiModelResponse });
+    };
+    chooseSuggestedCareer = async (req, res) => {
+        const { careerId } = req.params;
+        const careerSuggestionAttempt = await this._careerSuggestionAttemptRepository.findOne({
+            filter: {
+                userId: req.user._id,
+                "suggestions.careerId": Types.ObjectId.createFromHexString(careerId),
+            },
+        });
+        if (!careerSuggestionAttempt) {
+            throw new NotFoundException("No career suggestion attempt found for the user with the given careerId, or the suggestion has expired ❌");
+        }
+        const chosenCareer = await this._careerRepository.findOne({
+            filter: { _id: careerId },
+            options: { projection: { title: 1, orderEpoch: 1 } },
+        });
+        if (!chosenCareer) {
+            throw new NotFoundException("The suggested career is no longer available ❌");
+        }
+        if (careerSuggestionAttempt.suggestions.find((c) => c.careerId.equals(careerId))?.confidence < 60) {
+            throw new BadRequestException("The suggested career confidence is less than 60% ❌");
+        }
+        const session = await startSession();
+        await session.withTransaction(async () => {
+            await Promise.all([
+                this._userRepository.updateOne({
+                    filter: { _id: req.user._id },
+                    update: {
+                        careerPath: {
+                            id: Types.ObjectId.createFromHexString(careerId),
+                            selectedAt: new Date(),
+                        },
+                    },
+                    options: { session },
+                }),
+                this._userCareerProgressRepository.create({
+                    data: [
+                        {
+                            userId: req.user._id,
+                            careerId: Types.ObjectId.createFromHexString(careerId),
+                            nextStep: (await this._roadmapStepRepository.findOne({
+                                filter: {
+                                    careerId: Types.ObjectId.createFromHexString(careerId),
+                                },
+                                options: { sort: { order: 1 }, projection: { _id: 1 } },
+                            }))?._id,
+                            orderEpoch: chosenCareer.orderEpoch,
+                        },
+                    ],
+                    options: { session },
+                }),
+                this._careerSuggestionAttemptRepository.deleteOne({
+                    filter: { userId: req.user._id },
+                    options: { session },
+                }),
+            ]);
+        });
+        await session.endSession();
+        return successHandler({ res });
     };
     archiveCareer = async (req, res) => {
         const { careerId } = req.params;

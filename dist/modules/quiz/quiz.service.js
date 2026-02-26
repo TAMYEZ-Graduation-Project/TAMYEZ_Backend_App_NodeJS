@@ -360,14 +360,14 @@ class QuizService {
         }
         const [_, generatedQuestions] = await Promise.all([
             this._quizAttemptRepository.deleteOne({
-                filter: { quizId: quiz._id, userId: req.user._id, __v: undefined },
+                filter: { quizId: quiz._id, userId: req.user._id },
             }),
             this._generateQuestions({
                 title: quiz.title,
                 aiPrompt: quiz.aiPrompt,
             }),
         ]);
-        let [quizQuestions] = await this._quizAttemptRepository.create({
+        let [quizAttempt] = await this._quizAttemptRepository.create({
             data: [
                 {
                     quizId: quiz._id,
@@ -376,7 +376,7 @@ class QuizService {
                         quiz.title == StringConstants.CAREER_ASSESSMENT
                         ? QuizTypesEnum.careerAssessment
                         : QuizTypesEnum.stepQuiz,
-                    careerId: req.user?.careerPath.id,
+                    careerId: req.user?.careerPath?.id,
                     roadmapStepId: roadmapStepId,
                     questions: generatedQuestions.questions,
                     expiresAt: new Date(Date.now() +
@@ -389,21 +389,17 @@ class QuizService {
                 },
             ],
         });
-        if (!quizQuestions) {
+        if (!quizAttempt) {
             throw new ServerException("Failed to generate quiz questions ❓");
         }
         if (!req.user.quizAttempts?.count) {
             req.user.quizAttempts = { count: 0, lastAttempt: new Date() };
         }
         await req.user?.save();
-        const quizQuestionsObj = quizQuestions.toJSON();
-        if (quizId === QuizTypesEnum.careerAssessment) {
-            delete quizQuestionsObj.id;
-        }
         return successHandler({
             res,
             body: {
-                quiz: quizQuestionsObj,
+                quizAttempt,
             },
         });
     };
@@ -435,7 +431,7 @@ class QuizService {
         const { quizAttemptId } = req.params;
         const { answers } = req.validationResult
             .body;
-        const quizQuestions = await this._quizAttemptRepository.findOne({
+        const quizAttempt = await this._quizAttemptRepository.findOne({
             filter: { _id: quizAttemptId, userId: req.user._id },
             options: {
                 populate: [
@@ -447,17 +443,17 @@ class QuizService {
                 ],
             },
         });
-        if (!quizQuestions) {
+        if (!quizAttempt) {
             throw new NotFoundException("Quiz questions not found for the given quizAttemptId and user 🚫");
         }
-        if (quizQuestions.quizId.title ===
+        if (quizAttempt.quizId.title ===
             StringConstants.CAREER_ASSESSMENT) {
-            throw new BadRequestException(`Answers of ${StringConstants.CAREER_ASSESSMENT} quiz, use get suggested careers API 🚫`);
+            throw new BadRequestException(`Answers of ${StringConstants.CAREER_ASSESSMENT} quiz, use check career assessment API 🚫`);
         }
-        if (answers.length !== quizQuestions.questions.length) {
+        if (answers.length !== quizAttempt.questions.length) {
             throw new ValidationException("Number of answers provided does not match number of questions ❌");
         }
-        const questions = quizQuestions.questions;
+        const questions = quizAttempt.questions;
         const qById = new Map();
         for (let i = 0; i < questions.length; i++) {
             const qid = questions[i].id?.toString();
@@ -483,8 +479,8 @@ class QuizService {
         const gate = makeCompleter();
         this._checkWrittenQuestionsAnswers({
             resolve: gate.resolve,
-            title: quizQuestions.quizId.title,
-            aiPrompt: quizQuestions.quizId.aiPrompt,
+            title: quizAttempt.quizId.title,
+            aiPrompt: quizAttempt.quizId.aiPrompt,
             writtenAnswers,
         });
         const checkedAnswers = [];
@@ -539,7 +535,7 @@ class QuizService {
         if (scoreNumber >= 50) {
             if (!(await this._savedQuizRepository.findOneAndUpdate({
                 filter: {
-                    quizId: quizQuestions.quizId._id,
+                    quizId: quizAttempt.quizId._id,
                     userId: req.user._id,
                     __v: undefined,
                 },
@@ -552,10 +548,10 @@ class QuizService {
                 await this._savedQuizRepository.create({
                     data: [
                         {
-                            quizId: quizQuestions.quizId._id,
+                            quizId: quizAttempt.quizId._id,
                             userId: req.user._id,
-                            careerId: quizQuestions.careerId,
-                            roadmapStepId: quizQuestions.roadmapStepId,
+                            careerId: quizAttempt.careerId,
+                            roadmapStepId: quizAttempt.roadmapStepId,
                             questions: checkedAnswers,
                             score: `${scoreNumber}%`,
                             takenAt: new Date(),
@@ -568,7 +564,7 @@ class QuizService {
             await Promise.all([
                 this._savedQuizRepository.deleteOne({
                     filter: {
-                        quizId: quizQuestions.quizId._id,
+                        quizId: quizAttempt.quizId._id,
                         userId: req.user._id,
                         __v: undefined,
                     },
@@ -576,7 +572,7 @@ class QuizService {
                 this._quizCooldownRepository.create({
                     data: [
                         {
-                            quizId: quizQuestions.quizId._id,
+                            quizId: quizAttempt.quizId._id,
                             userId: req.user._id,
                             cooldownEndsAt: new Date(Date.now() +
                                 Number(process.env[EnvFields.QUIZ_COOLDOWN_IN_SECONDS]) *
@@ -586,7 +582,7 @@ class QuizService {
                 }),
             ]);
         }
-        await quizQuestions.deleteOne();
+        await quizAttempt.deleteOne();
         return successHandler({
             res,
             message: "Quiz answers checked successfully ✅",

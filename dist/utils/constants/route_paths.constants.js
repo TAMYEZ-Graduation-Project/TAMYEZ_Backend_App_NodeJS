@@ -46,6 +46,8 @@ class RoutePaths {
     static updateCareer = "/:careerId";
     static uploadCareerPicture = "/:careerId/picture";
     static updateCareerResource = "/:careerId/:resourceName/:resourceId";
+    static checkCareerAssessment = "/:quizAttemptId/check-assessment";
+    static chooseSuggestedCareer = "/:careerId/choose-suggested-career";
     static archiveCareer = "/:careerId/archive";
     static restoreCareer = "/:careerId/restore";
     static deleteCareer = "/:careerId/delete";

@@ -8,5 +8,7 @@ export { default as NotificationPushDeviceModel } from "./notifiction_push_devic
 export { default as AdminNotificationsLimitModel } from "./admin_notifications_limit.model.js";
 export { default as CareerModel } from "./career.model.js";
 export { default as RoadmapStepModel } from "./roadmap_step.model.js";
+export { default as UserCareerProgressModel } from "./user_career_progress.model.js";
+export { default as CareerSuggestionAttemptModel } from "./career_suggestion_attempt.model.js";
 export { default as DashboardReviewModel } from "./dashboard_review.model.js";
 export { default as FeedbackModel } from "./feedback.model.js";

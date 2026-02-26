@@ -109,7 +109,7 @@ class RoadmapService {
         }
         await this._careerRepository.updateOne({
             filter: { _id: careerId, __v: career.__v },
-            update: { $inc: { stepsCount: 1 } },
+            update: { $inc: { stepsCount: 1, orderEpoch: 1 } },
         });
         return successHandler({
             res,
@@ -447,8 +447,17 @@ class RoadmapService {
                     },
                     options: { session },
                 });
+                await this._careerRepository.updateOne({
+                    filter: {
+                        _id: roadmapStep.careerId._id,
+                        __v: roadmapStep.careerId.__v,
+                    },
+                    update: { $inc: { orderEpoch: 1 } },
+                    options: { session },
+                });
             }
         });
+        await session.endSession();
         return successHandler({ res });
     };
     static getTotalResourceCount({ currentResources, removeResources, newResourcesCount, }) {
@@ -649,20 +658,31 @@ class RoadmapService {
     archiveRoadmapStep = async (req, res) => {
         const { roadmapStepId } = req.params;
         const { v } = req.body;
-        await this._checkRoadmapStepAndCareer({ roadmapStepId, v });
-        await this._roadmapStepRepository.updateOne({
+        const roadmapStep = await this._checkRoadmapStepAndCareer({
+            roadmapStepId,
+            v,
+        });
+        if ((await this._roadmapStepRepository.updateOne({
             filter: { _id: roadmapStepId, __v: v },
             update: {
                 freezed: { at: new Date(), by: req.user._id },
                 $unset: { restored: 1 },
             },
-        });
+        })).modifiedCount) {
+            await this._careerRepository.updateOne({
+                filter: {
+                    _id: roadmapStep.careerId._id,
+                    __v: roadmapStep.careerId.__v,
+                },
+                update: { $inc: { orderEpoch: 1 } },
+            });
+        }
         return successHandler({ res });
     };
     restoreRoadmapStep = async (req, res) => {
         const { roadmapStepId } = req.params;
         const { v, quizId } = req.body;
-        const { quizzesIds } = await this._checkRoadmapStepAndCareer({
+        const { quizzesIds, careerId } = await this._checkRoadmapStepAndCareer({
             roadmapStepId,
             v,
             checkForRoadmapStepFreezed: true,
@@ -690,7 +710,7 @@ class RoadmapService {
             }
             newQuizzesIds.push(Types.ObjectId.createFromHexString(quizId));
         }
-        await this._roadmapStepRepository.updateOne({
+        if ((await this._roadmapStepRepository.updateOne({
             filter: {
                 _id: roadmapStepId,
                 __v: v,
@@ -702,7 +722,15 @@ class RoadmapService {
                 quizzesIds: newQuizzesIds,
                 $unset: { freezed: 1 },
             },
-        });
+        })).modifiedCount) {
+            await this._careerRepository.updateOne({
+                filter: {
+                    _id: careerId._id,
+                    __v: careerId.__v,
+                },
+                update: { $inc: { orderEpoch: 1 } },
+            });
+        }
         return successHandler({
             res,
             message: `Roadmap step was restored successfully after ${result.length >= 1 ? `deleting unfound quizzesIds ✅` : `updating quizzesIds with the quizId ${quizId}`} `,
@@ -728,6 +756,13 @@ class RoadmapService {
             },
         })).deletedCount) {
             await Promise.all([
+                this._careerRepository.updateOne({
+                    filter: {
+                        _id: roadmapStep.careerId._id,
+                        __v: roadmapStep.careerId.__v,
+                    },
+                    update: { $inc: { stepsCount: -1, orderEpoch: 1 } },
+                }),
                 S3Service.deleteFolderByPrefix({
                     FolderPath: S3FoldersPaths.roadmapStepFolderPath(roadmapStep.careerId.assetFolderId, roadmapStepId),
                 }),

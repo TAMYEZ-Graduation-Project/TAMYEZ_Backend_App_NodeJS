@@ -42,6 +42,7 @@ const careerSchema = new mongoose.Schema({
     slug: { type: String },
     pictureUrl: { type: String, required: true },
     description: { type: String, min: 5, max: 10_000, required: true },
+    summary: { type: String, min: 5, max: 150, required: true },
     assetFolderId: { type: String, required: true },
     isActive: { type: Boolean, default: false },
     courses: {
@@ -60,6 +61,7 @@ const careerSchema = new mongoose.Schema({
         validate: careerArraySchemaValidator(),
     },
     stepsCount: { type: Number, default: 0 },
+    orderEpoch: { type: Number, default: 0 },
     freezed: atByObjectSchema,
     restored: atByObjectSchema,
 }, {
@@ -107,6 +109,7 @@ careerSchema.methods.toJSON = function () {
             return DocumentFormat.getIdFrom_Id(c);
         }),
         stepsCount: careerObject?.stepsCount,
+        orderEpoch: careerObject?.orderEpoch,
         roadmap: careerObject?.roadmap?.map((step) => {
             return {
                 id: step?._id,

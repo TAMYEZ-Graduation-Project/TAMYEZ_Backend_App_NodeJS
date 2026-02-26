@@ -17,6 +17,12 @@ export const adminCareerRouter = Router();
 const careerService = new CareerService();
 careerRouter.get(RoutePaths.getCareers, validationMiddleware({ schema: CareerValidators.getCareers }), careerService.getCareers());
 careerRouter.get(RoutePaths.getCareer, Auths.authenticationMiddleware({ isOptional: true }), validationMiddleware({ schema: CareerValidators.getCareer }), careerService.getCareer());
+careerRouter.post(RoutePaths.checkCareerAssessment, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: CareerValidators.checkCareerAssessment }), careerService.checkCareerAssessment);
+careerRouter.get(RoutePaths.chooseSuggestedCareer, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: CareerValidators.chooseSuggestedCareer }), careerService.chooseSuggestedCareer);
 adminCareerRouter.use(Auths.combinedWithGateway({
     accessRoles: careerAuthorizationEndpoints.createCareer,
     applicationType: ApplicationTypeEnum.adminDashboard,
