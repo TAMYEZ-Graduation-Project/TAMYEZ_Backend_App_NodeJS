@@ -193,6 +193,9 @@ class CareerService {
     return async (req: Request, res: Response): Promise<Response> => {
       const { careerId } = req.params as GetCareerParamsDto;
 
+
+      // TODO: add user progress to roadmap steps
+
       let filter: FilterQuery<ICareer>;
       if (
         req.user &&

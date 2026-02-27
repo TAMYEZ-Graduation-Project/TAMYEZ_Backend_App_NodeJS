@@ -1,7 +1,7 @@
 import { CareerModel, QuizAttemptModel, QuizModel, RoadmapStepModel, SavedQuizModel, UserCareerProgressModel, } from "../../db/models/index.js";
 import { CareerRepository, QuizAttemptRepository, QuizRepository, RoadmapStepRepository, UserCareerProgressRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
-import { BadRequestException, ConflictException, NotFoundException, ServerException, } from "../../utils/exceptions/custom.exceptions.js";
+import { BadRequestException, ConflictException, NotFoundException, ServerException, ValidationException, } from "../../utils/exceptions/custom.exceptions.js";
 import { startSession, Types } from "mongoose";
 import S3Service from "../../utils/multer/s3.service.js";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
@@ -149,7 +149,7 @@ class RoadmapService {
         return RoadmapStepProgressStatusEnum.lockedPrereq;
     }
     async refreshUserProgressWhenOrderEpochChange({ progress, career, }) {
-        if (progress.orderEpoch == career.orderEpoch)
+        if (progress.orderEpoch == career.orderEpoch || career.freezed)
             return;
         const frontierStep = await this._roadmapStepRepository.findOne({
             filter: {
@@ -181,18 +181,67 @@ class RoadmapService {
         progress.increment();
         await progress.save();
     }
+    async refreshProgressAndClassify({ userId, careerId, stepOrSteps, }) {
+        const [progress, career] = await Promise.all([
+            this._userCareerProgressRepository.findOne({
+                filter: { userId },
+            }),
+            this._careerRepository.findOne({
+                filter: { _id: careerId, paranoid: false },
+            }),
+        ]);
+        if (!progress || !career) {
+            throw new BadRequestException("Can't resolve user progress ❌");
+        }
+        await this.refreshUserProgressWhenOrderEpochChange({
+            progress,
+            career,
+        });
+        if (Array.isArray(stepOrSteps))
+            return stepOrSteps.map(async (step) => {
+                step.progressStatus =
+                    await this.classifyStepInUserProgress({
+                        step: step,
+                        progress,
+                        career,
+                    });
+                return step;
+            });
+        else {
+            stepOrSteps.progressStatus = await this.classifyStepInUserProgress({
+                step: stepOrSteps,
+                progress,
+                career,
+            });
+            return stepOrSteps;
+        }
+    }
     getRoadmap = ({ archived = false } = {}) => {
         return async (req, res) => {
-            const { page, size, searchKey, haveQuizzes, belongToCareers } = req
+            let { page, size, searchKey, haveQuizzes, belongToCareers } = req
                 .validationResult.query;
+            if (req.user &&
+                req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
+                if (searchKey || haveQuizzes || belongToCareers)
+                    throw new ValidationException("Invalid to use searchKey, haveQuizzes or belongToCareers with application type user ❌");
+                if (!req.user.careerPath)
+                    throw new BadRequestException("Didn't select a careerPath yet, can't get this roadmap for you ❌");
+            }
+            else {
+                belongToCareers = !belongToCareers
+                    ? StringConstants.ALL
+                    : belongToCareers;
+            }
             const pipeline = [];
-            if (belongToCareers !== StringConstants.ALL) {
+            if (!belongToCareers || belongToCareers !== StringConstants.ALL) {
                 pipeline.push({
                     $match: {
                         careerId: {
                             $in: belongToCareers
-                                .split(",")
-                                .map((c) => Types.ObjectId.createFromHexString(c)),
+                                ?.split(",")
+                                .map((c) => Types.ObjectId.createFromHexString(c)) || [
+                                (req.user?.careerPath?.id)._id,
+                            ],
                         },
                     },
                 });
@@ -232,8 +281,7 @@ class RoadmapService {
             });
             if (!archived) {
                 if (!(req.user &&
-                    req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
-                    req.user.careerPath?.id?.equals(belongToCareers)))
+                    req.tokenPayload?.applicationType === ApplicationTypeEnum.user))
                     pipeline.push({
                         $match: {
                             $and: [
@@ -291,6 +339,13 @@ class RoadmapService {
                     ? "No archived roadmap steps found 🔍❌"
                     : "No roadmap steps found 🔍❌");
             }
+            if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
+                await this.refreshProgressAndClassify({
+                    careerId: (req.user?.careerPath?.id)._id,
+                    stepOrSteps: result.data,
+                    userId: req.user._id,
+                });
+            }
             return successHandler({
                 res,
                 body: {
@@ -307,14 +362,17 @@ class RoadmapService {
         return async (req, res) => {
             const { roadmapStepId } = req.params;
             if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
-                !req.user?.careerPath) {
+                !req.user?.careerPath?.id) {
                 throw new BadRequestException("Didn't select a careerPath yet, can't get this roadmapStep for you ❌");
             }
-            const result = await this._roadmapStepRepository.findOne({
+            let result = await this._roadmapStepRepository.findOne({
                 filter: {
                     _id: roadmapStepId,
                     ...(req.tokenPayload?.applicationType === ApplicationTypeEnum.user
-                        ? { careerId: req.user?.careerPath.id }
+                        ? {
+                            careerId: (req.user?.careerPath?.id)
+                                ._id,
+                        }
                         : undefined),
                     paranoid: false,
                 },
@@ -362,6 +420,24 @@ class RoadmapService {
                     result.careerId.freezed ||
                     result.career?.freezed) {
                     throw new NotFoundException("Invalid roadmapStepId, roadmapStep freezed or career is freezed 🔍❌");
+                }
+                if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
+                    result = (await this.refreshProgressAndClassify({
+                        careerId: (req.user?.careerPath?.id)._id,
+                        stepOrSteps: result,
+                        userId: req.user._id,
+                    }));
+                    if (result.progressStatus === RoadmapStepProgressStatusEnum.lockedPrereq) {
+                        throw new BadRequestException("Step is locked ❌🔒️");
+                    }
+                    else if (result.progressStatus === RoadmapStepProgressStatusEnum.available) {
+                        if (await this._userCareerProgressRepository.updateOne({
+                            filter: { userId: req.user._id },
+                            update: { inProgressStep: result._id },
+                        })) {
+                            result.progressStatus = RoadmapStepProgressStatusEnum.inProgress;
+                        }
+                    }
                 }
             }
             if (result &&

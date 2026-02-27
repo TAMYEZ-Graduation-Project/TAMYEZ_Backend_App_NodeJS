@@ -1,6 +1,7 @@
 import type { Default__v, HydratedDocument, Require_id, Types } from "mongoose";
 
 import type { IAtByObject, IRoadmapStepResource } from "./common.interface.ts";
+import type { RoadmapStepProgressStatusEnum } from "../../utils/constants/enum.constants.ts";
 
 export interface IRoadmapStep {
   id?: Types.ObjectId | undefined; // virtual
@@ -10,6 +11,8 @@ export interface IRoadmapStep {
 
   title: string;
   description: string;
+
+  progressStatus?: RoadmapStepProgressStatusEnum; // virtual
 
   courses: IRoadmapStepResource[];
   youtubePlaylists: IRoadmapStepResource[];

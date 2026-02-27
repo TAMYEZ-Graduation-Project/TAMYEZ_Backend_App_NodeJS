@@ -124,7 +124,7 @@ class RoadmapValidators {
             max: 2,
           }),
         ])
-        .default(StringConstants.ALL),
+        .optional(),
       haveQuizzes: generalValidationConstants
         .objectIdsSeparatedByCommas({ min: 1, max: 5 })
         .optional(),

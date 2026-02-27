@@ -106,12 +106,14 @@ function mergeResources({ stepId, current, global, }) {
 }
 roadmapStepSchema.methods.toJSON = function () {
     const roadmapStepObject = DocumentFormat.getIdFrom_Id(this.toObject());
+    console.log("inside -----", roadmapStepObject.progressStatus);
     return {
         id: roadmapStepObject?.id,
         order: roadmapStepObject?.order,
         careerId: roadmapStepObject?.careerId || undefined,
         title: roadmapStepObject?.title,
         description: roadmapStepObject?.description,
+        progressStatus: this?.progressStatus,
         courses: roadmapStepObject?.courses?.map((course) => {
             course.pictureUrl = S3KeyUtil.generateS3UploadsUrlFromSubKey(course.pictureUrl);
             return DocumentFormat.getIdFrom_Id(course);
