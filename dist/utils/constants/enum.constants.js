@@ -163,3 +163,18 @@ export var BucketProvidersEnum;
     BucketProvidersEnum["aws"] = "AWS";
     BucketProvidersEnum["cloudflare"] = "Cloudflare";
 })(BucketProvidersEnum || (BucketProvidersEnum = {}));
+export var CareerAssessmentStatusEnum;
+(function (CareerAssessmentStatusEnum) {
+    CareerAssessmentStatusEnum["notStarted"] = "NotStarted";
+    CareerAssessmentStatusEnum["inProgress"] = "InProgress";
+    CareerAssessmentStatusEnum["completed"] = "Completed";
+    CareerAssessmentStatusEnum["canRetake"] = "CanRetake";
+})(CareerAssessmentStatusEnum || (CareerAssessmentStatusEnum = {}));
+export var RoadmapStepProgressStatusEnum;
+(function (RoadmapStepProgressStatusEnum) {
+    RoadmapStepProgressStatusEnum["completed"] = "Completed";
+    RoadmapStepProgressStatusEnum["inProgress"] = "InProgress";
+    RoadmapStepProgressStatusEnum["available"] = "Available";
+    RoadmapStepProgressStatusEnum["lockedPrereq"] = "LockedPrereq";
+    RoadmapStepProgressStatusEnum["disabledFrozen"] = "DisabledFrozen";
+})(RoadmapStepProgressStatusEnum || (RoadmapStepProgressStatusEnum = {}));

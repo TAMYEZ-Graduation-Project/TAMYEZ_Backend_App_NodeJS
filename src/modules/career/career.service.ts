@@ -55,6 +55,7 @@ import S3FoldersPaths from "../../utils/multer/s3_folders_paths.ts";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
 import {
   ApplicationTypeEnum,
+  CareerAssessmentStatusEnum,
   CareerResourceAppliesToEnum,
   QuizTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
@@ -787,6 +788,7 @@ class CareerService {
         this._userRepository.updateOne({
           filter: { _id: req.user!._id! },
           update: {
+            assessmentStatus: CareerAssessmentStatusEnum.completed,
             careerPath: {
               id: Types.ObjectId.createFromHexString(careerId),
               selectedAt: new Date(),
@@ -804,7 +806,7 @@ class CareerService {
                   filter: {
                     careerId: Types.ObjectId.createFromHexString(careerId),
                   },
-                  options: {sort: { order: 1 }, projection: { _id: 1 } },
+                  options: { sort: { order: 1 }, projection: { _id: 1 } },
                 })
               )?._id,
               orderEpoch: chosenCareer.orderEpoch,
@@ -957,6 +959,7 @@ class CareerService {
                     " 👋, we’re really sorry to let you know that your career path has been deleted from our system 😔. You can retake the career assessment 🚀 or check any suggested careers 💼.",
                   ],
                 },
+                assessmentStatus: CareerAssessmentStatusEnum.canRetake,
                 __v: { $add: ["$__v", 1] },
               },
             },
@@ -965,6 +968,7 @@ class CareerService {
         // delete saved quizzes of this career
         this._savedQuizRepository.deleteMany({ filter: { careerId } }),
         // delete user progress related to this career
+        this._userCareerProgressRepository.deleteMany({ filter: { careerId } }),
       ]);
     } else {
       throw new NotFoundException("Invalid careerId or Not freezed ❌");

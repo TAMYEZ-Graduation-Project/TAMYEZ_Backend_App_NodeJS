@@ -5,6 +5,7 @@ import type {
   IUser,
 } from "../interfaces/user.interface.ts";
 import {
+  CareerAssessmentStatusEnum,
   GenderEnum,
   ProvidersEnum,
   RolesEnum,
@@ -108,6 +109,11 @@ const userSchema = new mongoose.Schema<IUser>(
     },
 
     // Acadamic Info
+    assessmentStatus: {
+      type: String,
+      enum: Object.values(CareerAssessmentStatusEnum),
+      default: CareerAssessmentStatusEnum.notStarted,
+    },
     careerPath: {
       type: idSelectedAtObjectSchema({ ref: ModelsNames.careerModel }),
     },
@@ -176,7 +182,9 @@ userSchema.methods.toJSON = function () {
           )
         : userObject.profilePicture.url
       : undefined,
+    assessmentStatus: userObject?.assessmentStatus,
     careerPath: userObject?.careerPath,
+    careerDeleted: userObject?.careerDeleted,
     createdAt: userObject?.createdAt,
     updatedAt: userObject?.updatedAt,
     confirmedAt: userObject?.confirmedAt,

@@ -10,16 +10,10 @@ import { ProjectMoodsEnum } from "./utils/constants/enum.constants.ts";
 import StringConstants from "./utils/constants/strings.constants.ts";
 import globalErrorHandler from "./utils/handlers/global_error.handler.ts";
 import RoutePaths from "./utils/constants/route_paths.constants.ts";
-import UserModel from "./db/models/user.model.ts";
 import protocolAndHostHanlder from "./utils/handlers/protocol_host.handler.ts";
 import uploadsRouter from "./uploads/uploads.routes.ts";
-import QuizModel from "./db/models/quiz.model.ts";
-import NotificationPushDeviceModel from "./db/models/notifiction_push_device.model.ts";
 import startAllCronJobs from "./utils/cron_jobs/cron_jobs.controller.ts";
-import RoadmapStepModel from "./db/models/roadmap_step.model.ts";
-import CareerModel from "./db/models/career.model.ts";
-import SavedQuizModel from "./db/models/saved_quiz.model.ts";
-import { QuizAttemptModel } from "./db/models/index.ts";
+import mongoose from "mongoose";
 
 async function bootstrap() {
   const app: Express = express();
@@ -47,13 +41,7 @@ async function bootstrap() {
   } else {
     // Routes
     if (process.env.MOOD === ProjectMoodsEnum.dev) {
-      await UserModel.syncIndexes();
-      await QuizModel.syncIndexes();
-      await SavedQuizModel.syncIndexes();
-      await QuizAttemptModel.syncIndexes();
-      await NotificationPushDeviceModel.syncIndexes();
-      await RoadmapStepModel.syncIndexes();
-      await CareerModel.syncIndexes();
+      await mongoose.syncIndexes();
     }
 
     app.use(protocolAndHostHanlder);

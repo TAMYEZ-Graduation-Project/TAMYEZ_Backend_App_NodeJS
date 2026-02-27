@@ -25,7 +25,6 @@ const userCareerProgressSchema = new mongoose.Schema({
     nextStep: {
         type: mongoose.Schema.Types.ObjectId,
         ref: ModelsNames.roadmapStepModel,
-        required: true,
     },
     frontierStep: {
         type: mongoose.Schema.Types.ObjectId,
@@ -55,6 +54,8 @@ userCareerProgressSchema.methods.toJSON = function () {
         v: quizObject?.v,
     };
 };
+userCareerProgressSchema.index({ userId: 1, careerId: 1 }, { unique: true });
+userCareerProgressSchema.index({ careerId: 1 });
 const UserCareerProgressModel = mongoose.models.UserCareerProgress ||
     mongoose.model(ModelsNames.userCareerProgressModel, userCareerProgressSchema);
 export default UserCareerProgressModel;

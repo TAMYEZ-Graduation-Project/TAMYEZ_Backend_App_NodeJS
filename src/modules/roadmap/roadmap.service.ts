@@ -4,12 +4,14 @@ import {
   QuizModel,
   RoadmapStepModel,
   SavedQuizModel,
+  UserCareerProgressModel,
 } from "../../db/models/index.ts";
 import {
   CareerRepository,
   QuizAttemptRepository,
   QuizRepository,
   RoadmapStepRepository,
+  UserCareerProgressRepository,
 } from "../../db/repositories/index.ts";
 import type { Request, Response } from "express";
 import successHandler from "../../utils/handlers/success.handler.ts";
@@ -55,9 +57,16 @@ import type { UpdateRoadmapStepResourceResponse } from "./roadmap.entity.ts";
 import { isNumberBetweenOrEqual } from "../../utils/validators/numeric.validator.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import type { PipelineStage } from "mongoose";
-import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.ts";
+import {
+  ApplicationTypeEnum,
+  RoadmapStepProgressStatusEnum,
+} from "../../utils/constants/enum.constants.ts";
 import DocumentFormat from "../../utils/formats/document.format.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
+import type {
+  FullIUserCareerProgress,
+  HIUserCareerProgress,
+} from "../../db/interfaces/user_career_progress.interface.ts";
 
 class RoadmapService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -71,6 +80,8 @@ class RoadmapService {
   private readonly _savedQuizRepository = new SavedQuizRepository(
     SavedQuizModel,
   );
+  private readonly _userCareerProgressRepository =
+    new UserCareerProgressRepository(UserCareerProgressModel);
 
   async checkAndUpdateOrder({
     career,
@@ -214,6 +225,97 @@ class RoadmapService {
       message: "Roadmap step created successfully ✅",
     });
   };
+
+  // user progress classification logic
+  async classifyStepInUserProgress({
+    step,
+    progress,
+    career,
+  }: {
+    step: FullIRoadmapStep;
+    progress: FullIUserCareerProgress;
+    career: FullICareer;
+  }) {
+    if (career.freezed) return RoadmapStepProgressStatusEnum.disabledFrozen;
+    if (step.freezed) return RoadmapStepProgressStatusEnum.disabledFrozen;
+
+    if (progress.completedSteps.includes(step._id))
+      return RoadmapStepProgressStatusEnum.completed;
+
+    if (progress.nextStep?.equals(step._id))
+      if (progress.inProgressStep?.equals(step._id))
+        return RoadmapStepProgressStatusEnum.inProgress;
+      else return RoadmapStepProgressStatusEnum.available;
+
+    if (
+      progress.frontierStep &&
+      step.order < (progress.frontierStep as unknown as IRoadmapStep).order
+    ) {
+      const firstNewStep = await this._roadmapStepRepository.findOne({
+        filter: {
+          order: {
+            $lt: (progress.frontierStep as unknown as IRoadmapStep).order,
+          },
+          _id: { $nin: progress.completedSteps },
+        },
+        options: { sort: { order: 1 }, select: { _id: 1 } },
+      });
+      if (firstNewStep && firstNewStep._id.equals(step._id))
+        if (progress.inProgressStep?.equals(step._id))
+          return RoadmapStepProgressStatusEnum.inProgress;
+        else return RoadmapStepProgressStatusEnum.available;
+    }
+
+    return RoadmapStepProgressStatusEnum.lockedPrereq;
+  }
+
+  async refreshUserProgressWhenOrderEpochChange({
+    progress,
+    career,
+  }: {
+    progress: HIUserCareerProgress;
+    career: FullICareer;
+  }) {
+    if (progress.orderEpoch == career.orderEpoch) return;
+
+    const frontierStep = await this._roadmapStepRepository.findOne({
+      filter: {
+        careerId: career._id,
+        _id: { $in: progress.completedSteps },
+      },
+      options: { sort: { order: -1 }, select: { _id: 1, order: 1 } },
+      // get the step with the highest order among completed steps
+    });
+
+    progress.frontierStep = frontierStep?._id;
+
+    progress.nextStep = (
+      await this._roadmapStepRepository.findOne({
+        filter: {
+          order: { $gt: frontierStep ? frontierStep.order : 0 },
+          careerId: career._id,
+        },
+        options: { sort: { order: 1 }, select: { _id: 1 } },
+      })
+    )?._id;
+
+    progress.percentageCompleted =
+      (progress.completedSteps.length /
+        (career.stepsCount -
+          (await this._roadmapStepRepository.countDocuments({
+            filter: {
+              paranoid: false,
+              freezed: { $exists: true },
+              _id: { $nin: progress.completedSteps },
+            },
+          })))) *
+      100;
+
+    progress.orderEpoch = career.orderEpoch;
+
+    progress.increment();
+    await progress.save();
+  }
 
   getRoadmap = ({ archived = false }: { archived?: boolean } = {}) => {
     return async (req: Request, res: Response): Promise<Response> => {
@@ -1061,7 +1163,13 @@ class RoadmapService {
           ),
         }),
         this._savedQuizRepository.deleteMany({ filter: { roadmapStepId } }),
-        // delete step progress
+        // TODO: delete step progress
+        this._userCareerProgressRepository.updateMany({
+          filter: {
+            careerId: (roadmapStep.careerId as unknown as FullICareer)._id,
+          },
+          update: { $pull: { completedSteps: roadmapStepId } },
+        }),
       ]);
     } else {
       throw new NotFoundException("Invalid roadmapStepId or Not freezed ❌");

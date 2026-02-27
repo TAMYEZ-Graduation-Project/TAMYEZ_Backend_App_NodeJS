@@ -8,7 +8,7 @@ export interface IUserCareerProgress {
 
   completedSteps: Types.ObjectId[];
   inProgressStep: Types.ObjectId | undefined;
-  nextStep: Types.ObjectId;
+  nextStep: Types.ObjectId | undefined;
   frontierStep: Types.ObjectId | undefined;
 
   percentageCompleted: number;

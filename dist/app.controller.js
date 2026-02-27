@@ -9,16 +9,10 @@ import { ProjectMoodsEnum } from "./utils/constants/enum.constants.js";
 import StringConstants from "./utils/constants/strings.constants.js";
 import globalErrorHandler from "./utils/handlers/global_error.handler.js";
 import RoutePaths from "./utils/constants/route_paths.constants.js";
-import UserModel from "./db/models/user.model.js";
 import protocolAndHostHanlder from "./utils/handlers/protocol_host.handler.js";
 import uploadsRouter from "./uploads/uploads.routes.js";
-import QuizModel from "./db/models/quiz.model.js";
-import NotificationPushDeviceModel from "./db/models/notifiction_push_device.model.js";
 import startAllCronJobs from "./utils/cron_jobs/cron_jobs.controller.js";
-import RoadmapStepModel from "./db/models/roadmap_step.model.js";
-import CareerModel from "./db/models/career.model.js";
-import SavedQuizModel from "./db/models/saved_quiz.model.js";
-import { QuizAttemptModel } from "./db/models/index.js";
+import mongoose from "mongoose";
 async function bootstrap() {
     const app = express();
     app.use(cors());
@@ -39,13 +33,7 @@ async function bootstrap() {
     }
     else {
         if (process.env.MOOD === ProjectMoodsEnum.dev) {
-            await UserModel.syncIndexes();
-            await QuizModel.syncIndexes();
-            await SavedQuizModel.syncIndexes();
-            await QuizAttemptModel.syncIndexes();
-            await NotificationPushDeviceModel.syncIndexes();
-            await RoadmapStepModel.syncIndexes();
-            await CareerModel.syncIndexes();
+            await mongoose.syncIndexes();
         }
         app.use(protocolAndHostHanlder);
         app.use(express.json());

@@ -1,7 +1,7 @@
 import { QuizCooldownModel, QuizModel, QuizAttemptModel, SavedQuizModel, RoadmapStepModel, } from "../../db/models/index.js";
 import { QuizAttemptRepository, QuizRepository, RoadmapStepRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
-import { OptionIdsEnum, QuestionTypesEnum, QuizTypesEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
+import { CareerAssessmentStatusEnum, OptionIdsEnum, QuestionTypesEnum, QuizTypesEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException, ServerException, TooManyRequestsException, ValidationException, } from "../../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import QuizUtil from "../../utils/quiz/utils.quiz.js";
@@ -395,6 +395,11 @@ class QuizService {
         if (!req.user.quizAttempts?.count) {
             req.user.quizAttempts = { count: 0, lastAttempt: new Date() };
         }
+        if (quizId === QuizTypesEnum.careerAssessment ||
+            quiz.title == StringConstants.CAREER_ASSESSMENT) {
+            req.user.assessmentStatus = CareerAssessmentStatusEnum.inProgress;
+        }
+        req.user.increment();
         await req.user?.save();
         return successHandler({
             res,

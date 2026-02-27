@@ -142,6 +142,10 @@ class UserService {
                         match: { paranoid: false },
                         select: "title slug pictureUrl freezed",
                     },
+                    {
+                        path: "careerDeleted.newSuggestedCareer",
+                        select: "title slug pictureUrl freezed",
+                    }
                 ],
             };
             let user;

@@ -31,6 +31,7 @@ import type {
   UpdateQuizParamsDtoType,
 } from "./quiz.dto.ts";
 import {
+  CareerAssessmentStatusEnum,
   OptionIdsEnum,
   QuestionTypesEnum,
   QuizTypesEnum,
@@ -580,6 +581,13 @@ class QuizService {
     if (!req.user!.quizAttempts?.count) {
       req.user!.quizAttempts = { count: 0, lastAttempt: new Date() };
     }
+    if (
+      quizId === QuizTypesEnum.careerAssessment ||
+      quiz.title == StringConstants.CAREER_ASSESSMENT
+    ) {
+      req.user!.assessmentStatus = CareerAssessmentStatusEnum.inProgress;
+    }
+    req.user!.increment();
     await req.user?.save();
 
     // const quizQuestionsObj = quizQuestions.toJSON();

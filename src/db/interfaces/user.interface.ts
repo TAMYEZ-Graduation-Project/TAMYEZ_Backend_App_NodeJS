@@ -3,6 +3,7 @@ import type {
   ProvidersEnum,
   GenderEnum,
   RolesEnum,
+  CareerAssessmentStatusEnum,
 } from "../../utils/constants/enum.constants.ts";
 import type {
   IAtByObject,
@@ -52,6 +53,7 @@ export interface IUser {
   coverImages?: string[];
 
   // Acadamic Info
+  assessmentStatus?: CareerAssessmentStatusEnum;
   careerPath?: IIdSelectedAtObject;
   careerDeleted?: ICareerDeleted;
 

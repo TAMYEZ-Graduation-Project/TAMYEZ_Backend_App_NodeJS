@@ -7,7 +7,7 @@ import S3Service from "../../utils/multer/s3.service.js";
 import IdSecurityUtil from "../../utils/security/id.security.js";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
-import { ApplicationTypeEnum, CareerResourceAppliesToEnum, QuizTypesEnum, } from "../../utils/constants/enum.constants.js";
+import { ApplicationTypeEnum, CareerAssessmentStatusEnum, CareerResourceAppliesToEnum, QuizTypesEnum, } from "../../utils/constants/enum.constants.js";
 import { startSession, Types } from "mongoose";
 import { RoadmapService } from "../roadmap/index.js";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
@@ -518,6 +518,7 @@ class CareerService {
                 this._userRepository.updateOne({
                     filter: { _id: req.user._id },
                     update: {
+                        assessmentStatus: CareerAssessmentStatusEnum.completed,
                         careerPath: {
                             id: Types.ObjectId.createFromHexString(careerId),
                             selectedAt: new Date(),
@@ -654,12 +655,14 @@ class CareerService {
                                         " 👋, we’re really sorry to let you know that your career path has been deleted from our system 😔. You can retake the career assessment 🚀 or check any suggested careers 💼.",
                                     ],
                                 },
+                                assessmentStatus: CareerAssessmentStatusEnum.canRetake,
                                 __v: { $add: ["$__v", 1] },
                             },
                         },
                     ],
                 }),
                 this._savedQuizRepository.deleteMany({ filter: { careerId } }),
+                this._userCareerProgressRepository.deleteMany({ filter: { careerId } }),
             ]);
         }
         else {
