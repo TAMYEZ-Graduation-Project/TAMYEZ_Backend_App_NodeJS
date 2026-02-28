@@ -154,8 +154,6 @@ roadmapStepSchema.methods.toJSON = function () {
     this.toObject(),
   );
 
-  console.log("inside -----", roadmapStepObject.progressStatus);
-
   return {
     id: roadmapStepObject?.id,
     order: roadmapStepObject?.order,

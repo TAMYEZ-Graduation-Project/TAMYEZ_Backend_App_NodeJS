@@ -123,6 +123,7 @@ careerSchema.virtual("roadmap", {
 });
 
 careerSchema.methods.toJSON = function () {
+  const roadmap = this?.roadmap as FullIRoadmapStep[] | undefined;  
   const careerObject = DocumentFormat.getIdFrom_Id<ICareer>(this.toObject());
 
   return {
@@ -156,12 +157,13 @@ careerSchema.methods.toJSON = function () {
     }),
     stepsCount: careerObject?.stepsCount,
     orderEpoch: careerObject?.orderEpoch,
-    roadmap: careerObject?.roadmap?.map((step) => {
+    roadmap: roadmap?.map((step) => {
       return {
         id: (step as FullIRoadmapStep)?._id,
         title: step?.title,
         description: step?.description,
         order: step?.order,
+        progressStatus: step?.progressStatus,
         createdAt: step?.createdAt,
         updatedAT: step?.updatedAt,
         v: (step as FullIRoadmapStep)?.__v,

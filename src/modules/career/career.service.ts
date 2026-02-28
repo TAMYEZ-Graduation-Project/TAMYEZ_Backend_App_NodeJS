@@ -60,7 +60,10 @@ import {
   QuizTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import { startSession, Types, type FilterQuery } from "mongoose";
-import type { ICareer } from "../../db/interfaces/career.interface.ts";
+import type {
+  FullICareer,
+  ICareer,
+} from "../../db/interfaces/career.interface.ts";
 import { RoadmapService } from "../roadmap/index.ts";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.ts";
 import type {
@@ -78,6 +81,8 @@ import type {
   IAIModelCheckCareerAssessmentQuestionsRequest,
   IAIModelCheckCareerAssessmentQuestionsResponse,
 } from "../../utils/constants/interface.constants.ts";
+import UserProgressService from "../../utils/user_progress/util.user_progress.ts";
+import type { FullIRoadmapStep } from "../../db/interfaces/roadmap_step.interface.ts";
 
 class CareerService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -95,6 +100,12 @@ class CareerService {
     new CareerSuggestionAttemptRepository(CareerSuggestionAttemptModel);
   private readonly _userCareerProgressRepository =
     new UserCareerProgressRepository(UserCareerProgressModel);
+
+  private readonly _userProgressService = new UserProgressService(
+    this._roadmapStepRepository,
+    this._userCareerProgressRepository,
+    this._careerRepository,
+  );
 
   createCareer = async (req: Request, res: Response): Promise<Response> => {
     const { title, description, summary, courses, youtubePlaylists, books } =
@@ -193,17 +204,36 @@ class CareerService {
     return async (req: Request, res: Response): Promise<Response> => {
       const { careerId } = req.params as GetCareerParamsDto;
 
+      console.log(req.tokenPayload);
+
+      if (
+        !careerId &&
+        (!req.tokenPayload ||
+          req.tokenPayload.applicationType ===
+            ApplicationTypeEnum.adminDashboard)
+      ) {
+        throw new ValidationException("careerId is required ❌");
+      } else if (
+        req.tokenPayload?.applicationType === ApplicationTypeEnum.user
+      ) {
+        if (careerId)
+          throw new BadRequestException(
+            "Invalid careerId with application type user ❌",
+          );
+
+        if (!req.user!.careerPath?.id)
+          throw new BadRequestException("Didn't choose a career path yet ❌");
+      }
 
       // TODO: add user progress to roadmap steps
 
       let filter: FilterQuery<ICareer>;
       if (
         req.user &&
-        req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
-        req.user.careerPath?.id?.equals(careerId)
+        req.tokenPayload?.applicationType === ApplicationTypeEnum.user
       ) {
         filter = {
-          _id: careerId,
+          _id: (req.user!.careerPath!.id as unknown as FullICareer)._id,
           paranoid: false,
         };
       } else {
@@ -222,9 +252,7 @@ class CareerService {
               match: {
                 order: { $lte: 10 },
                 ...(req.user &&
-                req.tokenPayload?.applicationType ===
-                  ApplicationTypeEnum.user &&
-                req.user.careerPath?.id?.equals(careerId)
+                req.tokenPayload?.applicationType === ApplicationTypeEnum.user
                   ? { paranoid: false }
                   : undefined),
               },
@@ -246,6 +274,17 @@ class CareerService {
         );
       }
 
+      if (
+        !archived &&
+        req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+        result.roadmap?.length
+      ) {
+        await this._userProgressService.refreshProgressAndClassify({
+          userId: req.user!._id!,
+          careerId: (req.user!.careerPath!.id as unknown as FullICareer)._id,
+          stepOrSteps: result.roadmap as FullIRoadmapStep[],
+        });
+      }
       return successHandler({ res, body: result });
     };
   };

@@ -47,9 +47,9 @@ class RoutePaths {
   static readonly career = "/career";
   static readonly adminCareer = "/admin/career";
   static readonly createCareer = "/";
-  static readonly getCareers = "/";
+  static readonly getCareers = "/all";
   static readonly getArchivedCareers = "/archives";
-  static readonly getCareer = "/:careerId";
+  static readonly getCareer = "{/:careerId}";
   static readonly getArchivedCareer = "/:careerId/archives";
   static readonly updateCareer = "/:careerId";
   static readonly uploadCareerPicture = "/:careerId/picture";

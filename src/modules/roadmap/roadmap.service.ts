@@ -64,10 +64,7 @@ import {
 } from "../../utils/constants/enum.constants.ts";
 import DocumentFormat from "../../utils/formats/document.format.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
-import type {
-  FullIUserCareerProgress,
-  HIUserCareerProgress,
-} from "../../db/interfaces/user_career_progress.interface.ts";
+import UserProgressService from "../../utils/user_progress/util.user_progress.ts";
 
 class RoadmapService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -83,6 +80,12 @@ class RoadmapService {
   );
   private readonly _userCareerProgressRepository =
     new UserCareerProgressRepository(UserCareerProgressModel);
+
+  private readonly _userProgressService = new UserProgressService(
+    this._roadmapStepRepository,
+    this._userCareerProgressRepository,
+    this._careerRepository,
+  );
 
   async checkAndUpdateOrder({
     career,
@@ -226,141 +229,6 @@ class RoadmapService {
       message: "Roadmap step created successfully ✅",
     });
   };
-
-  // user progress classification logic
-  async classifyStepInUserProgress({
-    step,
-    progress,
-    career,
-  }: {
-    step: FullIRoadmapStep;
-    progress: FullIUserCareerProgress;
-    career: FullICareer;
-  }) {
-    if (career.freezed) return RoadmapStepProgressStatusEnum.disabledFrozen;
-    if (step.freezed) return RoadmapStepProgressStatusEnum.disabledFrozen;
-
-    if (progress.completedSteps.includes(step._id))
-      return RoadmapStepProgressStatusEnum.completed;
-
-    if (progress.nextStep?.equals(step._id))
-      if (progress.inProgressStep?.equals(step._id))
-        return RoadmapStepProgressStatusEnum.inProgress;
-      else return RoadmapStepProgressStatusEnum.available;
-
-    if (
-      progress.frontierStep &&
-      step.order < (progress.frontierStep as unknown as IRoadmapStep).order
-    ) {
-      const firstNewStep = await this._roadmapStepRepository.findOne({
-        filter: {
-          order: {
-            $lt: (progress.frontierStep as unknown as IRoadmapStep).order,
-          },
-          _id: { $nin: progress.completedSteps },
-        },
-        options: { sort: { order: 1 }, select: { _id: 1 } },
-      });
-      if (firstNewStep && firstNewStep._id.equals(step._id))
-        if (progress.inProgressStep?.equals(step._id))
-          return RoadmapStepProgressStatusEnum.inProgress;
-        else return RoadmapStepProgressStatusEnum.available;
-    }
-
-    return RoadmapStepProgressStatusEnum.lockedPrereq;
-  }
-
-  async refreshUserProgressWhenOrderEpochChange({
-    progress,
-    career,
-  }: {
-    progress: HIUserCareerProgress;
-    career: FullICareer;
-  }) {
-    if (progress.orderEpoch == career.orderEpoch || career.freezed) return;
-
-    const frontierStep = await this._roadmapStepRepository.findOne({
-      filter: {
-        careerId: career._id,
-        _id: { $in: progress.completedSteps },
-      },
-      options: { sort: { order: -1 }, select: { _id: 1, order: 1 } },
-      // get the step with the highest order among completed steps
-    });
-
-    progress.frontierStep = frontierStep?._id;
-
-    progress.nextStep = (
-      await this._roadmapStepRepository.findOne({
-        filter: {
-          order: { $gt: frontierStep ? frontierStep.order : 0 },
-          careerId: career._id,
-        },
-        options: { sort: { order: 1 }, select: { _id: 1 } },
-      })
-    )?._id;
-
-    progress.percentageCompleted =
-      (progress.completedSteps.length /
-        (career.stepsCount -
-          (await this._roadmapStepRepository.countDocuments({
-            filter: {
-              paranoid: false,
-              freezed: { $exists: true },
-              _id: { $nin: progress.completedSteps },
-            },
-          })))) *
-      100;
-
-    progress.orderEpoch = career.orderEpoch;
-
-    progress.increment();
-    await progress.save();
-  }
-
-  async refreshProgressAndClassify({
-    userId,
-    careerId,
-    stepOrSteps,
-  }: {
-    userId: Types.ObjectId;
-    careerId: Types.ObjectId;
-    stepOrSteps: FullIRoadmapStep[] | FullIRoadmapStep;
-  }): Promise<FullIRoadmapStep[] | FullIRoadmapStep> {
-    const [progress, career] = await Promise.all([
-      this._userCareerProgressRepository.findOne({
-        filter: { userId },
-      }),
-      this._careerRepository.findOne({
-        filter: { _id: careerId, paranoid: false },
-      }),
-    ]);
-    if (!progress || !career) {
-      throw new BadRequestException("Can't resolve user progress ❌");
-    }
-    await this.refreshUserProgressWhenOrderEpochChange({
-      progress,
-      career,
-    });
-    if (Array.isArray(stepOrSteps))
-      return stepOrSteps.map(async (step) => {
-        (step as FullIRoadmapStep).progressStatus =
-          await this.classifyStepInUserProgress({
-            step: step as FullIRoadmapStep,
-            progress,
-            career,
-          });
-        return step;
-      }) as unknown as FullIRoadmapStep[];
-    else {
-      stepOrSteps.progressStatus = await this.classifyStepInUserProgress({
-        step: stepOrSteps,
-        progress,
-        career,
-      });
-      return stepOrSteps;
-    }
-  }
 
   getRoadmap = ({ archived = false }: { archived?: boolean } = {}) => {
     return async (req: Request, res: Response): Promise<Response> => {
@@ -511,8 +379,11 @@ class RoadmapService {
         );
       }
 
-      if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
-        await this.refreshProgressAndClassify({
+      if (
+        req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+        result.data?.length
+      ) {
+        await this._userProgressService.refreshProgressAndClassify({
           careerId: (req.user?.careerPath?.id as unknown as FullICareer)._id,
           stepOrSteps: result.data as FullIRoadmapStep[],
           userId: req.user!._id!,
@@ -627,7 +498,7 @@ class RoadmapService {
           );
         }
         if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
-          result = (await this.refreshProgressAndClassify({
+          result = (await this._userProgressService.refreshProgressAndClassify({
             careerId: (req.user?.careerPath?.id as unknown as FullICareer)._id,
             stepOrSteps: result,
             userId: req.user!._id!,
