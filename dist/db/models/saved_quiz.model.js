@@ -110,7 +110,8 @@ const savedQuizSchema = new mongoose.Schema({
     id: false,
     strictQuery: true,
 });
-savedQuizSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+savedQuizSchema.index({ userId: 1, quizId: 1 }, { unique: true });
+savedQuizSchema.index({ quizId: 1 });
 savedQuizSchema.index({ careerId: 1 });
 savedQuizSchema.index({ roadmapStepId: 1 });
 savedQuizSchema.virtual("id").get(function () {

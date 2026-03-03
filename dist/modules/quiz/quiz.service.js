@@ -388,46 +388,41 @@ class QuizService {
         }
         if (quizId !== QuizTypesEnum.careerAssessment &&
             (await this._quizCooldownRepository.findOne({
-                filter: { quizId: quiz._id, userId: req.user._id },
+                filter: { userId: req.user._id, quizId: quiz._id },
             }))) {
             throw new BadRequestException(`You are in cooldown period for this quiz. Please try again later ❌`);
         }
         if (!discardActiveAttempt &&
             (await this._quizAttemptRepository.exists({
-                filter: { quizId: quiz._id, userId: req.user._id, roadmapStepId },
+                filter: { userId: req.user._id, quizId: quiz._id, roadmapStepId },
             }))) {
             throw new BadRequestException("There is an active attempt on this quiz ⚠️ Do you want to discard it?");
         }
-        const [_, generatedQuestions] = await Promise.all([
-            this._quizAttemptRepository.deleteOne({
-                filter: { quizId: quiz._id, userId: req.user._id, roadmapStepId },
-            }),
-            this._generateQuestions({
-                title: quiz.title,
-                aiPrompt: quiz.aiPrompt,
-            }),
-        ]);
-        let [quizAttempt] = await this._quizAttemptRepository.create({
-            data: [
-                {
-                    quizId: quiz._id,
-                    userId: req.user._id,
-                    attemptType: quizId === QuizTypesEnum.careerAssessment ||
+        const generatedQuestions = await this._generateQuestions({
+            title: quiz.title,
+            aiPrompt: quiz.aiPrompt,
+        });
+        let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
+            filter: { userId: req.user._id, quizId: quiz._id, roadmapStepId },
+            update: {
+                quizId: quiz._id,
+                userId: req.user._id,
+                attemptType: quizId === QuizTypesEnum.careerAssessment ||
+                    quiz.title == StringConstants.CAREER_ASSESSMENT
+                    ? QuizTypesEnum.careerAssessment
+                    : QuizTypesEnum.stepQuiz,
+                careerId: req.user?.careerPath?.id,
+                roadmapStepId: roadmapStepId,
+                questions: generatedQuestions.questions,
+                expiresAt: new Date(Date.now() +
+                    (quizId === QuizTypesEnum.careerAssessment ||
                         quiz.title == StringConstants.CAREER_ASSESSMENT
-                        ? QuizTypesEnum.careerAssessment
-                        : QuizTypesEnum.stepQuiz,
-                    careerId: req.user?.careerPath?.id,
-                    roadmapStepId: roadmapStepId,
-                    questions: generatedQuestions.questions,
-                    expiresAt: new Date(Date.now() +
-                        (quizId === QuizTypesEnum.careerAssessment ||
-                            quiz.title == StringConstants.CAREER_ASSESSMENT
-                            ? Number(process.env[EnvFields.CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS])
-                            : quiz.duration +
-                                Number(process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS])) *
-                            1000),
-                },
-            ],
+                        ? Number(process.env[EnvFields.CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS])
+                        : quiz.duration +
+                            Number(process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS])) *
+                        1000),
+            },
+            options: { new: true, upsert: true },
         });
         if (!quizAttempt) {
             throw new ServerException("Failed to generate quiz questions ❓");
@@ -583,31 +578,22 @@ class QuizService {
         const scoreNumber = Math.round(((checkedAnswers.length - wrongAnswersCount) / checkedAnswers.length) *
             100);
         if (scoreNumber >= 50) {
-            if (!(await this._savedQuizRepository.updateOne({
+            await this._savedQuizRepository.updateOne({
                 filter: {
-                    quizId: quizAttempt.quizId._id,
                     userId: req.user._id,
+                    quizId: quizAttempt.quizId._id,
                 },
                 update: {
-                    questions: checkedAnswers,
-                    score: `${scoreNumber}%`,
-                    takenAt: new Date(),
+                    $set: {
+                        careerId: quizAttempt.careerId,
+                        roadmapStepId: quizAttempt.roadmapStepId,
+                        questions: checkedAnswers,
+                        score: `${scoreNumber}%`,
+                        takenAt: new Date(),
+                    },
                 },
-            })).matchedCount) {
-                await this._savedQuizRepository.create({
-                    data: [
-                        {
-                            quizId: quizAttempt.quizId._id,
-                            userId: req.user._id,
-                            careerId: quizAttempt.careerId,
-                            roadmapStepId: quizAttempt.roadmapStepId,
-                            questions: checkedAnswers,
-                            score: `${scoreNumber}%`,
-                            takenAt: new Date(),
-                        },
-                    ],
-                });
-            }
+                options: { upsert: true },
+            });
             if (!(await this._userCareerProgressRepository.exists({
                 filter: {
                     userId: req.user._id,
@@ -638,9 +624,8 @@ class QuizService {
             await Promise.all([
                 this._savedQuizRepository.deleteOne({
                     filter: {
-                        quizId: quizAttempt.quizId._id,
                         userId: req.user._id,
-                        __v: undefined,
+                        quizId: quizAttempt.quizId._id,
                     },
                 }),
                 this._quizCooldownRepository.create({

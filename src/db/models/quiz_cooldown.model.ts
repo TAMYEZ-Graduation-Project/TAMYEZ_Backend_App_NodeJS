@@ -28,20 +28,20 @@ const quizCooldownSchema = new mongoose.Schema<IQuizCooldown>(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 quizCooldownSchema.virtual("id").get(function () {
   return this._id;
 });
 
-quizCooldownSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+quizCooldownSchema.index({ userId: 1, quizId: 1 }, { unique: true });
 
 const QuizCooldownModel =
   (mongoose.models.QuizCooldown as Model<IQuizCooldown>) ||
   mongoose.model<IQuizCooldown>(
     ModelsNames.quizCooldownModel,
-    quizCooldownSchema
+    quizCooldownSchema,
   );
 
 export default QuizCooldownModel;

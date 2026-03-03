@@ -26,7 +26,7 @@ const quizCooldownSchema = new mongoose.Schema({
 quizCooldownSchema.virtual("id").get(function () {
     return this._id;
 });
-quizCooldownSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+quizCooldownSchema.index({ userId: 1, quizId: 1 }, { unique: true });
 const QuizCooldownModel = mongoose.models.QuizCooldown ||
     mongoose.model(ModelsNames.quizCooldownModel, quizCooldownSchema);
 export default QuizCooldownModel;
