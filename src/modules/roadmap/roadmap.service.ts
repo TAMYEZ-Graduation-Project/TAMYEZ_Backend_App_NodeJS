@@ -64,7 +64,7 @@ import {
 } from "../../utils/constants/enum.constants.ts";
 import DocumentFormat from "../../utils/formats/document.format.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
-import UserProgressService from "../../utils/user_progress/util.user_progress.ts";
+import UserProgressService from "../../utils/services/user_progress.service.ts";
 
 class RoadmapService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -84,7 +84,6 @@ class RoadmapService {
   private readonly _userProgressService = new UserProgressService(
     this._roadmapStepRepository,
     this._userCareerProgressRepository,
-    this._careerRepository,
   );
 
   async checkAndUpdateOrder({
@@ -384,9 +383,8 @@ class RoadmapService {
         result.data?.length
       ) {
         await this._userProgressService.refreshProgressAndClassify({
-          careerId: (req.user?.careerPath?.id as unknown as FullICareer)._id,
           stepOrSteps: result.data as FullIRoadmapStep[],
-          userId: req.user!._id!,
+          user: req.user!,
         });
       }
 
@@ -499,9 +497,8 @@ class RoadmapService {
         }
         if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
           result = (await this._userProgressService.refreshProgressAndClassify({
-            careerId: (req.user?.careerPath?.id as unknown as FullICareer)._id,
             stepOrSteps: result,
-            userId: req.user!._id!,
+            user: req.user!,
           })) as HIRoadmapStepType;
 
           if (

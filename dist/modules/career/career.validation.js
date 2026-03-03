@@ -114,7 +114,9 @@ class CareerValidators {
         }),
     };
     static getCareer = {
-        params: this.uploadCareerPicture.params,
+        params: z.strictObject({
+            careerId: generalValidationConstants.objectId.optional(),
+        }),
     };
     static checkCareerAssessment = QuizValidators.checkQuizAnswers;
     static chooseSuggestedCareer = {

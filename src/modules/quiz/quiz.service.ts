@@ -5,11 +5,13 @@ import {
   QuizAttemptModel,
   SavedQuizModel,
   RoadmapStepModel,
+  UserCareerProgressModel,
 } from "../../db/models/index.ts";
 import {
   QuizAttemptRepository,
   QuizRepository,
   RoadmapStepRepository,
+  UserCareerProgressRepository,
 } from "../../db/repositories/index.ts";
 import successHandler from "../../utils/handlers/success.handler.ts";
 import type {
@@ -72,6 +74,8 @@ import type { ISavedQuestion } from "../../db/interfaces/saved_quiz.interface.ts
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.ts";
 import pause from "../../utils/pause/code.pause.ts";
 import type { Types } from "mongoose";
+import type { FullIRoadmapStep } from "../../db/interfaces/roadmap_step.interface.ts";
+import UserProgressService from "../../utils/services/user_progress.service.ts";
 
 class QuizService {
   private _quizRepository = new QuizRepository(QuizModel);
@@ -83,6 +87,13 @@ class QuizService {
   private readonly _roadmapStepRepository = new RoadmapStepRepository(
     RoadmapStepModel,
   );
+  private readonly _userCareerProgressRepository =
+    new UserCareerProgressRepository(UserCareerProgressModel);
+  private readonly _userProgressService = new UserProgressService(
+    this._roadmapStepRepository,
+    this._userCareerProgressRepository,
+  );
+
   //private _quizApisManager = new QuizApisManager();
 
   createQuiz = async (req: Request, res: Response): Promise<Response> => {
@@ -494,6 +505,26 @@ class QuizService {
           "Invalid roadmapStepId, career freezed or quiz is not in your roadmap step ❌",
         );
       }
+
+      if (roadmapStep.quizzesIds.length > 1) {
+        const quizIndex = roadmapStep.quizzesIds.findIndex((quiz) =>
+          quiz.equals(quizId),
+        );
+        if (quizIndex > 0) {
+          if (
+            (await this._savedQuizRepository.countDocuments({
+              filter: {
+                userId: req.user!._id!,
+                quizId: { $in: roadmapStep.quizzesIds.slice(0, quizIndex) },
+              },
+            })) != quizIndex
+          ) {
+            throw new BadRequestException(
+              "All prior quizzes must be taken sequentially in order ❌",
+            );
+          }
+        }
+      }
     }
 
     if (req.user!.quizAttempts?.lastAttempt) {
@@ -648,6 +679,11 @@ class QuizService {
             match: { paranoid: false },
             select: "title aiPrompt",
           },
+          {
+            path: "roadmapStepId",
+            match: { paranoid: false },
+            select: "quizzesIds",
+          },
         ],
       },
     });
@@ -780,18 +816,19 @@ class QuizService {
 
     if (scoreNumber >= 50) {
       if (
-        !(await this._savedQuizRepository.findOneAndUpdate({
-          filter: {
-            quizId: quizAttempt.quizId!._id!,
-            userId: req.user!._id!,
-            __v: undefined,
-          },
-          update: {
-            questions: checkedAnswers,
-            score: `${scoreNumber}%`,
-            takenAt: new Date(),
-          },
-        }))
+        !(
+          await this._savedQuizRepository.updateOne({
+            filter: {
+              quizId: quizAttempt.quizId!._id!,
+              userId: req.user!._id!,
+            },
+            update: {
+              questions: checkedAnswers,
+              score: `${scoreNumber}%`,
+              takenAt: new Date(),
+            },
+          })
+        ).matchedCount
       ) {
         await this._savedQuizRepository.create({
           data: [
@@ -806,6 +843,45 @@ class QuizService {
             },
           ],
         });
+      }
+      // check if roadmap step marked as completed or not
+      console.log("----------------");
+
+      if (
+        !(await this._userCareerProgressRepository.exists({
+          filter: {
+            userId: req.user!._id!,
+            completedSteps: (
+              quizAttempt.roadmapStepId as unknown as FullIRoadmapStep
+            )._id,
+          },
+        }))
+      ) {
+        const quizzesIds = (
+          quizAttempt.roadmapStepId as unknown as FullIRoadmapStep
+        ).quizzesIds;
+        if (
+          (quizzesIds.length == 1 &&
+            quizzesIds[0]!.equals(quizAttempt.quizId)) ||
+          (quizzesIds[quizzesIds.length - 1]!.equals(
+            (quizAttempt.quizId as unknown as HIQuiz)._id,
+          ) &&
+            (await this._savedQuizRepository.countDocuments({
+              filter: {
+                userId: req.user!._id!,
+                quizId: {
+                  $in: quizzesIds,
+                },
+              },
+            })) == quizzesIds.length)
+        ) {
+          // add step to completedSteps
+          await this._userProgressService.addStepToCompletedAndRefreshProgress({
+            user: req.user!,
+            stepId: (quizAttempt.roadmapStepId as unknown as FullIRoadmapStep)
+              ._id,
+          });
+        }
       }
     } else {
       await Promise.all([

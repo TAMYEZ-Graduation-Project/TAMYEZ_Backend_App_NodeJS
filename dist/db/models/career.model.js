@@ -85,6 +85,7 @@ careerSchema.virtual("roadmap", {
     options: { sort: { order: 1 } },
 });
 careerSchema.methods.toJSON = function () {
+    const roadmap = this?.roadmap;
     const careerObject = DocumentFormat.getIdFrom_Id(this.toObject());
     return {
         id: careerObject?.id,
@@ -110,12 +111,13 @@ careerSchema.methods.toJSON = function () {
         }),
         stepsCount: careerObject?.stepsCount,
         orderEpoch: careerObject?.orderEpoch,
-        roadmap: careerObject?.roadmap?.map((step) => {
+        roadmap: roadmap?.map((step) => {
             return {
                 id: step?._id,
                 title: step?.title,
                 description: step?.description,
                 order: step?.order,
+                progressStatus: step?.progressStatus,
                 createdAt: step?.createdAt,
                 updatedAT: step?.updatedAt,
                 v: step?.__v,

@@ -81,7 +81,7 @@ import type {
   IAIModelCheckCareerAssessmentQuestionsRequest,
   IAIModelCheckCareerAssessmentQuestionsResponse,
 } from "../../utils/constants/interface.constants.ts";
-import UserProgressService from "../../utils/user_progress/util.user_progress.ts";
+import UserProgressService from "../../utils/services/user_progress.service.ts";
 import type { FullIRoadmapStep } from "../../db/interfaces/roadmap_step.interface.ts";
 
 class CareerService {
@@ -104,7 +104,6 @@ class CareerService {
   private readonly _userProgressService = new UserProgressService(
     this._roadmapStepRepository,
     this._userCareerProgressRepository,
-    this._careerRepository,
   );
 
   createCareer = async (req: Request, res: Response): Promise<Response> => {
@@ -225,8 +224,6 @@ class CareerService {
           throw new BadRequestException("Didn't choose a career path yet ❌");
       }
 
-      // TODO: add user progress to roadmap steps
-
       let filter: FilterQuery<ICareer>;
       if (
         req.user &&
@@ -280,8 +277,7 @@ class CareerService {
         result.roadmap?.length
       ) {
         await this._userProgressService.refreshProgressAndClassify({
-          userId: req.user!._id!,
-          careerId: (req.user!.careerPath!.id as unknown as FullICareer)._id,
+          user: req.user!,
           stepOrSteps: result.roadmap as FullIRoadmapStep[],
         });
       }

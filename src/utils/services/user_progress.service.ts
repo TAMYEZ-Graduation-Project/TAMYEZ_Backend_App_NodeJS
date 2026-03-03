@@ -2,6 +2,7 @@ import type { Types } from "mongoose";
 import type { FullICareer } from "../../db/interfaces/career.interface.ts";
 import type {
   FullIRoadmapStep,
+  HIRoadmapStepType,
   IRoadmapStep,
 } from "../../db/interfaces/roadmap_step.interface.ts";
 import type {
@@ -12,24 +13,43 @@ import { RoadmapStepProgressStatusEnum } from "../constants/enum.constants.ts";
 import { BadRequestException } from "../exceptions/custom.exceptions.ts";
 import type RoadmapStepRepository from "../../db/repositories/roadmap_step.repository.ts";
 import type UserCareerProgressRepository from "../../db/repositories/user_career_progress.repository.ts";
-import type CareerRepository from "../../db/repositories/career.repository.ts";
+import type { FullIUser } from "../../db/interfaces/user.interface.ts";
 
 class UserProgressService {
   constructor(
     private _roadmapStepRepository: RoadmapStepRepository,
     private _userCareerProgressRepository: UserCareerProgressRepository,
-    private _careerRepository: CareerRepository,
   ) {}
+
+  private async _getFirstNewStep({
+    progress,
+  }: {
+    progress: HIUserCareerProgress;
+  }): Promise<HIRoadmapStepType | null> {
+    if (!progress.frontierStep) return null;
+
+    return this._roadmapStepRepository.findOne({
+      filter: {
+        order: {
+          $lt: (progress.frontierStep as unknown as IRoadmapStep)?.order,
+        },
+        _id: { $nin: progress.completedSteps },
+      },
+      options: { sort: { order: 1 }, select: { _id: 1 } },
+    });
+  }
 
   // user progress classification logic
   private async _classifyStepInUserProgress({
     step,
     progress,
     career,
+    firstNewStep,
   }: {
     step: FullIRoadmapStep;
     progress: FullIUserCareerProgress;
     career: FullICareer;
+    firstNewStep: FullIRoadmapStep | null;
   }) {
     if (career.freezed) return RoadmapStepProgressStatusEnum.disabledFrozen;
     if (step.freezed) return RoadmapStepProgressStatusEnum.disabledFrozen;
@@ -46,15 +66,6 @@ class UserProgressService {
       progress.frontierStep &&
       step.order < (progress.frontierStep as unknown as IRoadmapStep).order
     ) {
-      const firstNewStep = await this._roadmapStepRepository.findOne({
-        filter: {
-          order: {
-            $lt: (progress.frontierStep as unknown as IRoadmapStep).order,
-          },
-          _id: { $nin: progress.completedSteps },
-        },
-        options: { sort: { order: 1 }, select: { _id: 1 } },
-      });
       if (firstNewStep && firstNewStep._id.equals(step._id))
         if (progress.inProgressStep?.equals(step._id))
           return RoadmapStepProgressStatusEnum.inProgress;
@@ -64,14 +75,20 @@ class UserProgressService {
     return RoadmapStepProgressStatusEnum.lockedPrereq;
   }
 
-  private async _refreshUserProgressWhenOrderEpochChange({
+  private async _refreshUserProgress({
     progress,
     career,
+    checkOrderEpochChanged = true,
   }: {
     progress: HIUserCareerProgress;
     career: FullICareer;
+    checkOrderEpochChanged?: boolean;
   }) {
-    if (progress.orderEpoch == career.orderEpoch || career.freezed) return;
+    if (
+      (checkOrderEpochChanged && progress.orderEpoch == career.orderEpoch) ||
+      career.freezed
+    )
+      return;
 
     const frontierStep = await this._roadmapStepRepository.findOne({
       filter: {
@@ -95,16 +112,17 @@ class UserProgressService {
     )?._id;
 
     progress.percentageCompleted =
-      (progress.completedSteps.length /
-        (career.stepsCount -
-          (await this._roadmapStepRepository.countDocuments({
-            filter: {
-              paranoid: false,
-              freezed: { $exists: true },
-              _id: { $nin: progress.completedSteps },
-            },
-          })))) *
-      100;
+      Math.floor(
+        progress.completedSteps.length /
+          (career.stepsCount -
+            (await this._roadmapStepRepository.countDocuments({
+              filter: {
+                paranoid: false,
+                freezed: { $exists: true },
+                _id: { $nin: progress.completedSteps },
+              },
+            }))),
+      ) * 100;
 
     progress.orderEpoch = career.orderEpoch;
 
@@ -113,36 +131,32 @@ class UserProgressService {
   }
 
   async refreshProgressAndClassify({
-    userId,
-    careerId,
+    user,
     stepOrSteps,
   }: {
-    userId: Types.ObjectId;
-    careerId: Types.ObjectId;
+    user: FullIUser;
     stepOrSteps: FullIRoadmapStep[] | FullIRoadmapStep;
   }): Promise<FullIRoadmapStep[] | FullIRoadmapStep> {
-    const [progress, career] = await Promise.all([
-      this._userCareerProgressRepository.findOne({
-        filter: { userId },
-      }),
-      this._careerRepository.findOne({
-        filter: { _id: careerId, paranoid: false },
-      }),
-    ]);
-    if (!progress || !career) {
+    const progress = await this._userCareerProgressRepository.findOne({
+      filter: { userId: user._id },
+    });
+
+    if (!progress || !user?.careerPath?.id) {
       throw new BadRequestException("Can't resolve user progress ❌");
     }
-    await this._refreshUserProgressWhenOrderEpochChange({
+    await this._refreshUserProgress({
       progress,
-      career,
+      career: user.careerPath.id as unknown as FullICareer,
     });
+    const firstNewStep = await this._getFirstNewStep({ progress });
     if (Array.isArray(stepOrSteps)) {
       for (const step of stepOrSteps) {
         (step as FullIRoadmapStep).progressStatus =
           await this._classifyStepInUserProgress({
             step: step as FullIRoadmapStep,
             progress,
-            career,
+            career: user.careerPath.id as unknown as FullICareer,
+            firstNewStep,
           });
       }
       return stepOrSteps;
@@ -150,9 +164,45 @@ class UserProgressService {
       stepOrSteps.progressStatus = await this._classifyStepInUserProgress({
         step: stepOrSteps,
         progress,
-        career,
+        career: user.careerPath.id as unknown as FullICareer,
+        firstNewStep,
       });
       return stepOrSteps;
+    }
+  }
+
+  async addStepToCompletedAndRefreshProgress({
+    user,
+    stepId,
+  }: {
+    user: FullIUser;
+    stepId: Types.ObjectId;
+  }) {
+    if (
+      (
+        await this._userCareerProgressRepository.updateOne({
+          filter: {
+            userId: user._id,
+            careerId: (user.careerPath!.id as unknown as FullICareer)._id,
+          },
+          update: {
+            $addToSet: {
+              completedSteps: stepId,
+            },
+          },
+        })
+      ).matchedCount
+    ) {
+      await this._refreshUserProgress({
+        progress: (await this._userCareerProgressRepository.findOne({
+          filter: {
+            userId: user._id,
+            careerId: (user.careerPath!.id as unknown as FullICareer)._id,
+          },
+        }))!,
+        career: user.careerPath!.id as unknown as FullICareer,
+        checkOrderEpochChanged: false,
+      });
     }
   }
 }

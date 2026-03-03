@@ -13,6 +13,7 @@ import { RoadmapService } from "../roadmap/index.js";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
+import UserProgressService from "../../utils/services/user_progress.service.js";
 class CareerService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
@@ -21,6 +22,7 @@ class CareerService {
     _quizAttemptRepository = new QuizAttemptRepository(QuizAttemptModel);
     _careerSuggestionAttemptRepository = new CareerSuggestionAttemptRepository(CareerSuggestionAttemptModel);
     _userCareerProgressRepository = new UserCareerProgressRepository(UserCareerProgressModel);
+    _userProgressService = new UserProgressService(this._roadmapStepRepository, this._userCareerProgressRepository);
     createCareer = async (req, res) => {
         const { title, description, summary, courses, youtubePlaylists, books } = req.validationResult.body;
         const careersCount = await this._careerRepository.countDocuments({
@@ -95,12 +97,24 @@ class CareerService {
     getCareer = ({ archived = false } = {}) => {
         return async (req, res) => {
             const { careerId } = req.params;
+            console.log(req.tokenPayload);
+            if (!careerId &&
+                (!req.tokenPayload ||
+                    req.tokenPayload.applicationType ===
+                        ApplicationTypeEnum.adminDashboard)) {
+                throw new ValidationException("careerId is required ❌");
+            }
+            else if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
+                if (careerId)
+                    throw new BadRequestException("Invalid careerId with application type user ❌");
+                if (!req.user.careerPath?.id)
+                    throw new BadRequestException("Didn't choose a career path yet ❌");
+            }
             let filter;
             if (req.user &&
-                req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
-                req.user.careerPath?.id?.equals(careerId)) {
+                req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
                 filter = {
-                    _id: careerId,
+                    _id: req.user.careerPath.id._id,
                     paranoid: false,
                 };
             }
@@ -119,9 +133,7 @@ class CareerService {
                             match: {
                                 order: { $lte: 10 },
                                 ...(req.user &&
-                                    req.tokenPayload?.applicationType ===
-                                        ApplicationTypeEnum.user &&
-                                    req.user.careerPath?.id?.equals(careerId)
+                                    req.tokenPayload?.applicationType === ApplicationTypeEnum.user
                                     ? { paranoid: false }
                                     : undefined),
                             },
@@ -138,6 +150,14 @@ class CareerService {
             });
             if (!result) {
                 throw new NotFoundException(archived ? "No archived career found 🔍❌" : "No career found 🔍❌");
+            }
+            if (!archived &&
+                req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+                result.roadmap?.length) {
+                await this._userProgressService.refreshProgressAndClassify({
+                    user: req.user,
+                    stepOrSteps: result.roadmap,
+                });
             }
             return successHandler({ res, body: result });
         };

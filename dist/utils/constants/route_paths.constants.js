@@ -39,9 +39,9 @@ class RoutePaths {
     static career = "/career";
     static adminCareer = "/admin/career";
     static createCareer = "/";
-    static getCareers = "/";
+    static getCareers = "/all";
     static getArchivedCareers = "/archives";
-    static getCareer = "/:careerId";
+    static getCareer = "{/:careerId}";
     static getArchivedCareer = "/:careerId/archives";
     static updateCareer = "/:careerId";
     static uploadCareerPicture = "/:careerId/picture";

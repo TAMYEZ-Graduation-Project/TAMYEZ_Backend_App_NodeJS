@@ -106,7 +106,6 @@ function mergeResources({ stepId, current, global, }) {
 }
 roadmapStepSchema.methods.toJSON = function () {
     const roadmapStepObject = DocumentFormat.getIdFrom_Id(this.toObject());
-    console.log("inside -----", roadmapStepObject.progressStatus);
     return {
         id: roadmapStepObject?.id,
         order: roadmapStepObject?.order,
