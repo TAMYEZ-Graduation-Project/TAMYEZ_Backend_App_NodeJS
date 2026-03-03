@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import UserCareerProgressModel from "../db/models/user_career_progress.model.ts";
 import UserCareerProgressRepository from "../db/repositories/user_career_progress.repository.ts";
-import type { FullICareer } from "../db/interfaces/career.interface.ts";
 import { BadRequestException } from "../utils/exceptions/custom.exceptions.ts";
 import { ApplicationTypeEnum } from "../utils/constants/enum.constants.ts";
 
@@ -22,7 +21,6 @@ async function loadUserProgressMiddleware(
   ).findOne({
     filter: {
       userId: req.user._id,
-      careerId: (req.user.careerPath.id as unknown as FullICareer)._id,
     },
     options: { populate: [{ path: "frontierStep", select: "_id order" }] },
   });

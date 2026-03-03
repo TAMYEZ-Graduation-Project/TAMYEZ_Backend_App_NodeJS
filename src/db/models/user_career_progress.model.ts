@@ -7,6 +7,7 @@ const userCareerProgressSchema = new mongoose.Schema<IUserCareerProgress>(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
+      unique: true,
       ref: ModelsNames.userModel,
       required: true,
     },
@@ -66,7 +67,6 @@ userCareerProgressSchema.methods.toJSON = function () {
   };
 };
 
-userCareerProgressSchema.index({ userId: 1, careerId: 1 }, { unique: true });
 userCareerProgressSchema.index({ careerId: 1 });
 
 // userCareerProgressSchema.pre(

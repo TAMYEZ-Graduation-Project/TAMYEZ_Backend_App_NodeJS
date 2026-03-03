@@ -590,7 +590,6 @@ class QuizService {
       );
     }
 
-    // TODO: before deleting the old quiz attempt, we alert the user that they have an ongoing attempt and ask them if they want to discard it and start a new one
     if (
       !discardActiveAttempt &&
       (await this._quizAttemptRepository.exists({

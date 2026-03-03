@@ -758,7 +758,6 @@ class CareerService {
       );
     }
 
-    // TODO: save suggested careers
     if (
       !(
         await this._careerSuggestionAttemptRepository.replaceOne({

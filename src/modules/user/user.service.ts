@@ -49,6 +49,7 @@ import {
   FeedbackRepository,
   NotificationPushDeviceRepository,
   QuizAttemptRepository,
+  UserCareerProgressRepository,
   UserRepository,
 } from "../../db/repositories/index.ts";
 import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.ts";
@@ -62,6 +63,7 @@ import {
   QuizAttemptModel,
   QuizCooldownModel,
   SavedQuizModel,
+  UserCareerProgressModel,
 } from "../../db/models/index.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.ts";
@@ -96,6 +98,9 @@ class UserService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
 
   private readonly _feedbackRepository = new FeedbackRepository(FeedbackModel);
+
+  private readonly _userCareerProgressRepository =
+    new UserCareerProgressRepository(UserCareerProgressModel);
 
   getAdminDashboardData = async (
     req: Request,
@@ -235,9 +240,9 @@ class UserService {
             select: "title slug pictureUrl freezed",
           },
           {
-            path: "careerDeleted.newSuggestedCareer", 
+            path: "careerDeleted.newSuggestedCareer",
             select: "title slug pictureUrl freezed",
-          }
+          },
         ],
       };
       let user;
@@ -686,7 +691,9 @@ class UserService {
       this._notificationPushDeviceRepository.deleteMany({
         filter: { userId: userId || req.user!._id! },
       }),
-      //Todo: delete account progress
+      this._userCareerProgressRepository.deleteOne({
+        filter: { userId: userId || req.user!._id!},
+      }),
     ]);
 
     return successHandler({ res, message: "Account Deleted Permanently ✅" });
