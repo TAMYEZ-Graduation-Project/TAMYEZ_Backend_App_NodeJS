@@ -86,6 +86,7 @@ careerSchema.virtual("roadmap", {
 });
 careerSchema.methods.toJSON = function () {
     const roadmap = this?.roadmap;
+    const percentageCompleted = this?.percentageCompleted;
     const careerObject = DocumentFormat.getIdFrom_Id(this.toObject());
     return {
         id: careerObject?.id,
@@ -110,7 +111,7 @@ careerSchema.methods.toJSON = function () {
             return DocumentFormat.getIdFrom_Id(c);
         }),
         stepsCount: careerObject?.stepsCount,
-        orderEpoch: careerObject?.orderEpoch,
+        percentageCompleted,
         roadmap: roadmap?.map((step) => {
             return {
                 id: step?._id,

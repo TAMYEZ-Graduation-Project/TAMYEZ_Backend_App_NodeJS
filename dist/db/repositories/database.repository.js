@@ -41,7 +41,7 @@ class DatabaseRepository {
     };
     findOne = async ({ filter, projection, options = {}, }) => {
         const res = await this.model.findOne(filter, projection, options);
-        if (filter?.__v != undefined && res == undefined) {
+        if (res == undefined && filter?.__v != undefined) {
             const { __v, ...baseFilter } = filter;
             const existsIgnoringVersion = await this.model.exists(baseFilter);
             if (existsIgnoringVersion) {
@@ -90,14 +90,13 @@ class DatabaseRepository {
                 }),
             };
         }
+        console.log({ filter });
         const res = await this.model.updateOne(filter, update, options);
-        if (filter?.__v != undefined) {
-            if (!res.matchedCount) {
-                const { __v, ...baseFilter } = filter;
-                const existsIgnoringVersion = await this.model.exists(baseFilter);
-                if (existsIgnoringVersion) {
-                    throw new VersionConflictException(StringConstants.INVALID_VERSION_MESSAGE);
-                }
+        if (!res.matchedCount && filter?.__v != undefined) {
+            const { __v, ...baseFilter } = filter;
+            const existsIgnoringVersion = await this.model.exists(baseFilter);
+            if (existsIgnoringVersion) {
+                throw new VersionConflictException(StringConstants.INVALID_VERSION_MESSAGE);
             }
         }
         return res;

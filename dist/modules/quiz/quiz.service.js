@@ -1,7 +1,7 @@
 import { QuizCooldownModel, QuizModel, QuizAttemptModel, SavedQuizModel, RoadmapStepModel, UserCareerProgressModel, } from "../../db/models/index.js";
 import { QuizAttemptRepository, QuizRepository, RoadmapStepRepository, UserCareerProgressRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
-import { CareerAssessmentStatusEnum, OptionIdsEnum, QuestionTypesEnum, QuizTypesEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
+import { CareerAssessmentStatusEnum, OptionIdsEnum, QuestionTypesEnum, QuizTypesEnum, RoadmapStepProgressStatusEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException, ServerException, TooManyRequestsException, ValidationException, } from "../../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import QuizUtil from "../../utils/quiz/utils.quiz.js";
@@ -302,6 +302,8 @@ class QuizService {
     };
     getQuizQuestions = async (req, res) => {
         const { quizId, roadmapStepId } = req.params;
+        const { discardActiveAttempt } = req.validationResult
+            .query;
         const filter = {};
         if (quizId === QuizTypesEnum.careerAssessment) {
             if (req.user?.careerPath) {
@@ -340,6 +342,22 @@ class QuizService {
             if (!roadmapStep || !roadmapStep.careerId) {
                 throw new NotFoundException("Invalid roadmapStepId, career freezed or quiz is not in your roadmap step ❌");
             }
+            const stepStatus = (await this._userProgressService.refreshProgressAndClassify({
+                progress: req.progress,
+                user: req.user,
+                stepOrSteps: roadmapStep,
+            })).progressStatus;
+            if (stepStatus === RoadmapStepProgressStatusEnum.lockedPrereq)
+                throw new BadRequestException("Step is locked ❌🔒️");
+            if (stepStatus === RoadmapStepProgressStatusEnum.inProgress ||
+                stepStatus === RoadmapStepProgressStatusEnum.available) {
+                const firstNewStep = await this._userProgressService.getFirstNewStep({
+                    progress: req.progress,
+                });
+                if (firstNewStep && !firstNewStep._id.equals(roadmapStepId)) {
+                    throw new BadRequestException("You can't complete this step until all prior new steps are done first ❌");
+                }
+            }
             if (roadmapStep.quizzesIds.length > 1) {
                 const quizIndex = roadmapStep.quizzesIds.findIndex((quiz) => quiz.equals(quizId));
                 if (quizIndex > 0) {
@@ -374,9 +392,15 @@ class QuizService {
             }))) {
             throw new BadRequestException(`You are in cooldown period for this quiz. Please try again later ❌`);
         }
+        if (!discardActiveAttempt &&
+            (await this._quizAttemptRepository.exists({
+                filter: { quizId: quiz._id, userId: req.user._id, roadmapStepId },
+            }))) {
+            throw new BadRequestException("There is an active attempt on this quiz ⚠️ Do you want to discard it?");
+        }
         const [_, generatedQuestions] = await Promise.all([
             this._quizAttemptRepository.deleteOne({
-                filter: { quizId: quiz._id, userId: req.user._id },
+                filter: { quizId: quiz._id, userId: req.user._id, roadmapStepId },
             }),
             this._generateQuestions({
                 title: quiz.title,
@@ -584,7 +608,6 @@ class QuizService {
                     ],
                 });
             }
-            console.log("----------------");
             if (!(await this._userCareerProgressRepository.exists({
                 filter: {
                     userId: req.user._id,
@@ -756,7 +779,7 @@ class QuizService {
             throw new NotFoundException("Invalid quizId or Not freezed ❌");
         }
         if (await this._quizAttemptRepository.exists({ filter: { quizId } })) {
-            throw new BadRequestException("There are active quiz attempts on this roadmap step please wait until it's done ❌⌛️");
+            throw new BadRequestException("There are active quiz attempts on this quiz please wait until it's done ❌⌛️");
         }
         if ((await this._quizRepository.deleteOne({
             filter: {

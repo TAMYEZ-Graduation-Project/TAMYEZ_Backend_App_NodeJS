@@ -7,8 +7,8 @@ class UserProgressService {
         this._roadmapStepRepository = _roadmapStepRepository;
         this._userCareerProgressRepository = _userCareerProgressRepository;
     }
-    async _getFirstNewStep({ progress, }) {
-        if (!progress.frontierStep)
+    async getFirstNewStep({ progress, }) {
+        if (!progress?.frontierStep)
             return null;
         return this._roadmapStepRepository.findOne({
             filter: {
@@ -16,8 +16,9 @@ class UserProgressService {
                     $lt: progress.frontierStep?.order,
                 },
                 _id: { $nin: progress.completedSteps },
+                careerId: progress.careerId,
             },
-            options: { sort: { order: 1 }, select: { _id: 1 } },
+            options: { sort: { order: 1 }, select: { _id: 1, order: 1 } },
         });
     }
     async _classifyStepInUserProgress({ step, progress, career, firstNewStep, }) {
@@ -53,7 +54,7 @@ class UserProgressService {
             },
             options: { sort: { order: -1 }, select: { _id: 1, order: 1 } },
         });
-        progress.frontierStep = frontierStep?._id;
+        progress.frontierStep = frontierStep;
         progress.nextStep = (await this._roadmapStepRepository.findOne({
             filter: {
                 order: { $gt: frontierStep ? frontierStep.order : 0 },
@@ -61,32 +62,31 @@ class UserProgressService {
             },
             options: { sort: { order: 1 }, select: { _id: 1 } },
         }))?._id;
-        progress.percentageCompleted =
-            Math.floor(progress.completedSteps.length /
-                (career.stepsCount -
-                    (await this._roadmapStepRepository.countDocuments({
-                        filter: {
-                            paranoid: false,
-                            freezed: { $exists: true },
-                            _id: { $nin: progress.completedSteps },
-                        },
-                    })))) * 100;
+        progress.percentageCompleted = Math.floor((progress.completedSteps.length /
+            (career.stepsCount -
+                (await this._roadmapStepRepository.countDocuments({
+                    filter: {
+                        paranoid: false,
+                        freezed: { $exists: true },
+                        _id: { $nin: progress.completedSteps },
+                    },
+                })))) *
+            100);
         progress.orderEpoch = career.orderEpoch;
         progress.increment();
         await progress.save();
+        return progress;
     }
-    async refreshProgressAndClassify({ user, stepOrSteps, }) {
-        const progress = await this._userCareerProgressRepository.findOne({
-            filter: { userId: user._id },
-        });
+    async refreshProgressAndClassify({ user, progress, stepOrSteps, }) {
         if (!progress || !user?.careerPath?.id) {
             throw new BadRequestException("Can't resolve user progress ❌");
         }
-        await this._refreshUserProgress({
-            progress,
-            career: user.careerPath.id,
-        });
-        const firstNewStep = await this._getFirstNewStep({ progress });
+        progress =
+            (await this._refreshUserProgress({
+                progress,
+                career: user.careerPath.id,
+            })) ?? progress;
+        const firstNewStep = await this.getFirstNewStep({ progress });
         if (Array.isArray(stepOrSteps)) {
             for (const step of stepOrSteps) {
                 step.progressStatus =

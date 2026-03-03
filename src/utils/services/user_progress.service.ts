@@ -21,21 +21,21 @@ class UserProgressService {
     private _userCareerProgressRepository: UserCareerProgressRepository,
   ) {}
 
-  private async _getFirstNewStep({
+  async getFirstNewStep({
     progress,
   }: {
-    progress: HIUserCareerProgress;
+    progress: HIUserCareerProgress | null;
   }): Promise<HIRoadmapStepType | null> {
-    if (!progress.frontierStep) return null;
-
+    if (!progress?.frontierStep) return null;
     return this._roadmapStepRepository.findOne({
       filter: {
         order: {
           $lt: (progress.frontierStep as unknown as IRoadmapStep)?.order,
         },
         _id: { $nin: progress.completedSteps },
+        careerId: progress.careerId,
       },
-      options: { sort: { order: 1 }, select: { _id: 1 } },
+      options: { sort: { order: 1 }, select: { _id: 1, order: 1 } },
     });
   }
 
@@ -83,7 +83,7 @@ class UserProgressService {
     progress: HIUserCareerProgress;
     career: FullICareer;
     checkOrderEpochChanged?: boolean;
-  }) {
+  }): Promise<HIUserCareerProgress | undefined> {
     if (
       (checkOrderEpochChanged && progress.orderEpoch == career.orderEpoch) ||
       career.freezed
@@ -99,7 +99,7 @@ class UserProgressService {
       // get the step with the highest order among completed steps
     });
 
-    progress.frontierStep = frontierStep?._id;
+    progress.frontierStep = frontierStep as unknown as Types.ObjectId;
 
     progress.nextStep = (
       await this._roadmapStepRepository.findOne({
@@ -111,44 +111,45 @@ class UserProgressService {
       })
     )?._id;
 
-    progress.percentageCompleted =
-      Math.floor(
-        progress.completedSteps.length /
-          (career.stepsCount -
-            (await this._roadmapStepRepository.countDocuments({
-              filter: {
-                paranoid: false,
-                freezed: { $exists: true },
-                _id: { $nin: progress.completedSteps },
-              },
-            }))),
-      ) * 100;
+    progress.percentageCompleted = Math.floor(
+      (progress.completedSteps.length /
+        (career.stepsCount -
+          (await this._roadmapStepRepository.countDocuments({
+            filter: {
+              paranoid: false,
+              freezed: { $exists: true },
+              _id: { $nin: progress.completedSteps },
+            },
+          })))) *
+        100,
+    );
 
     progress.orderEpoch = career.orderEpoch;
 
     progress.increment();
     await progress.save();
+    return progress;
   }
 
   async refreshProgressAndClassify({
     user,
+    progress,
     stepOrSteps,
   }: {
     user: FullIUser;
+    progress: HIUserCareerProgress;
     stepOrSteps: FullIRoadmapStep[] | FullIRoadmapStep;
   }): Promise<FullIRoadmapStep[] | FullIRoadmapStep> {
-    const progress = await this._userCareerProgressRepository.findOne({
-      filter: { userId: user._id },
-    });
-
     if (!progress || !user?.careerPath?.id) {
       throw new BadRequestException("Can't resolve user progress ❌");
     }
-    await this._refreshUserProgress({
-      progress,
-      career: user.careerPath.id as unknown as FullICareer,
-    });
-    const firstNewStep = await this._getFirstNewStep({ progress });
+    progress =
+      (await this._refreshUserProgress({
+        progress,
+        career: user.careerPath.id as unknown as FullICareer,
+      })) ?? progress;
+    const firstNewStep = await this.getFirstNewStep({ progress });
+
     if (Array.isArray(stepOrSteps)) {
       for (const step of stepOrSteps) {
         (step as FullIRoadmapStep).progressStatus =

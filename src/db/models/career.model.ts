@@ -123,7 +123,8 @@ careerSchema.virtual("roadmap", {
 });
 
 careerSchema.methods.toJSON = function () {
-  const roadmap = this?.roadmap as FullIRoadmapStep[] | undefined;  
+  const roadmap = this?.roadmap as FullIRoadmapStep[] | undefined;
+  const percentageCompleted = this?.percentageCompleted as number;
   const careerObject = DocumentFormat.getIdFrom_Id<ICareer>(this.toObject());
 
   return {
@@ -156,7 +157,8 @@ careerSchema.methods.toJSON = function () {
       );
     }),
     stepsCount: careerObject?.stepsCount,
-    orderEpoch: careerObject?.orderEpoch,
+    // orderEpoch: careerObject?.orderEpoch,
+    percentageCompleted,
     roadmap: roadmap?.map((step) => {
       return {
         id: (step as FullIRoadmapStep)?._id,

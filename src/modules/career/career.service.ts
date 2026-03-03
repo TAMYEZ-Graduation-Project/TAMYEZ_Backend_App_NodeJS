@@ -62,6 +62,7 @@ import {
 import { startSession, Types, type FilterQuery } from "mongoose";
 import type {
   FullICareer,
+  HICareerType,
   ICareer,
 } from "../../db/interfaces/career.interface.ts";
 import { RoadmapService } from "../roadmap/index.ts";
@@ -203,8 +204,6 @@ class CareerService {
     return async (req: Request, res: Response): Promise<Response> => {
       const { careerId } = req.params as GetCareerParamsDto;
 
-      console.log(req.tokenPayload);
-
       if (
         !careerId &&
         (!req.tokenPayload ||
@@ -240,7 +239,9 @@ class CareerService {
         };
       }
 
-      const result = await this._careerRepository.findOne({
+      const result:
+        | (HICareerType & { percentageCompleted?: number | undefined })
+        | null = await this._careerRepository.findOne({
         filter,
         options: {
           populate: [
@@ -272,14 +273,15 @@ class CareerService {
       }
 
       if (
-        !archived &&
         req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
         result.roadmap?.length
       ) {
         await this._userProgressService.refreshProgressAndClassify({
           user: req.user!,
+          progress: req.progress!,
           stepOrSteps: result.roadmap as FullIRoadmapStep[],
         });
+        result.percentageCompleted = req.progress?.percentageCompleted;
       }
       return successHandler({ res, body: result });
     };

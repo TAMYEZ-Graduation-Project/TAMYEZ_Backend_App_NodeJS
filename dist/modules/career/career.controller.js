@@ -12,11 +12,12 @@ import { ApplicationTypeEnum, StorageTypesEnum, } from "../../utils/constants/en
 import StringConstants from "../../utils/constants/strings.constants.js";
 import { rateLimit } from "express-rate-limit";
 import { expressRateLimitError } from "../../utils/constants/error.constants.js";
+import loadUserProgressMiddleware from "../../middlewares/progress.middleware.js";
 export const careerRouter = Router();
 export const adminCareerRouter = Router();
 const careerService = new CareerService();
 careerRouter.get(RoutePaths.getCareers, validationMiddleware({ schema: CareerValidators.getCareers }), careerService.getCareers());
-careerRouter.get(RoutePaths.getCareer, Auths.authenticationMiddleware({ isOptional: true }), validationMiddleware({ schema: CareerValidators.getCareer }), careerService.getCareer());
+careerRouter.get(RoutePaths.getCareer, Auths.authenticationMiddleware({ isOptional: true }), validationMiddleware({ schema: CareerValidators.getCareer }), loadUserProgressMiddleware, careerService.getCareer());
 careerRouter.post(RoutePaths.checkCareerAssessment, Auths.authenticationWithGateway({
     applicationType: ApplicationTypeEnum.user,
 }), validationMiddleware({ schema: CareerValidators.checkCareerAssessment }), careerService.checkCareerAssessment);

@@ -97,7 +97,6 @@ class CareerService {
     getCareer = ({ archived = false } = {}) => {
         return async (req, res) => {
             const { careerId } = req.params;
-            console.log(req.tokenPayload);
             if (!careerId &&
                 (!req.tokenPayload ||
                     req.tokenPayload.applicationType ===
@@ -151,13 +150,14 @@ class CareerService {
             if (!result) {
                 throw new NotFoundException(archived ? "No archived career found 🔍❌" : "No career found 🔍❌");
             }
-            if (!archived &&
-                req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+            if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
                 result.roadmap?.length) {
                 await this._userProgressService.refreshProgressAndClassify({
                     user: req.user,
+                    progress: req.progress,
                     stepOrSteps: result.roadmap,
                 });
+                result.percentageCompleted = req.progress?.percentageCompleted;
             }
             return successHandler({ res, body: result });
         };

@@ -24,6 +24,7 @@ import type {
   DeleteQuizParamsDtoType,
   GetQuizParamsDtoType,
   GetQuizQuestionsParamsDtoType,
+  GetQuizQuestionsQueryDtoType,
   GetQuizzesQueryDtoType,
   GetSavedQuizParamsDtoType,
   GetSavedQuizzesQueryDtoType,
@@ -37,6 +38,7 @@ import {
   OptionIdsEnum,
   QuestionTypesEnum,
   QuizTypesEnum,
+  RoadmapStepProgressStatusEnum,
   RolesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import {
@@ -455,6 +457,8 @@ class QuizService {
   getQuizQuestions = async (req: Request, res: Response): Promise<Response> => {
     const { quizId, roadmapStepId } =
       req.params as GetQuizQuestionsParamsDtoType;
+    const { discardActiveAttempt } = req.validationResult
+      .query as GetQuizQuestionsQueryDtoType;
 
     const filter: { _id?: string; uniqueKey?: Record<any, any> } = {};
     if (quizId === QuizTypesEnum.careerAssessment) {
@@ -489,6 +493,7 @@ class QuizService {
     }
 
     if (quizId !== QuizTypesEnum.careerAssessment) {
+      // check roadmapStep exists and has the specifed quizId
       const roadmapStep = await this._roadmapStepRepository.findOne({
         filter: {
           _id: roadmapStepId,
@@ -506,6 +511,34 @@ class QuizService {
         );
       }
 
+      // check step status
+      const stepStatus = (
+        (await this._userProgressService.refreshProgressAndClassify({
+          progress: req.progress!,
+          user: req.user!,
+          stepOrSteps: roadmapStep,
+        })) as FullIRoadmapStep
+      ).progressStatus;
+
+      if (stepStatus === RoadmapStepProgressStatusEnum.lockedPrereq)
+        throw new BadRequestException("Step is locked ❌🔒️");
+
+      // check if there are new steps have to be completed first
+      if (
+        stepStatus === RoadmapStepProgressStatusEnum.inProgress ||
+        stepStatus === RoadmapStepProgressStatusEnum.available
+      ) {
+        const firstNewStep = await this._userProgressService.getFirstNewStep({
+          progress: req.progress!,
+        });
+        if (firstNewStep && !firstNewStep._id.equals(roadmapStepId)) {
+          throw new BadRequestException(
+            "You can't complete this step until all prior new steps are done first ❌",
+          );
+        }
+      }
+
+      // check all prior quizzes were sucessfully token
       if (roadmapStep.quizzesIds.length > 1) {
         const quizIndex = roadmapStep.quizzesIds.findIndex((quiz) =>
           quiz.equals(quizId),
@@ -558,9 +591,19 @@ class QuizService {
     }
 
     // TODO: before deleting the old quiz attempt, we alert the user that they have an ongoing attempt and ask them if they want to discard it and start a new one
+    if (
+      !discardActiveAttempt &&
+      (await this._quizAttemptRepository.exists({
+        filter: { quizId: quiz._id, userId: req.user!._id!, roadmapStepId },
+      }))
+    ) {
+      throw new BadRequestException(
+        "There is an active attempt on this quiz ⚠️ Do you want to discard it?",
+      );
+    }
     const [_, generatedQuestions] = await Promise.all([
       this._quizAttemptRepository.deleteOne({
-        filter: { quizId: quiz._id, userId: req.user!._id! },
+        filter: { quizId: quiz._id, userId: req.user!._id!, roadmapStepId },
       }),
       this._generateQuestions({
         title: quiz.title,
@@ -845,8 +888,6 @@ class QuizService {
         });
       }
       // check if roadmap step marked as completed or not
-      console.log("----------------");
-
       if (
         !(await this._userCareerProgressRepository.exists({
           filter: {
@@ -1061,7 +1102,7 @@ class QuizService {
 
     if (await this._quizAttemptRepository.exists({ filter: { quizId } })) {
       throw new BadRequestException(
-        "There are active quiz attempts on this roadmap step please wait until it's done ❌⌛️",
+        "There are active quiz attempts on this quiz please wait until it's done ❌⌛️",
       );
     }
 

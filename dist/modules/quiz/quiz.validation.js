@@ -209,6 +209,9 @@ class QuizValidators {
                 });
             }
         }),
+        query: z.strictObject({
+            discardActiveAttempt: z.coerce.boolean().optional().default(false),
+        }),
     };
     static getQuizzes = {
         query: z.strictObject({
@@ -218,7 +221,9 @@ class QuizValidators {
         }),
     };
     static checkQuizAnswers = {
-        params: z.strictObject({ quizAttemptId: generalValidationConstants.objectId }),
+        params: z.strictObject({
+            quizAttemptId: generalValidationConstants.objectId,
+        }),
         body: z.strictObject({
             answers: z
                 .array(z

@@ -136,7 +136,10 @@ const quizAttemptSchema = new mongoose.Schema<IQuizAttempt>(
   },
 );
 
-quizAttemptSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+quizAttemptSchema.index(
+  { quizId: 1, userId: 1, roadmapStepId: 1 },
+  { unique: true },
+);
 
 quizAttemptSchema.index({ careerId: 1 });
 

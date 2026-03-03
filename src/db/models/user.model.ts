@@ -156,14 +156,19 @@ userSchema.methods.toJSON = function () {
     userObject?.careerPath &&
     !Types.ObjectId.isValid(userObject.careerPath.id.toString())
   ) {
-    const careerObj = userObject.careerPath.id as unknown as ICareer;
+    const careerObj = userObject.careerPath.id as unknown as FullICareer;
     careerObj.pictureUrl =
       careerObj.pictureUrl === process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
         ? careerObj.pictureUrl
         : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObj.pictureUrl)!;
-    userObject.careerPath.id = DocumentFormat.getIdFrom_Id<ICareer>(
-      userObject.careerPath.id as unknown as FullICareer,
-    ) as unknown as Types.ObjectId;
+    userObject.careerPath.id = DocumentFormat.getIdFrom_Id<ICareer>({
+      _id: careerObj?._id,
+      title: careerObj.title,
+      slug: careerObj?.slug,
+      pictureUrl: careerObj?.pictureUrl,
+      stepsCount: careerObj?.stepsCount,
+      __v: careerObj?.__v,
+    } as unknown as FullICareer) as unknown as Types.ObjectId;
   }
 
   return {

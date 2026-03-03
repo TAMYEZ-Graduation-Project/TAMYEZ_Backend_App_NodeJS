@@ -20,6 +20,9 @@ export type GetQuizParamsDtoType = z.infer<
 export type GetQuizQuestionsParamsDtoType = z.infer<
   typeof QuizValidators.getQuizQuestions.params
 >;
+export type GetQuizQuestionsQueryDtoType = z.infer<
+  typeof QuizValidators.getQuizQuestions.query
+>;
 
 export type GetQuizzesQueryDtoType = z.infer<
   typeof QuizValidators.getQuizzes.query

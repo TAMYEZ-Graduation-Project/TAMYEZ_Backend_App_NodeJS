@@ -89,34 +89,42 @@ class RoadmapService {
   async checkAndUpdateOrder({
     career,
     order,
+    isDeleting = false,
   }: {
     career: FullICareer;
     order?: number | undefined;
+    isDeleting?: boolean;
   }) {
     if (order && order > 0) {
       if (order <= career.stepsCount && career.stepsCount > 0) {
         const session = await startSession();
         await session.withTransaction(async () => {
-          await this._roadmapStepRepository.updateMany({
-            filter: {
-              careerId: career._id,
-              order: { $gte: Number(order) },
-            },
-            update: {
-              $inc: { order: 500 },
-            },
-            options: { session },
-          });
-
-          await this._roadmapStepRepository.updateMany({
-            filter: { careerId: career._id, order: { $gt: 500 } },
-            update: {
-              $inc: { order: -499 },
-            },
-            options: { session },
+          await this._roadmapStepRepository.bulkWrite({
+            operations: [
+              {
+                updateMany: {
+                  filter: {
+                    careerId: career._id,
+                    order: { $gte: Number(order) },
+                  },
+                  update: {
+                    $inc: { order: 500 },
+                  },
+                },
+              },
+              {
+                updateMany: {
+                  filter: { careerId: career._id, order: { $gt: 500 } },
+                  update: {
+                    $inc: { order: isDeleting ? -501 : -499 },
+                  },
+                },
+              },
+            ],
+            options: { ordered: true, session },
           });
         });
-        session.endSession();
+        await session.endSession();
       } else if (order > career.stepsCount + 1) {
         throw new BadRequestException(
           `Step order must be sequential with no gaps. Current stepsCount is ${career.stepsCount} ❌`,
@@ -384,6 +392,7 @@ class RoadmapService {
       ) {
         await this._userProgressService.refreshProgressAndClassify({
           stepOrSteps: result.data as FullIRoadmapStep[],
+          progress: req.progress!,
           user: req.user!,
         });
       }
@@ -395,6 +404,10 @@ class RoadmapService {
           totalPages: Math.ceil(result.total / size),
           currentPage: page,
           size,
+          percentageCompleted:
+            req.tokenPayload?.applicationType === ApplicationTypeEnum.user
+              ? req.progress?.percentageCompleted
+              : undefined,
           data: result.data.map((step) =>
             DocumentFormat.getIdFrom_Id<IRoadmapStep>(step as FullIRoadmapStep),
           ),
@@ -498,6 +511,7 @@ class RoadmapService {
         if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
           result = (await this._userProgressService.refreshProgressAndClassify({
             stepOrSteps: result,
+            progress: req.progress!,
             user: req.user!,
           })) as HIRoadmapStepType;
 
@@ -548,6 +562,7 @@ class RoadmapService {
           ? { paranoid: false, freezed: { $exists: true } }
           : undefined),
       },
+
       options: {
         populate: [{ path: "careerId" }],
       },
@@ -647,7 +662,7 @@ class RoadmapService {
         toUpdate.allowGlobalResources = body.allowGlobalResources;
 
       await this._roadmapStepRepository.updateOne<[]>({
-        filter: { _id: roadmapStepId, __v: body.v },
+        filter: { _id: roadmapStepId, __v: body.v + 1 },
         update: [
           {
             $set: {
@@ -712,7 +727,6 @@ class RoadmapService {
         await this._careerRepository.updateOne({
           filter: {
             _id: (roadmapStep.careerId as unknown as FullICareer)._id,
-            __v: (roadmapStep.careerId as unknown as FullICareer).__v,
           },
           update: { $inc: { orderEpoch: 1 } },
           options: { session },
@@ -1003,7 +1017,6 @@ class RoadmapService {
       await this._careerRepository.updateOne({
         filter: {
           _id: (roadmapStep.careerId as unknown as FullICareer)._id,
-          __v: (roadmapStep.careerId as unknown as FullICareer).__v,
         },
         update: { $inc: { orderEpoch: 1 } },
       });
@@ -1071,7 +1084,6 @@ class RoadmapService {
       await this._careerRepository.updateOne({
         filter: {
           _id: (careerId as unknown as FullICareer)._id,
-          __v: (careerId as unknown as FullICareer).__v,
         },
         update: { $inc: { orderEpoch: 1 } },
       });
@@ -1117,10 +1129,14 @@ class RoadmapService {
       ).deletedCount
     ) {
       await Promise.all([
+        this.checkAndUpdateOrder({
+          career: roadmapStep.careerId as unknown as FullICareer,
+          isDeleting: true,
+          order: roadmapStep.order,
+        }),
         this._careerRepository.updateOne({
           filter: {
             _id: (roadmapStep.careerId as unknown as FullICareer)._id,
-            __v: (roadmapStep.careerId as unknown as FullICareer).__v,
           },
           update: { $inc: { stepsCount: -1, orderEpoch: 1 } },
         }),
@@ -1131,7 +1147,6 @@ class RoadmapService {
           ),
         }),
         this._savedQuizRepository.deleteMany({ filter: { roadmapStepId } }),
-        // TODO: delete step progress
         this._userCareerProgressRepository.updateMany({
           filter: {
             careerId: (roadmapStep.careerId as unknown as FullICareer)._id,

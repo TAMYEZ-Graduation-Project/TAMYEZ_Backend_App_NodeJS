@@ -6,6 +6,7 @@ import quizAuthorizationEndpoints from "./quiz.auhorization.js";
 import validationMiddleware from "../../middlewares/validation.middleware.js";
 import QuizValidators from "./quiz.validation.js";
 import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.js";
+import loadUserProgressMiddleware from "../../middlewares/progress.middleware.js";
 export const quizRouter = Router();
 export const adminQuizRouter = Router();
 const quizService = new QuizService();
@@ -17,7 +18,7 @@ quizRouter.get(RoutePaths.getSavedQuiz, Auths.authenticationWithGateway({
 }), validationMiddleware({ schema: QuizValidators.getSavedQuiz }), quizService.getSavedQuiz);
 quizRouter.get(RoutePaths.getQuizQuestions, Auths.authenticationWithGateway({
     applicationType: ApplicationTypeEnum.user,
-}), validationMiddleware({ schema: QuizValidators.getQuizQuestions }), quizService.getQuizQuestions);
+}), validationMiddleware({ schema: QuizValidators.getQuizQuestions }), loadUserProgressMiddleware, quizService.getQuizQuestions);
 quizRouter.get(RoutePaths.getQuiz, Auths.authenticationMiddleware(), validationMiddleware({ schema: QuizValidators.getQuiz }), quizService.getQuiz());
 quizRouter.post(RoutePaths.checkQuizAnswers, Auths.authenticationWithGateway({
     applicationType: ApplicationTypeEnum.user,

@@ -11,11 +11,12 @@ import StringConstants from "../../utils/constants/strings.constants.js";
 import fileValidation from "../../utils/multer/file_validation.multer.js";
 import { ApplicationTypeEnum, StorageTypesEnum, } from "../../utils/constants/enum.constants.js";
 import { expressRateLimitError } from "../../utils/constants/error.constants.js";
+import loadUserProgressMiddleware from "../../middlewares/progress.middleware.js";
 export const roadmapRouter = Router();
 export const adminRoadmapRouter = Router();
 const roadmapService = new RoadmapService();
-roadmapRouter.get(RoutePaths.getRoadmap, Auths.authenticationMiddleware({ isOptional: true }), validationMiddleware({ schema: RoadmapValidators.getRoadmap }), roadmapService.getRoadmap());
-roadmapRouter.get(RoutePaths.getRoadmapStep, Auths.authenticationMiddleware(), validationMiddleware({ schema: RoadmapValidators.getRoadmapStep }), roadmapService.getRoadmapStep());
+roadmapRouter.get(RoutePaths.getRoadmap, Auths.authenticationMiddleware({ isOptional: true }), validationMiddleware({ schema: RoadmapValidators.getRoadmap }), loadUserProgressMiddleware, roadmapService.getRoadmap());
+roadmapRouter.get(RoutePaths.getRoadmapStep, Auths.authenticationMiddleware(), validationMiddleware({ schema: RoadmapValidators.getRoadmapStep }), loadUserProgressMiddleware, roadmapService.getRoadmapStep());
 adminRoadmapRouter.use(Auths.combinedWithGateway({
     accessRoles: roadmapAuthorizationEndpoints.createRoadmapStep,
     applicationType: ApplicationTypeEnum.adminDashboard,
@@ -25,11 +26,6 @@ adminRoadmapRouter.get(RoutePaths.getArchivedRoadmap, validationMiddleware({ sch
 adminRoadmapRouter.get(RoutePaths.getArchivedRoadmapStep, validationMiddleware({ schema: RoadmapValidators.getRoadmapStep }), roadmapService.getRoadmapStep({ archived: true }));
 adminRoadmapRouter.patch(RoutePaths.archiveRoadmapStep, validationMiddleware({ schema: RoadmapValidators.archiveRoadmapStep }), roadmapService.archiveRoadmapStep);
 adminRoadmapRouter.patch(RoutePaths.restoreRoadmapStep, validationMiddleware({ schema: RoadmapValidators.restoreRoadmapStep }), roadmapService.restoreRoadmapStep);
-adminRoadmapRouter.patch(RoutePaths.updateRoadmapStep, rateLimit({
-    limit: 10,
-    windowMs: 10 * 60 * 1000,
-    message: expressRateLimitError,
-}), validationMiddleware({ schema: RoadmapValidators.updateRoadmapStep }), roadmapService.updateRoadmapStep);
 adminRoadmapRouter.patch(RoutePaths.updateRoadmapStepResource, rateLimit({
     limit: 10,
     windowMs: 10 * 60 * 1000,
@@ -39,4 +35,9 @@ adminRoadmapRouter.patch(RoutePaths.updateRoadmapStepResource, rateLimit({
     validation: fileValidation.image,
     storageApproach: StorageTypesEnum.memory,
 }), validationMiddleware({ schema: RoadmapValidators.updateRoadmapStepResource }), roadmapService.updateRoadmapStepResource);
+adminRoadmapRouter.patch(RoutePaths.updateRoadmapStep, rateLimit({
+    limit: 10,
+    windowMs: 10 * 60 * 1000,
+    message: expressRateLimitError,
+}), validationMiddleware({ schema: RoadmapValidators.updateRoadmapStep }), roadmapService.updateRoadmapStep);
 adminRoadmapRouter.delete(RoutePaths.deleteRoadmapStep, validationMiddleware({ schema: RoadmapValidators.deleteRoadmapStep }), roadmapService.deleteRoadmapStep);

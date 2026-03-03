@@ -15,6 +15,7 @@ import {
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import { rateLimit } from "express-rate-limit";
 import { expressRateLimitError } from "../../utils/constants/error.constants.ts";
+import loadUserProgressMiddleware from "../../middlewares/progress.middleware.ts";
 
 export const careerRouter = Router();
 export const adminCareerRouter = Router();
@@ -33,6 +34,7 @@ careerRouter.get(
   RoutePaths.getCareer,
   Auths.authenticationMiddleware({ isOptional: true }),
   validationMiddleware({ schema: CareerValidators.getCareer }),
+  loadUserProgressMiddleware,
   careerService.getCareer(),
 );
 
