@@ -11,7 +11,6 @@ async function loadUserProgressMiddleware(req, res, next) {
     const progress = await new UserCareerProgressRepository(UserCareerProgressModel).findOne({
         filter: {
             userId: req.user._id,
-            careerId: req.user.careerPath.id._id,
         },
         options: { populate: [{ path: "frontierStep", select: "_id order" }] },
     });

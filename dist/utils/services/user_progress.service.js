@@ -113,7 +113,6 @@ class UserProgressService {
         if ((await this._userCareerProgressRepository.updateOne({
             filter: {
                 userId: user._id,
-                careerId: user.careerPath.id._id,
             },
             update: {
                 $addToSet: {
@@ -125,7 +124,6 @@ class UserProgressService {
                 progress: (await this._userCareerProgressRepository.findOne({
                     filter: {
                         userId: user._id,
-                        careerId: user.careerPath.id._id,
                     },
                 })),
                 career: user.careerPath.id,

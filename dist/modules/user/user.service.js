@@ -7,11 +7,11 @@ import HashingSecurityUtil from "../../utils/security/hash.security.js";
 import { BadRequestException, ForbiddenException, NotFoundException, ValidationException, VersionConflictException, } from "../../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import TokenSecurityUtil from "../../utils/security/token.security.js";
-import { AdminNotificationsLimitRepository, CareerRepository, DashboardReviewRepository, FeedbackRepository, NotificationPushDeviceRepository, QuizAttemptRepository, UserRepository, } from "../../db/repositories/index.js";
+import { AdminNotificationsLimitRepository, CareerRepository, DashboardReviewRepository, FeedbackRepository, NotificationPushDeviceRepository, QuizAttemptRepository, UserCareerProgressRepository, UserRepository, } from "../../db/repositories/index.js";
 import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
 import UserModel from "../../db/models/user.model.js";
-import { AdminNotificationsLimitModel, CareerModel, DashboardReviewModel, FeedbackModel, QuizAttemptModel, QuizCooldownModel, SavedQuizModel, } from "../../db/models/index.js";
+import { AdminNotificationsLimitModel, CareerModel, DashboardReviewModel, FeedbackModel, QuizAttemptModel, QuizCooldownModel, SavedQuizModel, UserCareerProgressModel, } from "../../db/models/index.js";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.js";
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.js";
 import emailEvent from "../../utils/events/email.events.js";
@@ -25,6 +25,7 @@ class UserService {
     _adminNotificationsLimitRepository = new AdminNotificationsLimitRepository(AdminNotificationsLimitModel);
     _careerRepository = new CareerRepository(CareerModel);
     _feedbackRepository = new FeedbackRepository(FeedbackModel);
+    _userCareerProgressRepository = new UserCareerProgressRepository(UserCareerProgressModel);
     getAdminDashboardData = async (req, res) => {
         const reviews = await this._dashboardReviewRepository.aggregate({
             pipeline: [
@@ -145,7 +146,7 @@ class UserService {
                     {
                         path: "careerDeleted.newSuggestedCareer",
                         select: "title slug pictureUrl freezed",
-                    }
+                    },
                 ],
             };
             let user;
@@ -502,6 +503,9 @@ class UserService {
                 filter: { userId: userId || req.user._id },
             }),
             this._notificationPushDeviceRepository.deleteMany({
+                filter: { userId: userId || req.user._id },
+            }),
+            this._userCareerProgressRepository.deleteOne({
                 filter: { userId: userId || req.user._id },
             }),
         ]);

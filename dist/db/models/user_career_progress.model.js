@@ -4,6 +4,7 @@ import DocumentFormat from "../../utils/formats/document.format.js";
 const userCareerProgressSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
+        unique: true,
         ref: ModelsNames.userModel,
         required: true,
     },
@@ -54,7 +55,6 @@ userCareerProgressSchema.methods.toJSON = function () {
         v: quizObject?.v,
     };
 };
-userCareerProgressSchema.index({ userId: 1, careerId: 1 }, { unique: true });
 userCareerProgressSchema.index({ careerId: 1 });
 const UserCareerProgressModel = mongoose.models.UserCareerProgress ||
     mongoose.model(ModelsNames.userCareerProgressModel, userCareerProgressSchema);
