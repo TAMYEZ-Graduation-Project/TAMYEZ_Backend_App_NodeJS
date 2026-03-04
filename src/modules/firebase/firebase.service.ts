@@ -46,7 +46,7 @@ class FirebaseService {
   sendFirebaseNotification = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { title, body, imageUrl, fcmToken } =
       req.body as SendNotificationBodyDtoType;
 
@@ -57,7 +57,7 @@ class FirebaseService {
       deviceToken: fcmToken,
     });
 
-    return successHandler({
+    return successHandler({req,
       res,
       message: "Notification Sent Successfully 🔔",
     });
@@ -66,7 +66,7 @@ class FirebaseService {
   sendMultipleFirebaseNotifications = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { title, body, imageUrl, fcmTokens } =
       req.body as SendMultipleNotificationsBodyDtoType;
 
@@ -78,7 +78,7 @@ class FirebaseService {
         deviceTokens: fcmTokens,
       });
 
-    return successHandler({
+    return successHandler({req,
       res,
       message: "Notifications Sent Successfully 🔔",
       body: { response: { successCount, failureCount } },
@@ -88,7 +88,7 @@ class FirebaseService {
   sendNotificationsToAllUsers = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const body = req.body as SendNotificationsToAllUsersBodyDtoType;
 
     const notificationLimit =
@@ -128,7 +128,7 @@ class FirebaseService {
       });
     }
 
-    return successHandler({
+    return successHandler({req,
       res,
       message: "Your notification will be sent shortly ✅ 🔔",
     });
@@ -137,7 +137,7 @@ class FirebaseService {
   sendNotificationsToCareerUsers = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { careerId } =
       req.params as SendNotificationToCareerUsersParamsDtoType;
     const body = req.body as SendNotificationToCareerUsersBodyDtoType;
@@ -188,7 +188,7 @@ class FirebaseService {
       });
     }
 
-    return successHandler({
+    return successHandler({req,
       res,
       message: "Your notification will be sent shortly ✅ 🔔",
     });
@@ -197,7 +197,7 @@ class FirebaseService {
   enableNotifications = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { replaceDeviceId, ...restObj } =
       req.body as EnableNotificationsBodyDtoType;
 
@@ -268,14 +268,14 @@ class FirebaseService {
       statusCode = 201;
     }
 
-    return successHandler({
+    return successHandler({req,
       res,
       statusCode,
       message: "Notifications enabled for this device successfully ✅ 🔔",
     });
   };
 
-  refreshFcmToken = async (req: Request, res: Response): Promise<Response> => {
+  refreshFcmToken = async (req: Request, res: Response): Promise<Response | void> => {
     const { fcmToken, deviceId } = req.body as RefreshFcmTokenBodyDtoType;
 
     const result = await this._notificationPushDeviceRepository.updateOne({
@@ -295,7 +295,7 @@ class FirebaseService {
       );
     }
 
-    return successHandler({
+    return successHandler({req,
       res,
       message: "Fcm Token has been refreshed sucessfully ✅",
     });
@@ -304,7 +304,7 @@ class FirebaseService {
   disableNotifications = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { deviceId } = req.body as DisableNotificationsBodyDtoType;
 
     const pushDevice =
@@ -318,7 +318,7 @@ class FirebaseService {
       );
     }
 
-    return successHandler({
+    return successHandler({req,
       res,
       message:
         "Notifications for this device has been disabled successfully ✅",

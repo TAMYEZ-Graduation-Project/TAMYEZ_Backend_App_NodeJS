@@ -54,7 +54,7 @@ class CareerService {
         if (!newCareer) {
             throw new ServerException(`Failed to create career, please try again later ☹️`);
         }
-        return successHandler({ res, message: "Career created successfully ✅" });
+        return successHandler({ req, res, message: "Career created successfully ✅" });
     };
     getCareers = ({ archived = false } = {}) => {
         return async (req, res) => {
@@ -91,7 +91,7 @@ class CareerService {
             if (!result.data || result.data.length == 0) {
                 throw new NotFoundException(archived ? "No archived careers found 🔍❌" : "No careers found 🔍❌");
             }
-            return successHandler({ res, body: result });
+            return successHandler({ req, res, body: result });
         };
     };
     getCareer = ({ archived = false } = {}) => {
@@ -159,7 +159,7 @@ class CareerService {
                 });
                 result.percentageCompleted = req.progress?.percentageCompleted;
             }
-            return successHandler({ res, body: result });
+            return successHandler({ req, res, body: result });
         };
     };
     uploadCareerPicture = async (req, res) => {
@@ -193,6 +193,7 @@ class CareerService {
             await S3Service.deleteFile({ SubKey: subKey });
         }
         return successHandler({
+            req,
             res,
             body: {
                 pictureUrl: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey),
@@ -279,7 +280,7 @@ class CareerService {
                 }),
             ],
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     _getResourceSpecifiedStepsIds = (resources) => {
         const specifiedStepsIdsSet = new Set();
@@ -395,6 +396,7 @@ class CareerService {
             throw new NotFoundException("Invalid resourceId ❌");
         }
         return successHandler({
+            req,
             res,
             body: {
                 [`${resourceName}`]: result.toJSON()[resourceName],
@@ -509,7 +511,7 @@ class CareerService {
             throw new ServerException("Failed to save career suggestions, please try again later ❌");
         }
         await quizAttempt.deleteOne();
-        return successHandler({ res, body: aiModelResponse });
+        return successHandler({ req, res, body: aiModelResponse });
     };
     chooseSuggestedCareer = async (req, res) => {
         const { careerId } = req.params;
@@ -569,7 +571,7 @@ class CareerService {
             ]);
         });
         await session.endSession();
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     archiveCareer = async (req, res) => {
         const { careerId } = req.params;
@@ -594,7 +596,7 @@ class CareerService {
                 $unset: { restored: 1 },
             },
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     restoreCareer = async (req, res) => {
         const { careerId } = req.params;
@@ -614,7 +616,7 @@ class CareerService {
         if (!result.matchedCount) {
             throw new NotFoundException("Invalid careerId or Not freezed ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     deleteCareer = async (req, res) => {
         const { careerId } = req.params;
@@ -688,7 +690,7 @@ class CareerService {
         else {
             throw new NotFoundException("Invalid careerId or Not freezed ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
 }
 export default CareerService;

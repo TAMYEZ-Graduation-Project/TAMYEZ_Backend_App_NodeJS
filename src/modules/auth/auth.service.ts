@@ -153,12 +153,16 @@ class AuthService {
     this._sendVerificationLinkToUser({ email, otp });
 
     return successHandler({
+      req,
       res,
       message: StringConstants.SINGED_UP_SUCCESSFUL_WITH_LINK_MESSAGE,
     });
   };
 
-  verifyEmail = async (req: Request, res: Response): Promise<Response> => {
+  verifyEmail = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     try {
       const { token } = req.query as VerifyEmailQueryDtoType;
 
@@ -204,6 +208,7 @@ class AuthService {
       });
 
       return responseHtmlHandler({
+        req,
         res,
         htmlContent: HTML_VERIFY_EMAIL_TEMPLATE({
           logoUrl: process.env[EnvFields.LOGO_URL]!,
@@ -211,6 +216,7 @@ class AuthService {
       });
     } catch (error: any) {
       return responseHtmlHandler({
+        req,
         res,
         htmlContent: HTML_VERIFY_EMAIL_TEMPLATE({
           logoUrl: process.env[EnvFields.LOGO_URL]!,
@@ -224,7 +230,7 @@ class AuthService {
   resendEmailVerificationLink = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { email } = req.body as ResendEmailVerificationLinkBodyDtoType;
 
     const user = await this._userRepository.findOne({
@@ -251,6 +257,7 @@ class AuthService {
     this._sendVerificationLinkToUser({ email, otp });
 
     return successHandler({
+      req,
       res,
       message: StringConstants.RESENT_EMAIL_VERIFICATION_LINK_MESSAGE,
     });
@@ -283,7 +290,10 @@ class AuthService {
     return true;
   };
 
-  restoreEmail = async (req: Request, res: Response): Promise<Response> => {
+  restoreEmail = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     try {
       const { token } = req.query as RestoreEmailQueryDtoType;
 
@@ -332,6 +342,7 @@ class AuthService {
       });
 
       return responseHtmlHandler({
+        req,
         res,
         htmlContent: HTML_RESTORE_EMAIL_TEMPLATE({
           logoUrl: process.env[EnvFields.LOGO_URL]!,
@@ -339,6 +350,7 @@ class AuthService {
       });
     } catch (error: any) {
       return responseHtmlHandler({
+        req,
         res,
         htmlContent: HTML_RESTORE_EMAIL_TEMPLATE({
           logoUrl: process.env[EnvFields.LOGO_URL]!,
@@ -402,7 +414,7 @@ class AuthService {
   }: {
     applicationType?: ApplicationTypeEnum;
   } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { email, password, deviceId, fcmToken } =
         req.body as LogInBodyDtoType;
 
@@ -441,7 +453,7 @@ class AuthService {
 
       const message = await this._handleAccountFreezing({ user });
       if (message) {
-        return successHandler({ res, message });
+        return successHandler({ req, res, message });
       }
 
       if (
@@ -474,6 +486,7 @@ class AuthService {
         });
 
       return successHandler<ILogInResponse>({
+        req,
         res,
         message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
         body: {
@@ -517,7 +530,10 @@ class AuthService {
     }
   };
 
-  signUpWithGmail = async (req: Request, res: Response): Promise<Response> => {
+  signUpWithGmail = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { idToken, deviceId, fcmToken } =
       req.body as SignUpLogInGmailBodyDtoType;
 
@@ -596,6 +612,7 @@ class AuthService {
       });
 
     return successHandler<ISignUpLogInGmailResponse>({
+      req,
       res,
       statusCode: 201,
       message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
@@ -610,7 +627,7 @@ class AuthService {
   logInWithGmail = ({
     applicationType = ApplicationTypeEnum.user,
   }: { applicationType?: ApplicationTypeEnum } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { idToken, deviceId, fcmToken } =
         req.body as SignUpLogInGmailBodyDtoType;
 
@@ -657,7 +674,7 @@ class AuthService {
 
       const message = await this._handleAccountFreezing({ user });
       if (message) {
-        return successHandler({ res, message });
+        return successHandler({ req, res, message });
       }
 
       const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
@@ -680,6 +697,7 @@ class AuthService {
         });
 
       return successHandler<ISignUpLogInGmailResponse>({
+        req,
         res,
         message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
         body: {
@@ -691,7 +709,10 @@ class AuthService {
     };
   };
 
-  forgetPassword = async (req: Request, res: Response): Promise<Response> => {
+  forgetPassword = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { email } = req.body as ForgetPasswordBodyDtoType;
 
     const user = await this._userRepository.findOne({
@@ -753,13 +774,17 @@ class AuthService {
       payload: { to: email, otpOrLink: otp },
     });
 
-    return successHandler({ res, message: StringConstants.OTP_SENT_MESSAGE });
+    return successHandler({
+      req,
+      res,
+      message: StringConstants.OTP_SENT_MESSAGE,
+    });
   };
 
   verifyForgetPassword = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { email, otp } = req.body as VerifyForgetPasswordBodyDtoType;
 
     const user = await this._userRepository.findOne({
@@ -797,6 +822,7 @@ class AuthService {
     });
 
     return successHandler({
+      req,
       res,
       message: StringConstants.OTP_VERIFIED_MESSAGE,
     });
@@ -805,7 +831,7 @@ class AuthService {
   resetForgetPassword = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { email, password } = req.body as ResetForgetPasswordBodyDtoType;
 
     const user = await this._userRepository.findOne({
@@ -834,6 +860,7 @@ class AuthService {
     });
 
     return successHandler({
+      req,
       res,
       message: StringConstants.PASSWORD_RESET_SUCCESSFULLY_MESSAGE,
     });

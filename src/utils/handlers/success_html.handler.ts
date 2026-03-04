@@ -1,21 +1,32 @@
-import type { Response } from "express";
+import type { Request, Response } from "express";
 
 function responseHtmlHandler({
+  req,
   res,
   statusCode = 200,
   htmlContent,
 }: {
+  req: Request;
   res: Response;
   statusCode?: number;
   htmlContent: string;
-}): Response {
+}): Response | void {
+  if (
+    req.destroyed || // Node marks when the client/connection is gone
+    (req as any).timedout || // set by connect-timeout; or your own flag if custom
+    res.headersSent || // headers were already sent by someone else
+    res.writableEnded // response stream already ended
+  ) {
+    return;
+  }
+
   res.setHeader("Content-Type", "text/html; charset=UTF-8");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline';"
+    "default-src 'self'; img-src 'self' https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline';",
   );
 
   return res.status(statusCode).send(htmlContent);

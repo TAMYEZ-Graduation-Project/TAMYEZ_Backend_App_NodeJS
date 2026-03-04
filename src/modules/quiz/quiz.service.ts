@@ -98,7 +98,10 @@ class QuizService {
 
   //private _quizApisManager = new QuizApisManager();
 
-  createQuiz = async (req: Request, res: Response): Promise<Response> => {
+  createQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { title, description, aiPrompt, type, duration, tags } = req
       .validationResult.body as CreateQuizBodyDtoType;
 
@@ -151,12 +154,16 @@ class QuizService {
     });
 
     return successHandler({
+      req,
       res,
       message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
     });
   };
 
-  updateQuiz = async (req: Request, res: Response): Promise<Response> => {
+  updateQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId } = req.params as UpdateQuizParamsDtoType;
     const { title, description, aiPrompt, type, duration, tags, v } = req
       .validationResult.body as UpdateQuizBodyDtoType;
@@ -219,13 +226,14 @@ class QuizService {
     });
 
     return successHandler({
+      req,
       res,
       message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
     });
   };
 
   getQuizzes = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { page, size, searchKey } = req.validationResult
         .query as GetQuizzesQueryDtoType;
       const result = await this._quizRepository.paginate({
@@ -261,12 +269,12 @@ class QuizService {
         );
       }
 
-      return successHandler({ res, body: result });
+      return successHandler({ req, res, body: result });
     };
   };
 
   getQuiz = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { quizId, roadmapStepId } = req.params as GetQuizParamsDtoType;
 
       // when role == user than ofcourse archived is false
@@ -332,7 +340,11 @@ class QuizService {
         );
       }
 
-      return successHandler<IGetQuizDetailsResponse>({ res, body: { quiz } });
+      return successHandler<IGetQuizDetailsResponse>({
+        req,
+        res,
+        body: { quiz },
+      });
     };
   };
 
@@ -454,7 +466,10 @@ class QuizService {
     };
   };
 
-  getQuizQuestions = async (req: Request, res: Response): Promise<Response> => {
+  getQuizQuestions = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId, roadmapStepId } =
       req.params as GetQuizQuestionsParamsDtoType;
     const { discardActiveAttempt } = req.validationResult
@@ -663,7 +678,10 @@ class QuizService {
     //   delete quizQuestionsObj.id;
     // }
 
+    if (res.headersSent || res.writableEnded) return;
+
     return successHandler<IGetQuizQuestionsResponse>({
+      req,
       res,
       body: {
         quizAttempt,
@@ -702,7 +720,10 @@ class QuizService {
     });
   };
 
-  checkQuizAnswers = async (req: Request, res: Response): Promise<Response> => {
+  checkQuizAnswers = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizAttemptId } = req.params as CheckQuizAnswersParamsDtoType;
     const { answers } = req.validationResult
       .body as CheckQuizAnswersBodyDtoType;
@@ -931,6 +952,7 @@ class QuizService {
 
     await quizAttempt.deleteOne();
     return successHandler({
+      req,
       res,
       message: "Quiz answers checked successfully ✅",
       body: {
@@ -943,7 +965,10 @@ class QuizService {
     });
   };
 
-  getSavedQuizzes = async (req: Request, res: Response): Promise<Response> => {
+  getSavedQuizzes = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { page, size } = req.validationResult
       .query as GetSavedQuizzesQueryDtoType;
 
@@ -968,13 +993,17 @@ class QuizService {
     }
 
     return successHandler({
+      req,
       res,
       message: "Saved quizzes fetched successfully ✅",
       body: { savedQuizzes },
     });
   };
 
-  getSavedQuiz = async (req: Request, res: Response): Promise<Response> => {
+  getSavedQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { savedQuizId } = req.params as GetSavedQuizParamsDtoType;
 
     const savedQuiz = await this._savedQuizRepository.findOne({
@@ -995,13 +1024,17 @@ class QuizService {
     }
 
     return successHandler({
+      req,
       res,
       message: "Saved quiz fetched successfully ✅",
       body: { savedQuiz },
     });
   };
 
-  archiveQuiz = async (req: Request, res: Response): Promise<Response> => {
+  archiveQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId } = req.params as ArchiveQuizParamsDtoType;
     const { v } = req.body as ArchiveQuizBodyDtoType;
 
@@ -1036,10 +1069,13 @@ class QuizService {
       },
     });
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
-  restoreQuiz = async (req: Request, res: Response): Promise<Response> => {
+  restoreQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId } = req.params as RestoreQuizParamsDtoType;
     const { v } = req.body as RestoreQuizBodyDtoType;
 
@@ -1060,10 +1096,13 @@ class QuizService {
       throw new NotFoundException("Invalid quizId or Not freezed ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
-  deleteQuiz = async (req: Request, res: Response): Promise<Response> => {
+  deleteQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId } = req.params as DeleteQuizParamsDtoType;
     const { v } = req.body as DeleteQuizBodyDtoType;
 
@@ -1103,7 +1142,7 @@ class QuizService {
       throw new NotFoundException("Invalid quizId or Not freezed ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 }
 

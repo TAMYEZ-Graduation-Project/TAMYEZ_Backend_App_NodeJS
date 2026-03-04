@@ -1,3 +1,4 @@
+import http from "node:http";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -13,8 +14,13 @@ import protocolAndHostHanlder from "./utils/handlers/protocol_host.handler.js";
 import uploadsRouter from "./uploads/uploads.routes.js";
 import startAllCronJobs from "./utils/cron_jobs/cron_jobs.controller.js";
 import mongoose from "mongoose";
+import routeTimeoutMiddleware from "./middlewares/route_timeout_middleware.js";
 async function bootstrap() {
     const app = express();
+    const server = http.createServer(app);
+    server.requestTimeout = 25000;
+    server.headersTimeout = 10000;
+    server.keepAliveTimeout = 15000;
     app.use(cors());
     app.use(helmet());
     app.use(morgan(process.env.MOOD === ProjectMoodsEnum.dev ? "dev" : "combined"));
@@ -37,6 +43,7 @@ async function bootstrap() {
         }
         app.use(protocolAndHostHanlder);
         app.use(express.json());
+        app.use(routeTimeoutMiddleware(15000));
         app.use(RoutePaths.uploads, uploadsRouter);
         app.use([RoutePaths.SLASH_PATH, RoutePaths.API_V1_PATH], modulesRouter);
         app.use(RoutePaths.ALL_PATH, (req, res) => {
@@ -47,11 +54,13 @@ async function bootstrap() {
         app.use(globalErrorHandler);
     }
     startAllCronJobs();
-    app.listen(process.env.PORT, (error) => {
+    server.listen(process.env.PORT, () => {
+        console.log(StringConstants.SERVER_STARTED_MESSAGE(process.env.PORT));
+    });
+    server.on("error", (error) => {
         if (error) {
             console.log(StringConstants.ERROR_STARTING_SERVER_MESSAGE(error));
         }
-        console.log(StringConstants.SERVER_STARTED_MESSAGE(process.env.PORT));
     });
 }
 export default bootstrap;

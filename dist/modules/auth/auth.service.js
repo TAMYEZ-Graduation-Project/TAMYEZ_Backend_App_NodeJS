@@ -72,6 +72,7 @@ class AuthService {
         });
         this._sendVerificationLinkToUser({ email, otp });
         return successHandler({
+            req,
             res,
             message: StringConstants.SINGED_UP_SUCCESSFUL_WITH_LINK_MESSAGE,
         });
@@ -108,6 +109,7 @@ class AuthService {
                 update: { $unset: { confirmEmailLink: true }, confirmedAt: new Date() },
             });
             return responseHtmlHandler({
+                req,
                 res,
                 htmlContent: HTML_VERIFY_EMAIL_TEMPLATE({
                     logoUrl: process.env[EnvFields.LOGO_URL],
@@ -116,6 +118,7 @@ class AuthService {
         }
         catch (error) {
             return responseHtmlHandler({
+                req,
                 res,
                 htmlContent: HTML_VERIFY_EMAIL_TEMPLATE({
                     logoUrl: process.env[EnvFields.LOGO_URL],
@@ -145,6 +148,7 @@ class AuthService {
         });
         this._sendVerificationLinkToUser({ email, otp });
         return successHandler({
+            req,
             res,
             message: StringConstants.RESENT_EMAIL_VERIFICATION_LINK_MESSAGE,
         });
@@ -200,6 +204,7 @@ class AuthService {
                 },
             });
             return responseHtmlHandler({
+                req,
                 res,
                 htmlContent: HTML_RESTORE_EMAIL_TEMPLATE({
                     logoUrl: process.env[EnvFields.LOGO_URL],
@@ -208,6 +213,7 @@ class AuthService {
         }
         catch (error) {
             return responseHtmlHandler({
+                req,
                 res,
                 htmlContent: HTML_RESTORE_EMAIL_TEMPLATE({
                     logoUrl: process.env[EnvFields.LOGO_URL],
@@ -282,7 +288,7 @@ class AuthService {
             }
             const message = await this._handleAccountFreezing({ user });
             if (message) {
-                return successHandler({ res, message });
+                return successHandler({ req, res, message });
             }
             if (!(await HashingSecurityUtil.compareHash({
                 plainText: password,
@@ -306,6 +312,7 @@ class AuthService {
                     fcmToken,
                 });
             return successHandler({
+                req,
                 res,
                 message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
                 body: {
@@ -389,6 +396,7 @@ class AuthService {
                 fcmToken,
             });
         return successHandler({
+            req,
             res,
             statusCode: 201,
             message: StringConstants.SINGED_UP_SUCCESSFUL_MESSAGE,
@@ -431,7 +439,7 @@ class AuthService {
             }
             const message = await this._handleAccountFreezing({ user });
             if (message) {
-                return successHandler({ res, message });
+                return successHandler({ req, res, message });
             }
             const { accessToken } = TokenSecurityUtil.getTokensBasedOnRole({
                 user,
@@ -449,6 +457,7 @@ class AuthService {
                     fcmToken,
                 });
             return successHandler({
+                req,
                 res,
                 message: StringConstants.LOG_IN_SUCCESSFUL_MESSAGE,
                 body: {
@@ -503,7 +512,11 @@ class AuthService {
             eventName: EmailEventsEnum.forgetPassword,
             payload: { to: email, otpOrLink: otp },
         });
-        return successHandler({ res, message: StringConstants.OTP_SENT_MESSAGE });
+        return successHandler({
+            req,
+            res,
+            message: StringConstants.OTP_SENT_MESSAGE,
+        });
     };
     verifyForgetPassword = async (req, res) => {
         const { email, otp } = req.body;
@@ -535,6 +548,7 @@ class AuthService {
             },
         });
         return successHandler({
+            req,
             res,
             message: StringConstants.OTP_VERIFIED_MESSAGE,
         });
@@ -561,6 +575,7 @@ class AuthService {
             changeCredentialsTime: new Date(),
         });
         return successHandler({
+            req,
             res,
             message: StringConstants.PASSWORD_RESET_SUCCESSFULLY_MESSAGE,
         });

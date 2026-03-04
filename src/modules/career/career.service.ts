@@ -107,7 +107,7 @@ class CareerService {
     this._userCareerProgressRepository,
   );
 
-  createCareer = async (req: Request, res: Response): Promise<Response> => {
+  createCareer = async (req: Request, res: Response): Promise<Response | void> => {
     const { title, description, summary, courses, youtubePlaylists, books } =
       req.validationResult.body as CreateCareerBodyDto;
 
@@ -154,11 +154,11 @@ class CareerService {
       );
     }
 
-    return successHandler({ res, message: "Career created successfully ✅" });
+    return successHandler({req, res, message: "Career created successfully ✅" });
   };
 
   getCareers = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { page, size, searchKey } = req.validationResult
         .query as GetCareersQueryDto;
       const result = await this._careerRepository.paginate({
@@ -196,12 +196,12 @@ class CareerService {
         );
       }
 
-      return successHandler({ res, body: result });
+      return successHandler({req, res, body: result });
     };
   };
 
   getCareer = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { careerId } = req.params as GetCareerParamsDto;
 
       if (
@@ -283,14 +283,14 @@ class CareerService {
         });
         result.percentageCompleted = req.progress?.percentageCompleted;
       }
-      return successHandler({ res, body: result });
+      return successHandler({req, res, body: result });
     };
   };
 
   uploadCareerPicture = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { careerId } = req.params as UploadCareerPictureParamsDto;
     const { attachment, v } = req.body as UploadCareerPictureBodyDto;
 
@@ -328,6 +328,7 @@ class CareerService {
     }
 
     return successHandler<UploadCareerPictureResponse>({
+      req,
       res,
       body: {
         pictureUrl: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey)!,
@@ -335,7 +336,7 @@ class CareerService {
     });
   };
 
-  updateCareer = async (req: Request, res: Response): Promise<Response> => {
+  updateCareer = async (req: Request, res: Response): Promise<Response | void> => {
     const { careerId } = req.params as UpdateCareerParamsDto;
     const body = req.validationResult.body as UpdateCareerBodyDto;
 
@@ -451,7 +452,7 @@ class CareerService {
       ],
     });
 
-    return successHandler({ res });
+    return successHandler({req, res });
   };
 
   private _getResourceSpecifiedStepsIds = (
@@ -476,7 +477,7 @@ class CareerService {
   updateCareerResource = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { careerId, resourceName, resourceId } =
       req.params as UpdateCareerResourceParamsDto;
     const body = req.validationResult.body as UpdateCareerResourceBodyDto;
@@ -607,6 +608,7 @@ class CareerService {
     }
 
     return successHandler<UpdateCareerResourceResponse>({
+      req,
       res,
       body: {
         [`${resourceName}`]: result.toJSON()[resourceName],
@@ -651,7 +653,7 @@ class CareerService {
   checkCareerAssessment = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { quizAttemptId } = req.params as CheckCareerAssessmentParamsDto;
     const { answers } = req.validationResult
       .body as CheckCareerAssessmentBodyDto;
@@ -779,13 +781,13 @@ class CareerService {
     }
 
     await quizAttempt.deleteOne();
-    return successHandler({ res, body: aiModelResponse });
+    return successHandler({req, res, body: aiModelResponse });
   };
 
   chooseSuggestedCareer = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { careerId } = req.params as ChooseSuggestedCareerParamsDto;
 
     const careerSuggestionAttempt =
@@ -861,10 +863,10 @@ class CareerService {
     });
     await session.endSession();
 
-    return successHandler({ res });
+    return successHandler({req, res });
   };
 
-  archiveCareer = async (req: Request, res: Response): Promise<Response> => {
+  archiveCareer = async (req: Request, res: Response): Promise<Response | void> => {
     const { careerId } = req.params as ArchiveCareerParamsDto;
     const { v, confirmFreezing } = req.body as ArchiveCareerBodyDto;
 
@@ -895,10 +897,10 @@ class CareerService {
       },
     });
 
-    return successHandler({ res });
+    return successHandler({req, res });
   };
 
-  restoreCareer = async (req: Request, res: Response): Promise<Response> => {
+  restoreCareer = async (req: Request, res: Response): Promise<Response | void> => {
     const { careerId } = req.params as RestoreCareerParamsDto;
     const { v } = req.body as RestoreCareerBodyDto;
 
@@ -919,10 +921,10 @@ class CareerService {
       throw new NotFoundException("Invalid careerId or Not freezed ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({req, res });
   };
 
-  deleteCareer = async (req: Request, res: Response): Promise<Response> => {
+  deleteCareer = async (req: Request, res: Response): Promise<Response | void> => {
     const { careerId } = req.params as DeleteCareerParamsDto;
     const { v } = req.body as DeleteCareerBodyDto;
 
@@ -1013,7 +1015,7 @@ class CareerService {
       throw new NotFoundException("Invalid careerId or Not freezed ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({req, res });
   };
 }
 

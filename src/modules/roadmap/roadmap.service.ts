@@ -171,7 +171,7 @@ class RoadmapService {
   createRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const {
       careerId,
       title,
@@ -232,13 +232,14 @@ class RoadmapService {
     });
 
     return successHandler({
+      req,
       res,
       message: "Roadmap step created successfully ✅",
     });
   };
 
   getRoadmap = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       let { page, size, searchKey, haveQuizzes, belongToCareers } = req
         .validationResult.query as GetRoadmapQueryDto;
 
@@ -398,6 +399,7 @@ class RoadmapService {
       }
 
       return successHandler({
+        req,
         res,
         body: {
           totalCount: result.total,
@@ -417,7 +419,7 @@ class RoadmapService {
   };
 
   getRoadmapStep = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { roadmapStepId } = req.params as GetRoadmapStepParamsDto;
 
       if (
@@ -541,7 +543,7 @@ class RoadmapService {
         result.careerId = (result.careerId as unknown as FullICareer)._id;
       }
 
-      return successHandler({ res, body: result });
+      return successHandler({ req, res, body: result });
     };
   };
 
@@ -586,7 +588,7 @@ class RoadmapService {
   updateRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId } = req.params as UpdateRoadmapStepParamsDto;
     const body = req.validationResult.body as UpdateRoadmapStepBodyDto;
 
@@ -735,7 +737,7 @@ class RoadmapService {
     });
     await session.endSession();
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
   static getTotalResourceCount({
@@ -877,7 +879,7 @@ class RoadmapService {
   updateRoadmapStepResource = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId, resourceId, resourceName } =
       req.params as UpdateRoadmapStepResourceParamsDto;
     const body = req.body as UpdateRoadmapResourceStepBodyDto;
@@ -983,6 +985,7 @@ class RoadmapService {
     }
 
     return successHandler<UpdateRoadmapStepResourceResponse>({
+      req,
       res,
       body: {
         [`${resourceName}`]: result.toJSON()[resourceName]!,
@@ -994,7 +997,7 @@ class RoadmapService {
   archiveRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId } = req.params as ArchiveRoadmapStepParamsDto;
     const { v } = req.body as ArchiveRoadmapStepBodyDto;
 
@@ -1022,13 +1025,13 @@ class RoadmapService {
       });
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
   restoreRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId } = req.params as RestoreRoadmapStepParamsDto;
     const { v, quizId } = req.body as RestoreRoadmapStepBodyDto;
 
@@ -1090,6 +1093,7 @@ class RoadmapService {
     }
 
     return successHandler({
+      req,
       res,
       message: `Roadmap step was restored successfully after ${result.length >= 1 ? `deleting unfound quizzesIds ✅` : `updating quizzesIds with the quizId ${quizId}`} `,
     });
@@ -1098,7 +1102,7 @@ class RoadmapService {
   deleteRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId } = req.params as DeleteRoadmapStepParamsDto;
     const { v } = req.body as DeleteRoadmapStepBodyDto;
 
@@ -1158,7 +1162,7 @@ class RoadmapService {
       throw new NotFoundException("Invalid roadmapStepId or Not freezed ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 }
 

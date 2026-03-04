@@ -5,6 +5,7 @@ import type { RequestKeysType } from "./valdiation_schema.type.ts";
 
 declare module "express-serve-static-core" {
   interface Request {
+    timedout?: boolean;
     user?: HIUserType;
     tokenPayload?: ITokenPayload;
     progress?: HIUserCareerProgress;

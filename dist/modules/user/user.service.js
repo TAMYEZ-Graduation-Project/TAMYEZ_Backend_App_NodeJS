@@ -62,6 +62,7 @@ class UserService {
             ],
         });
         return successHandler({
+            req,
             res,
             body: {
                 ...reviews[0],
@@ -175,6 +176,7 @@ class UserService {
                 throw new NotFoundException(`This ${archived ? "archived " : ""}user NOT found ❌`);
             }
             return successHandler({
+                req,
                 res,
                 body: {
                     user,
@@ -223,7 +225,7 @@ class UserService {
             if (!result.data || result.data.length == 0) {
                 throw new NotFoundException(archived ? "No archived users found 🔍❌" : "No users found 🔍❌");
             }
-            return successHandler({ res, body: result });
+            return successHandler({ req, res, body: result });
         };
     };
     uploadProfilePicture = async (req, res) => {
@@ -268,6 +270,7 @@ class UserService {
             });
         }
         return successHandler({
+            req,
             res,
             body: {
                 url: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey),
@@ -288,7 +291,7 @@ class UserService {
             filter: { _id: req.user._id, __v: v },
             update: { ...updatedObject },
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     changePassword = async (req, res) => {
         const { currentPassword, newPassword, flag, v } = req.validationResult
@@ -318,7 +321,7 @@ class UserService {
             filter: { _id: req.user._id, __v: v },
             update: { password: newPassword, ...updateObject },
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     logout = async (req, res) => {
         const { flag, deviceId } = req.validationResult.body;
@@ -339,7 +342,7 @@ class UserService {
             userId: req.user._id,
             tokenPayload: req.tokenPayload,
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     changeRole = async (req, res) => {
         const { userId } = req.params;
@@ -363,7 +366,7 @@ class UserService {
         if (!user) {
             throw new NotFoundException("Invalid userId or invalid role ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     archiveAccount = async (req, res) => {
         const { userId } = req.params;
@@ -426,6 +429,7 @@ class UserService {
             }
         }
         return successHandler({
+            req,
             res,
             message: !userId
                 ? "Your account has been freezed, you can only restore it after 24 hours ✅"
@@ -456,7 +460,7 @@ class UserService {
         if (result.modifiedCount === 0) {
             throw new NotFoundException("account not found, self-freezed, or already restored ❌");
         }
-        return successHandler({ res, message: "Account Restored!" });
+        return successHandler({ req, res, message: "Account Restored!" });
     };
     deleteAccount = async (req, res) => {
         const { userId } = req.params;
@@ -509,7 +513,11 @@ class UserService {
                 filter: { userId: userId || req.user._id },
             }),
         ]);
-        return successHandler({ res, message: "Account Deleted Permanently ✅" });
+        return successHandler({
+            req,
+            res,
+            message: "Account Deleted Permanently ✅",
+        });
     };
     submitFeedback = async (req, res) => {
         const { text, stars } = req.validationResult
@@ -526,6 +534,7 @@ class UserService {
             data: [{ text, stars, createdBy: req.user._id }],
         });
         return successHandler({
+            req,
             res,
             message: "Feedback submitted successfully ✅",
         });
@@ -542,7 +551,7 @@ class UserService {
         if (!feedbacks?.data?.length) {
             throw new NotFoundException("No feedbacks found ❌");
         }
-        return successHandler({ res, body: feedbacks });
+        return successHandler({ req, res, body: feedbacks });
     };
     replyToFeedback = async (req, res) => {
         const { feedbackId } = req.params;
@@ -571,7 +580,7 @@ class UserService {
                 otpOrLink: text,
             },
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     deleteFeedback = async (req, res) => {
         const { feedbackId } = req.params;
@@ -581,7 +590,7 @@ class UserService {
         if (!result.deletedCount) {
             throw new NotFoundException("Invalid feedbackId or already deleted ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
 }
 export default UserService;

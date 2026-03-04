@@ -59,6 +59,7 @@ class QuizService {
             ],
         });
         return successHandler({
+            req,
             res,
             message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
         });
@@ -107,6 +108,7 @@ class QuizService {
             },
         });
         return successHandler({
+            req,
             res,
             message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
         });
@@ -138,7 +140,7 @@ class QuizService {
             if (!result.data || result.data.length == 0) {
                 throw new NotFoundException(archived ? "No archived quizzes found 🔍❌" : "No quizzes found 🔍❌");
             }
-            return successHandler({ res, body: result });
+            return successHandler({ req, res, body: result });
         };
     };
     getQuiz = ({ archived = false } = {}) => {
@@ -190,7 +192,11 @@ class QuizService {
             if (!quiz) {
                 throw new NotFoundException(archived ? "No archived quiz found 🔍❌" : "No quiz found 🔍❌");
             }
-            return successHandler({ res, body: { quiz } });
+            return successHandler({
+                req,
+                res,
+                body: { quiz },
+            });
         };
     };
     _generateQuestions = async ({ title, aiPrompt, }) => {
@@ -436,7 +442,10 @@ class QuizService {
         }
         req.user.increment();
         await req.user?.save();
+        if (res.headersSent || res.writableEnded)
+            return;
         return successHandler({
+            req,
             res,
             body: {
                 quizAttempt,
@@ -643,6 +652,7 @@ class QuizService {
         }
         await quizAttempt.deleteOne();
         return successHandler({
+            req,
             res,
             message: "Quiz answers checked successfully ✅",
             body: {
@@ -675,6 +685,7 @@ class QuizService {
             throw new NotFoundException("No saved quizzes found 🚫");
         }
         return successHandler({
+            req,
             res,
             message: "Saved quizzes fetched successfully ✅",
             body: { savedQuizzes },
@@ -698,6 +709,7 @@ class QuizService {
             throw new NotFoundException("Saved quiz not found 🚫");
         }
         return successHandler({
+            req,
             res,
             message: "Saved quiz fetched successfully ✅",
             body: { savedQuiz },
@@ -727,7 +739,7 @@ class QuizService {
                 $unset: { restored: 1 },
             },
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     restoreQuiz = async (req, res) => {
         const { quizId } = req.params;
@@ -747,7 +759,7 @@ class QuizService {
         if (!result.matchedCount) {
             throw new NotFoundException("Invalid quizId or Not freezed ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     deleteQuiz = async (req, res) => {
         const { quizId } = req.params;
@@ -779,7 +791,7 @@ class QuizService {
         else {
             throw new NotFoundException("Invalid quizId or Not freezed ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
 }
 export default QuizService;

@@ -122,6 +122,7 @@ class RoadmapService {
             update: { $inc: { stepsCount: 1, orderEpoch: 1 } },
         });
         return successHandler({
+            req,
             res,
             message: "Roadmap step created successfully ✅",
         });
@@ -258,6 +259,7 @@ class RoadmapService {
                 });
             }
             return successHandler({
+                req,
                 res,
                 body: {
                     totalCount: result.total,
@@ -358,7 +360,7 @@ class RoadmapService {
                 req.tokenPayload?.applicationType === ApplicationTypeEnum.adminDashboard) {
                 result.careerId = result.careerId._id;
             }
-            return successHandler({ res, body: result });
+            return successHandler({ req, res, body: result });
         };
     };
     _checkRoadmapStepAndCareer = async ({ checkForRoadmapStepFreezed = false, roadmapStepId, v, }) => {
@@ -512,7 +514,7 @@ class RoadmapService {
             }
         });
         await session.endSession();
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     static getTotalResourceCount({ currentResources, removeResources, newResourcesCount, }) {
         if (!currentResources?.length) {
@@ -702,6 +704,7 @@ class RoadmapService {
             throw new NotFoundException("Invalid resourceId ❌");
         }
         return successHandler({
+            req,
             res,
             body: {
                 [`${resourceName}`]: result.toJSON()[resourceName],
@@ -730,7 +733,7 @@ class RoadmapService {
                 update: { $inc: { orderEpoch: 1 } },
             });
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     restoreRoadmapStep = async (req, res) => {
         const { roadmapStepId } = req.params;
@@ -784,6 +787,7 @@ class RoadmapService {
             });
         }
         return successHandler({
+            req,
             res,
             message: `Roadmap step was restored successfully after ${result.length >= 1 ? `deleting unfound quizzesIds ✅` : `updating quizzesIds with the quizId ${quizId}`} `,
         });
@@ -834,7 +838,7 @@ class RoadmapService {
         else {
             throw new NotFoundException("Invalid roadmapStepId or Not freezed ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
 }
 export default RoadmapService;
