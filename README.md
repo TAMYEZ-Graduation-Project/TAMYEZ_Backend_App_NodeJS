@@ -196,7 +196,7 @@ src/
 
 ***
 ## 🧩 Class Diagram
-
+![Class Diagram](./assets/TAMYEZ%20Class%20Diagram.jpg)
 
 ***
 
