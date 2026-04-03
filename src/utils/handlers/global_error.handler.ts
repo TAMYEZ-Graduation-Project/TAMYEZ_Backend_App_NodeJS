@@ -12,7 +12,6 @@ const globalErrorHandler = async (
   console.log({ error });
 
   if (
-    req.destroyed || // Node marks when the client/connection is gone
     (req as any).timedout || // set by connect-timeout; or your own flag if custom
     res.headersSent || // headers were already sent by someone else
     res.writableEnded // response stream already ended

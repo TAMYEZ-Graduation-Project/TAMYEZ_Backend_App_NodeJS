@@ -322,6 +322,10 @@ class UserService {
         },
         page,
         size,
+        options: {
+          select:
+            "firstName lastName email role profilePicture assessmentStatus freezed __v createdAt",
+        },
       });
 
       if (!result.data || result.data.length == 0) {
@@ -441,18 +445,15 @@ class UserService {
       );
     }
 
-    const updateObject: { changeCredentialsTime?: Date } = {};
+    let changeCredentialsTime: Date | undefined;
+    let revokeToken: boolean = false;
     switch (flag) {
       case LogoutFlagsEnum.all:
-        updateObject.changeCredentialsTime = new Date();
+        changeCredentialsTime = new Date();
         break;
 
       case LogoutFlagsEnum.one:
-        await TokenSecurityUtil.revoke({
-          flag,
-          userId: req.user!._id!,
-          tokenPayload: req.tokenPayload!,
-        });
+        revokeToken = true;
         break;
 
       default:
@@ -461,9 +462,16 @@ class UserService {
 
     await this._userRepository.updateOne({
       filter: { _id: req.user!._id, __v: v },
-      update: { password: newPassword, ...updateObject },
+      update: { password: newPassword, changeCredentialsTime },
     });
 
+    if (revokeToken) {
+      await TokenSecurityUtil.revoke({
+        flag,
+        userId: req.user!._id!,
+        tokenPayload: req.tokenPayload!,
+      });
+    }
     return successHandler({ req, res });
   };
 
@@ -578,31 +586,32 @@ class UserService {
       if (
         user &&
         user.role != req.user?.role &&
-        user.role != RolesEnum.superAdmin &&
-        user.freezed!.by.equals(userId)
+        user.role != RolesEnum.superAdmin
       ) {
-        if (refreeze) {
-          await this._userRepository.updateOne({
-            filter: { _id: userId, __v: v, paranoid: false },
-            update: {
-              freezed: {
-                at: new Date(),
-                by: req.user!._id,
+        if (user.freezed!.by.equals(userId)) {
+          if (refreeze) {
+            await this._userRepository.updateOne({
+              filter: { _id: userId, __v: v, paranoid: false },
+              update: {
+                freezed: {
+                  at: new Date(),
+                  by: req.user!._id,
+                },
+                changeCredentialsTime: new Date(),
               },
-              changeCredentialsTime: new Date(),
-            },
-          });
+            });
+          } else {
+            throw new BadRequestException(
+              "User has froze their own account! Do you want to re-freeze it?",
+            );
+          }
         } else {
-          throw new BadRequestException(
-            "User has freezed their own account! Do you want to re-freezed it?",
-          );
+          throw new NotFoundException("user not found or already frozen ❌");
         }
-      } else if (user) {
+      } else {
         throw new BadRequestException(
           "Can't freeze high or equal account privilages ❌",
         );
-      } else {
-        throw new NotFoundException("user not found or already freezed ❌");
       }
     }
 
@@ -716,6 +725,10 @@ class UserService {
       this._userCareerProgressRepository.deleteOne({
         filter: { userId: userId || req.user!._id! },
       }),
+      this._feedbackRepository.updateMany({
+        filter: { createdBy: userId || req.user!._id! },
+        update: { accountDeleted: true, $unset: { createdBy: 1 } },
+      }),
     ]);
 
     return successHandler({
@@ -768,7 +781,14 @@ class UserService {
       filter: {},
       page,
       size,
-      options: { sort: { createdAt: -1 } },
+      options: {
+        sort: { createdAt: -1 },
+        populate: {
+          path: "createdBy",
+          match: { paranoid: false },
+          select: "firstName lastName profilePicture",
+        },
+      },
     });
 
     if (!feedbacks?.data?.length) {

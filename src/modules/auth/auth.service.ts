@@ -803,7 +803,7 @@ class AuthService {
       Date.now() >= user.forgetPasswordOtp!.expiresAt.getTime() ||
       !(await HashingSecurityUtil.compareHash({
         plainText: otp,
-        cipherText: user.forgetPasswordOtp!.code!,
+        cipherText: user.forgetPasswordOtp?.code ?? "",
       }))
     ) {
       throw new BadRequestException(StringConstants.INVALID_OTP_MESSAGE);
@@ -818,6 +818,7 @@ class AuthService {
         forgetPasswordVerificationExpiresAt:
           Date.now() +
           Number(process.env[EnvFields.OTP_EXPIRES_IN_MILLISECONDS]),
+        $unset: { "forgetPasswordOtp.code": 1 },
       },
     });
 
