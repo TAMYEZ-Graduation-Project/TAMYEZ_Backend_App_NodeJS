@@ -169,12 +169,12 @@ class QuizService {
       .validationResult.body as UpdateQuizBodyDtoType;
 
     const quiz = await this._quizRepository.findOne({
-      filter: { _id: quizId, paranoid: false },
+      filter: { _id: quizId },
     });
 
     if (!quiz) {
       throw new NotFoundException(
-        StringConstants.INVALID_PARAMETER_MESSAGE("quizId"),
+        "Quiz not found or archived ❌",
       );
     }
 
@@ -228,7 +228,7 @@ class QuizService {
     return successHandler({
       req,
       res,
-      message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
+      message: "Quiz updated successfully ✅",
     });
   };
 

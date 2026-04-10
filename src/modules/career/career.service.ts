@@ -268,7 +268,7 @@ class CareerService {
 
       if (!result) {
         throw new NotFoundException(
-          archived ? "No archived career found 🔍❌" : "No career found 🔍❌",
+          archived ? "Archived career not found 🔍❌" : "Career NOT found 🔍❌",
         );
       }
 
