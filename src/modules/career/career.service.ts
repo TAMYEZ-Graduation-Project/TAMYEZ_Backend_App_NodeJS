@@ -488,6 +488,7 @@ class CareerService {
         [`${resourceName}`]: {
           $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
         },
+        __v: body.v,
       },
       projection: {
         assetFolderId: 1,
@@ -555,7 +556,7 @@ class CareerService {
       }
     }
 
-    let subKey;
+    let subKey:string | undefined;
     if (body.attachment) {
       subKey = (
         await Promise.all([
@@ -601,9 +602,12 @@ class CareerService {
           },
         },
       },
+    }).catch(async () => {
+      if (subKey) await S3Service.deleteFile({ SubKey: subKey });
     });
 
     if (!result) {
+      if (subKey) await S3Service.deleteFile({ SubKey: subKey });
       throw new NotFoundException("Invalid resourceId ❌");
     }
 

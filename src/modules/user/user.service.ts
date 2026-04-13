@@ -481,7 +481,7 @@ class UserService {
     if (deviceId) {
       const pushDeviceResult =
         await this._notificationPushDeviceRepository.updateOne({
-          filter: { userId: req.user!._id!, deviceId, __v: undefined },
+          filter: { userId: req.user!._id!, deviceId },
           update: {
             isActive: false,
             $unset: { fcmToken: true },

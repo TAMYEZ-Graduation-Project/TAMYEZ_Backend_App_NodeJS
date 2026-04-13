@@ -207,7 +207,6 @@ abstract class DatabaseRepository<TDocument> {
         }),
       };
     }
-    console.log({ filter });
 
     const res = await this.model.updateOne(filter, update, options);
 

@@ -278,7 +278,6 @@ class AuthService {
       filter: {
         userId,
         deviceId,
-        __v: undefined,
       },
       update: { fcmToken, isActive: true, jwtTokenExpiresAt },
     });
