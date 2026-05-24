@@ -69,10 +69,10 @@ class QuizService {
         const { title, description, aiPrompt, type, duration, tags, v } = req
             .validationResult.body;
         const quiz = await this._quizRepository.findOne({
-            filter: { _id: quizId, paranoid: false },
+            filter: { _id: quizId },
         });
         if (!quiz) {
-            throw new NotFoundException(StringConstants.INVALID_PARAMETER_MESSAGE("quizId"));
+            throw new NotFoundException("Quiz not found or archived ❌");
         }
         const uniqueKey = QuizUtil.getQuizUniqueKey({
             title: title || quiz.title,
@@ -110,7 +110,7 @@ class QuizService {
         return successHandler({
             req,
             res,
-            message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
+            message: "Quiz updated successfully ✅",
         });
     };
     getQuizzes = ({ archived = false } = {}) => {

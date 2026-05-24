@@ -1,6 +1,5 @@
 function responseHtmlHandler({ req, res, statusCode = 200, htmlContent, }) {
-    if (req.destroyed ||
-        req.timedout ||
+    if (req.timedout ||
         res.headersSent ||
         res.writableEnded) {
         return;

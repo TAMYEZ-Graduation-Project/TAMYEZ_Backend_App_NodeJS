@@ -1,6 +1,8 @@
 import mongoose, { Model, Types } from "mongoose";
 import ModelsNames from "../../utils/constants/models.names.constants.js";
 import DocumentFormat from "../../utils/formats/document.format.js";
+import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
+import { ProvidersEnum } from "../../utils/constants/enum.constants.js";
 const replySchema = new mongoose.Schema({
     text: { type: String, required: true, min: 5, max: 500 },
     createdBy: {
@@ -18,6 +20,7 @@ const feedbackSchema = new mongoose.Schema({
         required: true,
     },
     reply: { type: replySchema },
+    accountDeleted: { type: Boolean, default: false },
 }, {
     timestamps: true,
     strictQuery: true,
@@ -25,11 +28,20 @@ const feedbackSchema = new mongoose.Schema({
     toObject: { virtuals: true },
 });
 feedbackSchema.methods.toJSON = function () {
+    console.log(this.toObject());
     const feedbackObject = DocumentFormat.getIdFrom_Id(this.toObject());
-    if (!Types.ObjectId.isValid(feedbackObject.createdBy.toString())) {
-        feedbackObject.createdBy.firstName = undefined;
-        feedbackObject.createdBy.lastName = undefined;
-        feedbackObject.createdBy = DocumentFormat.getIdFrom_Id(feedbackObject.createdBy);
+    if (feedbackObject.createdBy &&
+        !Types.ObjectId.isValid(feedbackObject.createdBy.toString())) {
+        const userObject = feedbackObject.createdBy;
+        userObject.firstName = undefined;
+        userObject.lastName = undefined;
+        userObject.profilePicture = userObject
+            ?.profilePicture?.url
+            ? userObject.profilePicture.provider === ProvidersEnum.local
+                ? S3KeyUtil.generateS3UploadsUrlFromSubKey(userObject.profilePicture.url)
+                : userObject.profilePicture.url
+            : undefined;
+        feedbackObject.createdBy = DocumentFormat.getIdFrom_Id(userObject);
     }
     if (feedbackObject?.reply &&
         !Types.ObjectId.isValid(feedbackObject.reply.createdBy.toString())) {
@@ -41,6 +53,7 @@ feedbackSchema.methods.toJSON = function () {
         stars: feedbackObject?.stars,
         createdBy: feedbackObject?.createdBy,
         reply: feedbackObject?.reply,
+        accountDeleted: feedbackObject?.accountDeleted,
         createdAt: feedbackObject?.createdAt,
         updateAt: feedbackObject?.updatedAt,
         v: feedbackObject?.v,

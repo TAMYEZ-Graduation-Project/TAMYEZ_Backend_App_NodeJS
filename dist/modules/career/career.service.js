@@ -148,7 +148,7 @@ class CareerService {
                 },
             });
             if (!result) {
-                throw new NotFoundException(archived ? "No archived career found 🔍❌" : "No career found 🔍❌");
+                throw new NotFoundException(archived ? "Archived career not found 🔍❌" : "Career NOT found 🔍❌");
             }
             if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
                 result.roadmap?.length) {
@@ -303,6 +303,7 @@ class CareerService {
                 [`${resourceName}`]: {
                     $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
                 },
+                __v: body.v,
             },
             projection: {
                 assetFolderId: 1,
@@ -391,8 +392,13 @@ class CareerService {
                     },
                 },
             },
+        }).catch(async () => {
+            if (subKey)
+                await S3Service.deleteFile({ SubKey: subKey });
         });
         if (!result) {
+            if (subKey)
+                await S3Service.deleteFile({ SubKey: subKey });
             throw new NotFoundException("Invalid resourceId ❌");
         }
         return successHandler({

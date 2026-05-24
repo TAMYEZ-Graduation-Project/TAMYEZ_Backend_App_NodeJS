@@ -221,6 +221,9 @@ class UserService {
                 },
                 page,
                 size,
+                options: {
+                    select: "firstName lastName email role profilePicture assessmentStatus freezed __v createdAt",
+                },
             });
             if (!result.data || result.data.length == 0) {
                 throw new NotFoundException(archived ? "No archived users found 🔍❌" : "No users found 🔍❌");
@@ -302,32 +305,36 @@ class UserService {
         }))) {
             throw new BadRequestException(StringConstants.INVALID_PARAMETER_MESSAGE("currentPassword"));
         }
-        const updateObject = {};
+        let changeCredentialsTime;
+        let revokeToken = false;
         switch (flag) {
             case LogoutFlagsEnum.all:
-                updateObject.changeCredentialsTime = new Date();
+                changeCredentialsTime = new Date();
                 break;
             case LogoutFlagsEnum.one:
-                await TokenSecurityUtil.revoke({
-                    flag,
-                    userId: req.user._id,
-                    tokenPayload: req.tokenPayload,
-                });
+                revokeToken = true;
                 break;
             default:
                 break;
         }
         await this._userRepository.updateOne({
             filter: { _id: req.user._id, __v: v },
-            update: { password: newPassword, ...updateObject },
+            update: { password: newPassword, changeCredentialsTime },
         });
+        if (revokeToken) {
+            await TokenSecurityUtil.revoke({
+                flag,
+                userId: req.user._id,
+                tokenPayload: req.tokenPayload,
+            });
+        }
         return successHandler({ req, res });
     };
     logout = async (req, res) => {
         const { flag, deviceId } = req.validationResult.body;
         if (deviceId) {
             const pushDeviceResult = await this._notificationPushDeviceRepository.updateOne({
-                filter: { userId: req.user._id, deviceId, __v: undefined },
+                filter: { userId: req.user._id, deviceId },
                 update: {
                     isActive: false,
                     $unset: { fcmToken: true },
@@ -403,29 +410,30 @@ class UserService {
             });
             if (user &&
                 user.role != req.user?.role &&
-                user.role != RolesEnum.superAdmin &&
-                user.freezed.by.equals(userId)) {
-                if (refreeze) {
-                    await this._userRepository.updateOne({
-                        filter: { _id: userId, __v: v, paranoid: false },
-                        update: {
-                            freezed: {
-                                at: new Date(),
-                                by: req.user._id,
+                user.role != RolesEnum.superAdmin) {
+                if (user.freezed.by.equals(userId)) {
+                    if (refreeze) {
+                        await this._userRepository.updateOne({
+                            filter: { _id: userId, __v: v, paranoid: false },
+                            update: {
+                                freezed: {
+                                    at: new Date(),
+                                    by: req.user._id,
+                                },
+                                changeCredentialsTime: new Date(),
                             },
-                            changeCredentialsTime: new Date(),
-                        },
-                    });
+                        });
+                    }
+                    else {
+                        throw new BadRequestException("User has froze their own account! Do you want to re-freeze it?");
+                    }
                 }
                 else {
-                    throw new BadRequestException("User has freezed their own account! Do you want to re-freezed it?");
+                    throw new NotFoundException("user not found or already frozen ❌");
                 }
             }
-            else if (user) {
-                throw new BadRequestException("Can't freeze high or equal account privilages ❌");
-            }
             else {
-                throw new NotFoundException("user not found or already freezed ❌");
+                throw new BadRequestException("Can't freeze high or equal account privilages ❌");
             }
         }
         return successHandler({
@@ -512,6 +520,10 @@ class UserService {
             this._userCareerProgressRepository.deleteOne({
                 filter: { userId: userId || req.user._id },
             }),
+            this._feedbackRepository.updateMany({
+                filter: { createdBy: userId || req.user._id },
+                update: { accountDeleted: true, $unset: { createdBy: 1 } },
+            }),
         ]);
         return successHandler({
             req,
@@ -546,7 +558,14 @@ class UserService {
             filter: {},
             page,
             size,
-            options: { sort: { createdAt: -1 } },
+            options: {
+                sort: { createdAt: -1 },
+                populate: {
+                    path: "createdBy",
+                    match: { paranoid: false },
+                    select: "firstName lastName profilePicture",
+                },
+            },
         });
         if (!feedbacks?.data?.length) {
             throw new NotFoundException("No feedbacks found ❌");

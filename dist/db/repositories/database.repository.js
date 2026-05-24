@@ -90,7 +90,6 @@ class DatabaseRepository {
                 }),
             };
         }
-        console.log({ filter });
         const res = await this.model.updateOne(filter, update, options);
         if (!res.matchedCount && filter?.__v != undefined) {
             const { __v, ...baseFilter } = filter;

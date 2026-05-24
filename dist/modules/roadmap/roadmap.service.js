@@ -430,6 +430,7 @@ class RoadmapService {
         await this._checkQuizzesExists({ quizzesIds: body.quizzesIds });
         const session = await startSession();
         await session.withTransaction(async () => {
+            let __v = body.v;
             if (body.order && body.order != roadmapStep.order) {
                 await this._roadmapStepRepository.updateMany({
                     filter: {
@@ -442,6 +443,7 @@ class RoadmapService {
                     update: { $inc: { order: 700 } },
                     options: { session },
                 });
+                __v++;
             }
             const toUpdate = {};
             if (body.title)
@@ -453,7 +455,7 @@ class RoadmapService {
             if (body.allowGlobalResources != undefined)
                 toUpdate.allowGlobalResources = body.allowGlobalResources;
             await this._roadmapStepRepository.updateOne({
-                filter: { _id: roadmapStepId, __v: body.v + 1 },
+                filter: { _id: roadmapStepId, __v },
                 update: [
                     {
                         $set: {
