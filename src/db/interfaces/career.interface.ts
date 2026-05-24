@@ -1,7 +1,7 @@
 import type { Default__v, HydratedDocument, Require_id, Types } from "mongoose";
 
 import type { IAtByObject, ICareerResource } from "./common.interface.ts";
-import type { IRoadmapStep } from "./roadmap_step.interface.ts";
+import type { FullIRoadmapStep } from "./roadmap_step.interface.ts";
 
 export interface ICareer {
   id?: Types.ObjectId | undefined; // virtual
@@ -10,6 +10,7 @@ export interface ICareer {
   slug?: string;
   pictureUrl: string;
   description: string;
+  summary: string;
 
   assetFolderId: string;
 
@@ -19,9 +20,11 @@ export interface ICareer {
   youtubePlaylists: ICareerResource[];
   books?: ICareerResource[];
 
-  roadmap?: Partial<IRoadmapStep>[]; // virtual
+  roadmap?: Partial<FullIRoadmapStep>[]; // virtual
 
   stepsCount: number;
+
+  orderEpoch: number;
 
   freezed?: IAtByObject;
   restored?: IAtByObject;

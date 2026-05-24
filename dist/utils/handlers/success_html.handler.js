@@ -1,4 +1,9 @@
-function responseHtmlHandler({ res, statusCode = 200, htmlContent, }) {
+function responseHtmlHandler({ req, res, statusCode = 200, htmlContent, }) {
+    if (req.timedout ||
+        res.headersSent ||
+        res.writableEnded) {
+        return;
+    }
     res.setHeader("Content-Type", "text/html; charset=UTF-8");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");

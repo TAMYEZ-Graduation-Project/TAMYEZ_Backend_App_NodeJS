@@ -49,6 +49,7 @@ import {
   FeedbackRepository,
   NotificationPushDeviceRepository,
   QuizAttemptRepository,
+  UserCareerProgressRepository,
   UserRepository,
 } from "../../db/repositories/index.ts";
 import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.ts";
@@ -62,6 +63,7 @@ import {
   QuizAttemptModel,
   QuizCooldownModel,
   SavedQuizModel,
+  UserCareerProgressModel,
 } from "../../db/models/index.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.ts";
@@ -97,10 +99,13 @@ class UserService {
 
   private readonly _feedbackRepository = new FeedbackRepository(FeedbackModel);
 
+  private readonly _userCareerProgressRepository =
+    new UserCareerProgressRepository(UserCareerProgressModel);
+
   getAdminDashboardData = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const reviews = await this._dashboardReviewRepository.aggregate({
       pipeline: [
         {
@@ -139,6 +144,7 @@ class UserService {
       });
 
     return successHandler({
+      req,
       res,
       body: {
         ...reviews[0],
@@ -211,7 +217,7 @@ class UserService {
   };
 
   getProfile = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { userId } = req.params as GetProfileParamsDtoType;
 
       if (userId && req.user!.role === RolesEnum.user) {
@@ -232,6 +238,10 @@ class UserService {
           {
             path: "careerPath.id",
             match: { paranoid: false },
+            select: "title slug pictureUrl freezed",
+          },
+          {
+            path: "careerDeleted.newSuggestedCareer",
             select: "title slug pictureUrl freezed",
           },
         ],
@@ -265,6 +275,7 @@ class UserService {
       }
 
       return successHandler<IProfileReponse>({
+        req,
         res,
         body: {
           user,
@@ -274,7 +285,7 @@ class UserService {
   };
 
   getUsers = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { page, size, searchKey } = req.validationResult
         .query as GetUsersQueryDtoType;
 
@@ -311,6 +322,10 @@ class UserService {
         },
         page,
         size,
+        options: {
+          select:
+            "firstName lastName email role profilePicture assessmentStatus freezed __v createdAt",
+        },
       });
 
       if (!result.data || result.data.length == 0) {
@@ -319,14 +334,14 @@ class UserService {
         );
       }
 
-      return successHandler({ res, body: result });
+      return successHandler({ req, res, body: result });
     };
   };
 
   uploadProfilePicture = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { attachment, v } = req.body as UploadProfilePictureBodyDtoType;
 
     if (
@@ -378,6 +393,7 @@ class UserService {
     }
 
     return successHandler({
+      req,
       res,
       body: {
         url: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey),
@@ -386,7 +402,10 @@ class UserService {
     });
   };
 
-  updateProfile = async (req: Request, res: Response): Promise<Response> => {
+  updateProfile = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { firstName, lastName, phoneNumber, gender, v } =
       req.body as UpdateProfileBodyDtoType;
 
@@ -405,10 +424,13 @@ class UserService {
       update: { ...updatedObject },
     });
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
-  changePassword = async (req: Request, res: Response): Promise<Response> => {
+  changePassword = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { currentPassword, newPassword, flag, v } = req.validationResult
       .body as ChangePasswordBodyDtoType;
 
@@ -423,18 +445,15 @@ class UserService {
       );
     }
 
-    const updateObject: { changeCredentialsTime?: Date } = {};
+    let changeCredentialsTime: Date | undefined;
+    let revokeToken: boolean = false;
     switch (flag) {
       case LogoutFlagsEnum.all:
-        updateObject.changeCredentialsTime = new Date();
+        changeCredentialsTime = new Date();
         break;
 
       case LogoutFlagsEnum.one:
-        await TokenSecurityUtil.revoke({
-          flag,
-          userId: req.user!._id!,
-          tokenPayload: req.tokenPayload!,
-        });
+        revokeToken = true;
         break;
 
       default:
@@ -443,19 +462,26 @@ class UserService {
 
     await this._userRepository.updateOne({
       filter: { _id: req.user!._id, __v: v },
-      update: { password: newPassword, ...updateObject },
+      update: { password: newPassword, changeCredentialsTime },
     });
 
-    return successHandler({ res });
+    if (revokeToken) {
+      await TokenSecurityUtil.revoke({
+        flag,
+        userId: req.user!._id!,
+        tokenPayload: req.tokenPayload!,
+      });
+    }
+    return successHandler({ req, res });
   };
 
-  logout = async (req: Request, res: Response): Promise<Response> => {
+  logout = async (req: Request, res: Response): Promise<Response | void> => {
     const { flag, deviceId } = req.validationResult.body as LogoutBodyDtoType;
 
     if (deviceId) {
       const pushDeviceResult =
         await this._notificationPushDeviceRepository.updateOne({
-          filter: { userId: req.user!._id!, deviceId, __v: undefined },
+          filter: { userId: req.user!._id!, deviceId },
           update: {
             isActive: false,
             $unset: { fcmToken: true },
@@ -474,10 +500,13 @@ class UserService {
       tokenPayload: req.tokenPayload!,
     });
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
-  changeRole = async (req: Request, res: Response): Promise<Response> => {
+  changeRole = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { userId } = req.params as ChangeRoleParamsDtoType;
     const { role, v } = req.body as ChangeRoleBodyDtoType;
 
@@ -509,10 +538,13 @@ class UserService {
       throw new NotFoundException("Invalid userId or invalid role ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
-  archiveAccount = async (req: Request, res: Response): Promise<Response> => {
+  archiveAccount = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { userId } = req.params as ArchiveAccountParamsDtoType;
     const { v, refreeze } = req.body as ArchiveAccountBodyDtoType;
 
@@ -554,35 +586,37 @@ class UserService {
       if (
         user &&
         user.role != req.user?.role &&
-        user.role != RolesEnum.superAdmin &&
-        user.freezed!.by.equals(userId)
+        user.role != RolesEnum.superAdmin
       ) {
-        if (refreeze) {
-          await this._userRepository.updateOne({
-            filter: { _id: userId, __v: v, paranoid: false },
-            update: {
-              freezed: {
-                at: new Date(),
-                by: req.user!._id,
+        if (user.freezed!.by.equals(userId)) {
+          if (refreeze) {
+            await this._userRepository.updateOne({
+              filter: { _id: userId, __v: v, paranoid: false },
+              update: {
+                freezed: {
+                  at: new Date(),
+                  by: req.user!._id,
+                },
+                changeCredentialsTime: new Date(),
               },
-              changeCredentialsTime: new Date(),
-            },
-          });
+            });
+          } else {
+            throw new BadRequestException(
+              "User has froze their own account! Do you want to re-freeze it?",
+            );
+          }
         } else {
-          throw new BadRequestException(
-            "User has freezed their own account! Do you want to re-freezed it?",
-          );
+          throw new NotFoundException("user not found or already frozen ❌");
         }
-      } else if (user) {
+      } else {
         throw new BadRequestException(
           "Can't freeze high or equal account privilages ❌",
         );
-      } else {
-        throw new NotFoundException("user not found or already freezed ❌");
       }
     }
 
     return successHandler({
+      req,
       res,
       message: !userId
         ? "Your account has been freezed, you can only restore it after 24 hours ✅"
@@ -590,7 +624,10 @@ class UserService {
     });
   };
 
-  restoreAccount = async (req: Request, res: Response): Promise<Response> => {
+  restoreAccount = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { userId } = req.params as RestoreAccountParamsDtoType;
     const { v } = req.body as RestoreAccountBodyDtoType;
 
@@ -619,10 +656,13 @@ class UserService {
       );
     }
 
-    return successHandler({ res, message: "Account Restored!" });
+    return successHandler({ req, res, message: "Account Restored!" });
   };
 
-  deleteAccount = async (req: Request, res: Response): Promise<Response> => {
+  deleteAccount = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { userId } = req.params as DeleteAccountParamsDtoType;
     const { v } = req.body as DeleteAccountBodyDtoType;
 
@@ -682,13 +722,26 @@ class UserService {
       this._notificationPushDeviceRepository.deleteMany({
         filter: { userId: userId || req.user!._id! },
       }),
-      //Todo: delete account progress
+      this._userCareerProgressRepository.deleteOne({
+        filter: { userId: userId || req.user!._id! },
+      }),
+      this._feedbackRepository.updateMany({
+        filter: { createdBy: userId || req.user!._id! },
+        update: { accountDeleted: true, $unset: { createdBy: 1 } },
+      }),
     ]);
 
-    return successHandler({ res, message: "Account Deleted Permanently ✅" });
+    return successHandler({
+      req,
+      res,
+      message: "Account Deleted Permanently ✅",
+    });
   };
 
-  submitFeedback = async (req: Request, res: Response): Promise<Response> => {
+  submitFeedback = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { text, stars } = req.validationResult
       .body as SubmitFeedbackBodyDtoType;
 
@@ -711,12 +764,16 @@ class UserService {
     });
 
     return successHandler({
+      req,
       res,
       message: "Feedback submitted successfully ✅",
     });
   };
 
-  getFeedbacks = async (req: Request, res: Response): Promise<Response> => {
+  getFeedbacks = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { page, size } = req.validationResult
       .query as GetFeedbacksQueryDtoType;
 
@@ -724,16 +781,26 @@ class UserService {
       filter: {},
       page,
       size,
-      options: { sort: { createdAt: -1 } },
+      options: {
+        sort: { createdAt: -1 },
+        populate: {
+          path: "createdBy",
+          match: { paranoid: false },
+          select: "firstName lastName profilePicture",
+        },
+      },
     });
 
     if (!feedbacks?.data?.length) {
       throw new NotFoundException("No feedbacks found ❌");
     }
-    return successHandler({ res, body: feedbacks });
+    return successHandler({ req, res, body: feedbacks });
   };
 
-  replyToFeedback = async (req: Request, res: Response): Promise<Response> => {
+  replyToFeedback = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { feedbackId } = req.params as ReplyToFeedbackParamsDtoType;
     const { text } = req.body as ReplyToFeedbackBodyDtoType;
 
@@ -767,10 +834,13 @@ class UserService {
       },
     });
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
-  deleteFeedback = async (req: Request, res: Response): Promise<Response> => {
+  deleteFeedback = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { feedbackId } = req.params as DeleteFeedbackParamsDtoType;
 
     const result = await this._feedbackRepository.deleteOne({
@@ -781,7 +851,7 @@ class UserService {
       throw new NotFoundException("Invalid feedbackId or already deleted ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 }
 

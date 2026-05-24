@@ -5,7 +5,7 @@ import type {
   HIQuestion,
   IQuestion,
   IQuizAttempt,
-} from "../interfaces/quiz_questions.interface.ts";
+} from "../interfaces/quiz_attempt.interface.ts";
 import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import {
   QuestionTypesEnum,
@@ -136,11 +136,14 @@ const quizAttemptSchema = new mongoose.Schema<IQuizAttempt>(
   },
 );
 
-quizAttemptSchema.index({ quizId: 1, userId: 1 }, { unique: true });
+quizAttemptSchema.index(
+  { userId: 1, quizId: 1, roadmapStepId: 1 },
+  { unique: true },
+);
 
-quizAttemptSchema.index({ careerId: 1 });
-
-quizAttemptSchema.index({ roadmapStepId: 1 });
+quizAttemptSchema.index({ quizId: 1 });
+quizAttemptSchema.index({ roadmapStepId: 1 }, { sparse: true });
+quizAttemptSchema.index({ careerId: 1 }, { sparse: true });
 
 quizAttemptSchema.virtual("id").get(function () {
   return this._id;

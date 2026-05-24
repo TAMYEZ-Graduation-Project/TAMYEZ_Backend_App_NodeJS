@@ -20,7 +20,7 @@ class FirebaseService {
             imageUrl,
             deviceToken: fcmToken,
         });
-        return successHandler({
+        return successHandler({ req,
             res,
             message: "Notification Sent Successfully 🔔",
         });
@@ -33,7 +33,7 @@ class FirebaseService {
             imageUrl,
             deviceTokens: fcmTokens,
         });
-        return successHandler({
+        return successHandler({ req,
             res,
             message: "Notifications Sent Successfully 🔔",
             body: { response: { successCount, failureCount } },
@@ -70,7 +70,7 @@ class FirebaseService {
                 ],
             });
         }
-        return successHandler({
+        return successHandler({ req,
             res,
             message: "Your notification will be sent shortly ✅ 🔔",
         });
@@ -114,7 +114,7 @@ class FirebaseService {
                 ],
             });
         }
-        return successHandler({
+        return successHandler({ req,
             res,
             message: "Your notification will be sent shortly ✅ 🔔",
         });
@@ -170,7 +170,7 @@ class FirebaseService {
             }
             statusCode = 201;
         }
-        return successHandler({
+        return successHandler({ req,
             res,
             statusCode,
             message: "Notifications enabled for this device successfully ✅ 🔔",
@@ -182,7 +182,6 @@ class FirebaseService {
             filter: {
                 userId: req.user._id,
                 deviceId,
-                __v: undefined,
             },
             update: {
                 fcmToken,
@@ -191,7 +190,7 @@ class FirebaseService {
         if (!result.matchedCount) {
             throw new NotFoundException("Invalid deviceId, or notification is already disabled ❌");
         }
-        return successHandler({
+        return successHandler({ req,
             res,
             message: "Fcm Token has been refreshed sucessfully ✅",
         });
@@ -204,7 +203,7 @@ class FirebaseService {
         if (!pushDevice) {
             throw new BadRequestException("Invalid deviceId, or notification is already disabled ❌");
         }
-        return successHandler({
+        return successHandler({ req,
             res,
             message: "Notifications for this device has been disabled successfully ✅",
         });

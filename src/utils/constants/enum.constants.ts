@@ -22,7 +22,7 @@ export enum EmailEventsEnum {
   emailVerification = "EmailVerification",
   forgetPassword = "ForgetPassword",
   emailRestoration = "EmailRestoration",
-  feedbackReply = "FeedReply"
+  feedbackReply = "FeedReply",
 }
 
 export enum NotificationEventsEnum {
@@ -161,4 +161,19 @@ export enum DashboardReviewTypes {
 export enum BucketProvidersEnum {
   aws = "AWS",
   cloudflare = "Cloudflare",
+}
+
+export enum CareerAssessmentStatusEnum {
+  notStarted = "NotStarted",
+  inProgress = "InProgress",
+  completed = "Completed",
+  canRetake = "CanRetake",
+}
+
+export enum RoadmapStepProgressStatusEnum {
+  completed = "Completed",
+  inProgress = "InProgress",
+  available = "Available",
+  lockedPrereq = "LockedPrereq",
+  disabledFrozen = "DisabledFrozen",
 }

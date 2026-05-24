@@ -16,7 +16,7 @@ class AppRegex {
   static readonly phoneNumberRegex = /^(\+20)(10|11|12|15)\d{8}$/;
 
   static readonly getFileWithUrlRegex =
-    /^(users|careers)\/\w{1,50}\/.+\.(jpeg|jpg|png|gif)$/;
+    /^(users|careers)\/[\w\-]{1,50}\/.+\.(jpeg|jpg|png|gif)$/;
 
   static readonly quizTitleRegex = /^(?=.{3,200}$)[A-Z][a-z]+(\s[A-Z][a-z]+)*$/;
 

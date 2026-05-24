@@ -243,6 +243,9 @@ class QuizValidators {
           });
         }
       }),
+    query: z.strictObject({
+      discardActiveAttempt: z.coerce.boolean().optional().default(false),
+    }),
   };
 
   static getQuizzes = {
@@ -254,7 +257,9 @@ class QuizValidators {
   };
 
   static checkQuizAnswers = {
-    params: z.strictObject({ quizAttemptId: generalValidationConstants.objectId }),
+    params: z.strictObject({
+      quizAttemptId: generalValidationConstants.objectId,
+    }),
     body: z.strictObject({
       answers: z
         .array(
@@ -268,7 +273,7 @@ class QuizValidators {
                   z
                     .array(z.enum(Object.values(OptionIdsEnum)))
                     .min(1)
-                    .max(10),
+                    .max(5),
                 ],
                 { error: "Answer format is invalid ❌" },
               ),

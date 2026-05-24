@@ -15,6 +15,7 @@ import {
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import { rateLimit } from "express-rate-limit";
 import { expressRateLimitError } from "../../utils/constants/error.constants.ts";
+import loadUserProgressMiddleware from "../../middlewares/progress.middleware.ts";
 
 export const careerRouter = Router();
 export const adminCareerRouter = Router();
@@ -33,7 +34,26 @@ careerRouter.get(
   RoutePaths.getCareer,
   Auths.authenticationMiddleware({ isOptional: true }),
   validationMiddleware({ schema: CareerValidators.getCareer }),
+  loadUserProgressMiddleware,
   careerService.getCareer(),
+);
+
+careerRouter.post(
+  RoutePaths.checkCareerAssessment,
+  Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+  }),
+  validationMiddleware({ schema: CareerValidators.checkCareerAssessment }),
+  careerService.checkCareerAssessment,
+);
+
+careerRouter.get(
+  RoutePaths.chooseSuggestedCareer,
+  Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+  }),
+  validationMiddleware({ schema: CareerValidators.chooseSuggestedCareer }),
+  careerService.chooseSuggestedCareer,
 );
 
 // admin apis

@@ -2,6 +2,11 @@ import { ErrorCodesEnum } from "../constants/enum.constants.js";
 import StringConstants from "../constants/strings.constants.js";
 const globalErrorHandler = async (error, req, res, next) => {
     console.log({ error });
+    if (req.timedout ||
+        res.headersSent ||
+        res.writableEnded) {
+        return;
+    }
     return res.status(error.statusCode || 500).json({
         success: false,
         error: {

@@ -1,5 +1,5 @@
 import mongoose, { Types } from "mongoose";
-import { GenderEnum, ProvidersEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
+import { CareerAssessmentStatusEnum, GenderEnum, ProvidersEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
 import ModelsNames from "../../utils/constants/models.names.constants.js";
 import { softDeleteFunction } from "../../utils/soft_delete/soft_delete.js";
 import DocumentFormat from "../../utils/formats/document.format.js";
@@ -74,6 +74,11 @@ const userSchema = new mongoose.Schema({
     profilePicture: {
         type: profilePictureObjectSchema,
     },
+    assessmentStatus: {
+        type: String,
+        enum: Object.values(CareerAssessmentStatusEnum),
+        default: CareerAssessmentStatusEnum.notStarted,
+    },
     careerPath: {
         type: idSelectedAtObjectSchema({ ref: ModelsNames.careerModel }),
     },
@@ -106,7 +111,14 @@ userSchema.methods.toJSON = function () {
             careerObj.pictureUrl === process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
                 ? careerObj.pictureUrl
                 : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObj.pictureUrl);
-        userObject.careerPath.id = DocumentFormat.getIdFrom_Id(userObject.careerPath.id);
+        userObject.careerPath.id = DocumentFormat.getIdFrom_Id({
+            _id: careerObj?._id,
+            title: careerObj.title,
+            slug: careerObj?.slug,
+            pictureUrl: careerObj?.pictureUrl,
+            stepsCount: careerObj?.stepsCount,
+            __v: careerObj?.__v,
+        });
     }
     return {
         id: userObject?.id,
@@ -122,7 +134,9 @@ userSchema.methods.toJSON = function () {
                 ? S3KeyUtil.generateS3UploadsUrlFromSubKey(userObject.profilePicture.url)
                 : userObject.profilePicture.url
             : undefined,
+        assessmentStatus: userObject?.assessmentStatus,
         careerPath: userObject?.careerPath,
+        careerDeleted: userObject?.careerDeleted,
         createdAt: userObject?.createdAt,
         updatedAt: userObject?.updatedAt,
         confirmedAt: userObject?.confirmedAt,

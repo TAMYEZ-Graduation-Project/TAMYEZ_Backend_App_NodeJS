@@ -66,6 +66,8 @@ const careerSchema = new mongoose.Schema<ICareer>(
 
     description: { type: String, min: 5, max: 10_000, required: true },
 
+    summary: { type: String, min: 5, max: 150, required: true },
+
     assetFolderId: { type: String, required: true },
 
     isActive: { type: Boolean, default: false },
@@ -89,6 +91,7 @@ const careerSchema = new mongoose.Schema<ICareer>(
     },
 
     stepsCount: { type: Number, default: 0 },
+    orderEpoch: { type: Number, default: 0 },
 
     freezed: atByObjectSchema,
 
@@ -120,6 +123,8 @@ careerSchema.virtual("roadmap", {
 });
 
 careerSchema.methods.toJSON = function () {
+  const roadmap = this?.roadmap as FullIRoadmapStep[] | undefined;
+  const percentageCompleted = this?.percentageCompleted as number;
   const careerObject = DocumentFormat.getIdFrom_Id<ICareer>(this.toObject());
 
   return {
@@ -152,12 +157,15 @@ careerSchema.methods.toJSON = function () {
       );
     }),
     stepsCount: careerObject?.stepsCount,
-    roadmap: careerObject?.roadmap?.map((step) => {
+    // orderEpoch: careerObject?.orderEpoch,
+    percentageCompleted,
+    roadmap: roadmap?.map((step) => {
       return {
         id: (step as FullIRoadmapStep)?._id,
         title: step?.title,
         description: step?.description,
         order: step?.order,
+        progressStatus: step?.progressStatus,
         createdAt: step?.createdAt,
         updatedAT: step?.updatedAt,
         v: (step as FullIRoadmapStep)?.__v,

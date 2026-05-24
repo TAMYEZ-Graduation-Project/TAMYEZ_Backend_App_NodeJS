@@ -4,12 +4,14 @@ import {
   QuizModel,
   RoadmapStepModel,
   SavedQuizModel,
+  UserCareerProgressModel,
 } from "../../db/models/index.ts";
 import {
   CareerRepository,
   QuizAttemptRepository,
   QuizRepository,
   RoadmapStepRepository,
+  UserCareerProgressRepository,
 } from "../../db/repositories/index.ts";
 import type { Request, Response } from "express";
 import successHandler from "../../utils/handlers/success.handler.ts";
@@ -33,6 +35,7 @@ import {
   ConflictException,
   NotFoundException,
   ServerException,
+  ValidationException,
 } from "../../utils/exceptions/custom.exceptions.ts";
 import { startSession, Types, type UpdateAggregationStage } from "mongoose";
 import type {
@@ -55,9 +58,13 @@ import type { UpdateRoadmapStepResourceResponse } from "./roadmap.entity.ts";
 import { isNumberBetweenOrEqual } from "../../utils/validators/numeric.validator.ts";
 import StringConstants from "../../utils/constants/strings.constants.ts";
 import type { PipelineStage } from "mongoose";
-import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.ts";
+import {
+  ApplicationTypeEnum,
+  RoadmapStepProgressStatusEnum,
+} from "../../utils/constants/enum.constants.ts";
 import DocumentFormat from "../../utils/formats/document.format.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
+import UserProgressService from "../../utils/services/user_progress.service.ts";
 
 class RoadmapService {
   private readonly _careerRepository = new CareerRepository(CareerModel);
@@ -71,38 +78,53 @@ class RoadmapService {
   private readonly _savedQuizRepository = new SavedQuizRepository(
     SavedQuizModel,
   );
+  private readonly _userCareerProgressRepository =
+    new UserCareerProgressRepository(UserCareerProgressModel);
+
+  private readonly _userProgressService = new UserProgressService(
+    this._roadmapStepRepository,
+    this._userCareerProgressRepository,
+  );
 
   async checkAndUpdateOrder({
     career,
     order,
+    isDeleting = false,
   }: {
     career: FullICareer;
     order?: number | undefined;
+    isDeleting?: boolean;
   }) {
     if (order && order > 0) {
       if (order <= career.stepsCount && career.stepsCount > 0) {
         const session = await startSession();
         await session.withTransaction(async () => {
-          await this._roadmapStepRepository.updateMany({
-            filter: {
-              careerId: career._id,
-              order: { $gte: Number(order) },
-            },
-            update: {
-              $inc: { order: 500 },
-            },
-            options: { session },
-          });
-
-          await this._roadmapStepRepository.updateMany({
-            filter: { careerId: career._id, order: { $gt: 500 } },
-            update: {
-              $inc: { order: -499 },
-            },
-            options: { session },
+          await this._roadmapStepRepository.bulkWrite({
+            operations: [
+              {
+                updateMany: {
+                  filter: {
+                    careerId: career._id,
+                    order: { $gte: Number(order) },
+                  },
+                  update: {
+                    $inc: { order: 500 },
+                  },
+                },
+              },
+              {
+                updateMany: {
+                  filter: { careerId: career._id, order: { $gt: 500 } },
+                  update: {
+                    $inc: { order: isDeleting ? -501 : -499 },
+                  },
+                },
+              },
+            ],
+            options: { ordered: true, session },
           });
         });
-        session.endSession();
+        await session.endSession();
       } else if (order > career.stepsCount + 1) {
         throw new BadRequestException(
           `Step order must be sequential with no gaps. Current stepsCount is ${career.stepsCount} ❌`,
@@ -149,7 +171,7 @@ class RoadmapService {
   createRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const {
       careerId,
       title,
@@ -206,29 +228,51 @@ class RoadmapService {
 
     await this._careerRepository.updateOne({
       filter: { _id: careerId, __v: career.__v },
-      update: { $inc: { stepsCount: 1 } },
+      update: { $inc: { stepsCount: 1, orderEpoch: 1 } },
     });
 
     return successHandler({
+      req,
       res,
       message: "Roadmap step created successfully ✅",
     });
   };
 
   getRoadmap = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
-      const { page, size, searchKey, haveQuizzes, belongToCareers } = req
+    return async (req: Request, res: Response): Promise<Response | void> => {
+      let { page, size, searchKey, haveQuizzes, belongToCareers } = req
         .validationResult.query as GetRoadmapQueryDto;
+
+      if (
+        req.user &&
+        req.tokenPayload?.applicationType === ApplicationTypeEnum.user
+      ) {
+        if (searchKey || haveQuizzes || belongToCareers)
+          throw new ValidationException(
+            "Invalid to use searchKey, haveQuizzes or belongToCareers with application type user ❌",
+          );
+
+        if (!req.user.careerPath)
+          throw new BadRequestException(
+            "Didn't select a careerPath yet, can't get this roadmap for you ❌",
+          );
+      } else {
+        belongToCareers = !belongToCareers
+          ? StringConstants.ALL
+          : belongToCareers;
+      }
 
       const pipeline: PipelineStage[] = [];
 
-      if (belongToCareers !== StringConstants.ALL) {
+      if (!belongToCareers || belongToCareers !== StringConstants.ALL) {
         pipeline.push({
           $match: {
             careerId: {
               $in: belongToCareers
-                .split(",")
-                .map((c) => Types.ObjectId.createFromHexString(c)),
+                ?.split(",")
+                .map((c) => Types.ObjectId.createFromHexString(c)) || [
+                (req.user?.careerPath?.id as unknown as FullICareer)._id,
+              ],
             },
           },
         });
@@ -274,8 +318,7 @@ class RoadmapService {
         if (
           !(
             req.user &&
-            req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
-            req.user.careerPath?.id?.equals(belongToCareers)
+            req.tokenPayload?.applicationType === ApplicationTypeEnum.user
           )
         )
           pipeline.push({
@@ -344,13 +387,29 @@ class RoadmapService {
         );
       }
 
+      if (
+        req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+        result.data?.length
+      ) {
+        await this._userProgressService.refreshProgressAndClassify({
+          stepOrSteps: result.data as FullIRoadmapStep[],
+          progress: req.progress!,
+          user: req.user!,
+        });
+      }
+
       return successHandler({
+        req,
         res,
         body: {
           totalCount: result.total,
           totalPages: Math.ceil(result.total / size),
           currentPage: page,
           size,
+          percentageCompleted:
+            req.tokenPayload?.applicationType === ApplicationTypeEnum.user
+              ? req.progress?.percentageCompleted
+              : undefined,
           data: result.data.map((step) =>
             DocumentFormat.getIdFrom_Id<IRoadmapStep>(step as FullIRoadmapStep),
           ),
@@ -360,23 +419,26 @@ class RoadmapService {
   };
 
   getRoadmapStep = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { roadmapStepId } = req.params as GetRoadmapStepParamsDto;
 
       if (
         req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
-        !req.user?.careerPath
+        !req.user?.careerPath?.id
       ) {
         throw new BadRequestException(
           "Didn't select a careerPath yet, can't get this roadmapStep for you ❌",
         );
       }
 
-      const result = await this._roadmapStepRepository.findOne({
+      let result = await this._roadmapStepRepository.findOne({
         filter: {
           _id: roadmapStepId,
           ...(req.tokenPayload?.applicationType === ApplicationTypeEnum.user
-            ? { careerId: req.user?.careerPath!.id! }
+            ? {
+                careerId: (req.user?.careerPath?.id as unknown as FullICareer)
+                  ._id,
+              }
             : undefined),
           paranoid: false,
         },
@@ -448,6 +510,30 @@ class RoadmapService {
             "Invalid roadmapStepId, roadmapStep freezed or career is freezed 🔍❌",
           );
         }
+        if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
+          result = (await this._userProgressService.refreshProgressAndClassify({
+            stepOrSteps: result,
+            progress: req.progress!,
+            user: req.user!,
+          })) as HIRoadmapStepType;
+
+          if (
+            result.progressStatus === RoadmapStepProgressStatusEnum.lockedPrereq
+          ) {
+            throw new BadRequestException("Step is locked ❌🔒️");
+          } else if (
+            result.progressStatus === RoadmapStepProgressStatusEnum.available
+          ) {
+            if (
+              await this._userCareerProgressRepository.updateOne({
+                filter: { userId: req.user!._id! },
+                update: { inProgressStep: result._id },
+              })
+            ) {
+              result.progressStatus = RoadmapStepProgressStatusEnum.inProgress;
+            }
+          }
+        }
       }
 
       if (
@@ -457,7 +543,7 @@ class RoadmapService {
         result.careerId = (result.careerId as unknown as FullICareer)._id;
       }
 
-      return successHandler({ res, body: result });
+      return successHandler({ req, res, body: result });
     };
   };
 
@@ -470,7 +556,6 @@ class RoadmapService {
     roadmapStepId: string | Types.ObjectId;
     v: number;
   }): Promise<HIRoadmapStepType> => {
-
     const roadmapStep = await this._roadmapStepRepository.findOne({
       filter: {
         _id: roadmapStepId,
@@ -479,6 +564,7 @@ class RoadmapService {
           ? { paranoid: false, freezed: { $exists: true } }
           : undefined),
       },
+
       options: {
         populate: [{ path: "careerId" }],
       },
@@ -502,7 +588,7 @@ class RoadmapService {
   updateRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId } = req.params as UpdateRoadmapStepParamsDto;
     const body = req.validationResult.body as UpdateRoadmapStepBodyDto;
 
@@ -555,6 +641,7 @@ class RoadmapService {
 
     const session = await startSession();
     await session.withTransaction(async () => {
+      let __v = body.v;
       if (body.order && body.order != roadmapStep.order) {
         await this._roadmapStepRepository.updateMany({
           filter: {
@@ -567,6 +654,7 @@ class RoadmapService {
           update: { $inc: { order: 700 } },
           options: { session },
         });
+        __v++;
       }
 
       const toUpdate: Partial<IRoadmapStep> = {};
@@ -578,7 +666,7 @@ class RoadmapService {
         toUpdate.allowGlobalResources = body.allowGlobalResources;
 
       await this._roadmapStepRepository.updateOne<[]>({
-        filter: { _id: roadmapStepId, __v: body.v },
+        filter: { _id: roadmapStepId, __v },
         update: [
           {
             $set: {
@@ -640,10 +728,18 @@ class RoadmapService {
           },
           options: { session },
         });
+        await this._careerRepository.updateOne({
+          filter: {
+            _id: (roadmapStep.careerId as unknown as FullICareer)._id,
+          },
+          update: { $inc: { orderEpoch: 1 } },
+          options: { session },
+        });
       }
     });
+    await session.endSession();
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
   static getTotalResourceCount({
@@ -785,7 +881,7 @@ class RoadmapService {
   updateRoadmapStepResource = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId, resourceId, resourceName } =
       req.params as UpdateRoadmapStepResourceParamsDto;
     const body = req.body as UpdateRoadmapResourceStepBodyDto;
@@ -891,6 +987,7 @@ class RoadmapService {
     }
 
     return successHandler<UpdateRoadmapStepResourceResponse>({
+      req,
       res,
       body: {
         [`${resourceName}`]: result.toJSON()[resourceName]!,
@@ -902,31 +999,45 @@ class RoadmapService {
   archiveRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId } = req.params as ArchiveRoadmapStepParamsDto;
     const { v } = req.body as ArchiveRoadmapStepBodyDto;
 
-    await this._checkRoadmapStepAndCareer({ roadmapStepId, v });
-
-    await this._roadmapStepRepository.updateOne({
-      filter: { _id: roadmapStepId, __v: v },
-      update: {
-        freezed: { at: new Date(), by: req.user!._id },
-        $unset: { restored: 1 },
-      },
+    const roadmapStep = await this._checkRoadmapStepAndCareer({
+      roadmapStepId,
+      v,
     });
 
-    return successHandler({ res });
+    if (
+      (
+        await this._roadmapStepRepository.updateOne({
+          filter: { _id: roadmapStepId, __v: v },
+          update: {
+            freezed: { at: new Date(), by: req.user!._id },
+            $unset: { restored: 1 },
+          },
+        })
+      ).modifiedCount
+    ) {
+      await this._careerRepository.updateOne({
+        filter: {
+          _id: (roadmapStep.careerId as unknown as FullICareer)._id,
+        },
+        update: { $inc: { orderEpoch: 1 } },
+      });
+    }
+
+    return successHandler({ req, res });
   };
 
   restoreRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId } = req.params as RestoreRoadmapStepParamsDto;
     const { v, quizId } = req.body as RestoreRoadmapStepBodyDto;
 
-    const { quizzesIds } = await this._checkRoadmapStepAndCareer({
+    const { quizzesIds, careerId } = await this._checkRoadmapStepAndCareer({
       roadmapStepId,
       v,
       checkForRoadmapStepFreezed: true,
@@ -958,21 +1069,33 @@ class RoadmapService {
       newQuizzesIds.push(Types.ObjectId.createFromHexString(quizId!));
     }
 
-    await this._roadmapStepRepository.updateOne({
-      filter: {
-        _id: roadmapStepId,
-        __v: v,
-        paranoid: false,
-        freezed: { $exists: true },
-      },
-      update: {
-        restored: { at: new Date(), by: req.user!._id },
-        quizzesIds: newQuizzesIds,
-        $unset: { freezed: 1 },
-      },
-    });
+    if (
+      (
+        await this._roadmapStepRepository.updateOne({
+          filter: {
+            _id: roadmapStepId,
+            __v: v,
+            paranoid: false,
+            freezed: { $exists: true },
+          },
+          update: {
+            restored: { at: new Date(), by: req.user!._id },
+            quizzesIds: newQuizzesIds,
+            $unset: { freezed: 1 },
+          },
+        })
+      ).modifiedCount
+    ) {
+      await this._careerRepository.updateOne({
+        filter: {
+          _id: (careerId as unknown as FullICareer)._id,
+        },
+        update: { $inc: { orderEpoch: 1 } },
+      });
+    }
 
     return successHandler({
+      req,
       res,
       message: `Roadmap step was restored successfully after ${result.length >= 1 ? `deleting unfound quizzesIds ✅` : `updating quizzesIds with the quizId ${quizId}`} `,
     });
@@ -981,7 +1104,7 @@ class RoadmapService {
   deleteRoadmapStep = async (
     req: Request,
     res: Response,
-  ): Promise<Response> => {
+  ): Promise<Response | void> => {
     const { roadmapStepId } = req.params as DeleteRoadmapStepParamsDto;
     const { v } = req.body as DeleteRoadmapStepBodyDto;
 
@@ -1012,6 +1135,17 @@ class RoadmapService {
       ).deletedCount
     ) {
       await Promise.all([
+        this.checkAndUpdateOrder({
+          career: roadmapStep.careerId as unknown as FullICareer,
+          isDeleting: true,
+          order: roadmapStep.order,
+        }),
+        this._careerRepository.updateOne({
+          filter: {
+            _id: (roadmapStep.careerId as unknown as FullICareer)._id,
+          },
+          update: { $inc: { stepsCount: -1, orderEpoch: 1 } },
+        }),
         S3Service.deleteFolderByPrefix({
           FolderPath: S3FoldersPaths.roadmapStepFolderPath(
             (roadmapStep.careerId as unknown as FullICareer).assetFolderId,
@@ -1019,13 +1153,18 @@ class RoadmapService {
           ),
         }),
         this._savedQuizRepository.deleteMany({ filter: { roadmapStepId } }),
-        // delete step progress
+        this._userCareerProgressRepository.updateMany({
+          filter: {
+            careerId: (roadmapStep.careerId as unknown as FullICareer)._id,
+          },
+          update: { $pull: { completedSteps: roadmapStepId } },
+        }),
       ]);
     } else {
       throw new NotFoundException("Invalid roadmapStepId or Not freezed ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 }
 

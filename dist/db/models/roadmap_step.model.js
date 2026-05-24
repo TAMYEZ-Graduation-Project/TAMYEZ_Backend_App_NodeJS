@@ -112,6 +112,7 @@ roadmapStepSchema.methods.toJSON = function () {
         careerId: roadmapStepObject?.careerId || undefined,
         title: roadmapStepObject?.title,
         description: roadmapStepObject?.description,
+        progressStatus: this?.progressStatus,
         courses: roadmapStepObject?.courses?.map((course) => {
             course.pictureUrl = S3KeyUtil.generateS3UploadsUrlFromSubKey(course.pictureUrl);
             return DocumentFormat.getIdFrom_Id(course);
