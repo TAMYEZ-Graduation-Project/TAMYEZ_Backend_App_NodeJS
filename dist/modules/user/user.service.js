@@ -7,11 +7,11 @@ import HashingSecurityUtil from "../../utils/security/hash.security.js";
 import { BadRequestException, ForbiddenException, NotFoundException, ValidationException, VersionConflictException, } from "../../utils/exceptions/custom.exceptions.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import TokenSecurityUtil from "../../utils/security/token.security.js";
-import { AdminNotificationsLimitRepository, CareerRepository, DashboardReviewRepository, FeedbackRepository, NotificationPushDeviceRepository, QuizAttemptRepository, UserRepository, } from "../../db/repositories/index.js";
+import { AdminNotificationsLimitRepository, CareerRepository, DashboardReviewRepository, FeedbackRepository, NotificationPushDeviceRepository, QuizAttemptRepository, UserCareerProgressRepository, UserRepository, } from "../../db/repositories/index.js";
 import NotificationPushDeviceModel from "../../db/models/notifiction_push_device.model.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
 import UserModel from "../../db/models/user.model.js";
-import { AdminNotificationsLimitModel, CareerModel, DashboardReviewModel, FeedbackModel, QuizAttemptModel, QuizCooldownModel, SavedQuizModel, } from "../../db/models/index.js";
+import { AdminNotificationsLimitModel, CareerModel, DashboardReviewModel, FeedbackModel, QuizAttemptModel, QuizCooldownModel, SavedQuizModel, UserCareerProgressModel, } from "../../db/models/index.js";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.js";
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.js";
 import emailEvent from "../../utils/events/email.events.js";
@@ -25,6 +25,7 @@ class UserService {
     _adminNotificationsLimitRepository = new AdminNotificationsLimitRepository(AdminNotificationsLimitModel);
     _careerRepository = new CareerRepository(CareerModel);
     _feedbackRepository = new FeedbackRepository(FeedbackModel);
+    _userCareerProgressRepository = new UserCareerProgressRepository(UserCareerProgressModel);
     getAdminDashboardData = async (req, res) => {
         const reviews = await this._dashboardReviewRepository.aggregate({
             pipeline: [
@@ -61,6 +62,7 @@ class UserService {
             ],
         });
         return successHandler({
+            req,
             res,
             body: {
                 ...reviews[0],
@@ -142,6 +144,10 @@ class UserService {
                         match: { paranoid: false },
                         select: "title slug pictureUrl freezed",
                     },
+                    {
+                        path: "careerDeleted.newSuggestedCareer",
+                        select: "title slug pictureUrl freezed",
+                    },
                 ],
             };
             let user;
@@ -170,6 +176,7 @@ class UserService {
                 throw new NotFoundException(`This ${archived ? "archived " : ""}user NOT found ❌`);
             }
             return successHandler({
+                req,
                 res,
                 body: {
                     user,
@@ -214,11 +221,14 @@ class UserService {
                 },
                 page,
                 size,
+                options: {
+                    select: "firstName lastName email role profilePicture assessmentStatus freezed __v createdAt",
+                },
             });
             if (!result.data || result.data.length == 0) {
                 throw new NotFoundException(archived ? "No archived users found 🔍❌" : "No users found 🔍❌");
             }
-            return successHandler({ res, body: result });
+            return successHandler({ req, res, body: result });
         };
     };
     uploadProfilePicture = async (req, res) => {
@@ -263,6 +273,7 @@ class UserService {
             });
         }
         return successHandler({
+            req,
             res,
             body: {
                 url: S3KeyUtil.generateS3UploadsUrlFromSubKey(subKey),
@@ -283,7 +294,7 @@ class UserService {
             filter: { _id: req.user._id, __v: v },
             update: { ...updatedObject },
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     changePassword = async (req, res) => {
         const { currentPassword, newPassword, flag, v } = req.validationResult
@@ -294,32 +305,36 @@ class UserService {
         }))) {
             throw new BadRequestException(StringConstants.INVALID_PARAMETER_MESSAGE("currentPassword"));
         }
-        const updateObject = {};
+        let changeCredentialsTime;
+        let revokeToken = false;
         switch (flag) {
             case LogoutFlagsEnum.all:
-                updateObject.changeCredentialsTime = new Date();
+                changeCredentialsTime = new Date();
                 break;
             case LogoutFlagsEnum.one:
-                await TokenSecurityUtil.revoke({
-                    flag,
-                    userId: req.user._id,
-                    tokenPayload: req.tokenPayload,
-                });
+                revokeToken = true;
                 break;
             default:
                 break;
         }
         await this._userRepository.updateOne({
             filter: { _id: req.user._id, __v: v },
-            update: { password: newPassword, ...updateObject },
+            update: { password: newPassword, changeCredentialsTime },
         });
-        return successHandler({ res });
+        if (revokeToken) {
+            await TokenSecurityUtil.revoke({
+                flag,
+                userId: req.user._id,
+                tokenPayload: req.tokenPayload,
+            });
+        }
+        return successHandler({ req, res });
     };
     logout = async (req, res) => {
         const { flag, deviceId } = req.validationResult.body;
         if (deviceId) {
             const pushDeviceResult = await this._notificationPushDeviceRepository.updateOne({
-                filter: { userId: req.user._id, deviceId, __v: undefined },
+                filter: { userId: req.user._id, deviceId },
                 update: {
                     isActive: false,
                     $unset: { fcmToken: true },
@@ -334,7 +349,7 @@ class UserService {
             userId: req.user._id,
             tokenPayload: req.tokenPayload,
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     changeRole = async (req, res) => {
         const { userId } = req.params;
@@ -358,7 +373,7 @@ class UserService {
         if (!user) {
             throw new NotFoundException("Invalid userId or invalid role ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     archiveAccount = async (req, res) => {
         const { userId } = req.params;
@@ -395,32 +410,34 @@ class UserService {
             });
             if (user &&
                 user.role != req.user?.role &&
-                user.role != RolesEnum.superAdmin &&
-                user.freezed.by.equals(userId)) {
-                if (refreeze) {
-                    await this._userRepository.updateOne({
-                        filter: { _id: userId, __v: v, paranoid: false },
-                        update: {
-                            freezed: {
-                                at: new Date(),
-                                by: req.user._id,
+                user.role != RolesEnum.superAdmin) {
+                if (user.freezed.by.equals(userId)) {
+                    if (refreeze) {
+                        await this._userRepository.updateOne({
+                            filter: { _id: userId, __v: v, paranoid: false },
+                            update: {
+                                freezed: {
+                                    at: new Date(),
+                                    by: req.user._id,
+                                },
+                                changeCredentialsTime: new Date(),
                             },
-                            changeCredentialsTime: new Date(),
-                        },
-                    });
+                        });
+                    }
+                    else {
+                        throw new BadRequestException("User has froze their own account! Do you want to re-freeze it?");
+                    }
                 }
                 else {
-                    throw new BadRequestException("User has freezed their own account! Do you want to re-freezed it?");
+                    throw new NotFoundException("user not found or already frozen ❌");
                 }
             }
-            else if (user) {
-                throw new BadRequestException("Can't freeze high or equal account privilages ❌");
-            }
             else {
-                throw new NotFoundException("user not found or already freezed ❌");
+                throw new BadRequestException("Can't freeze high or equal account privilages ❌");
             }
         }
         return successHandler({
+            req,
             res,
             message: !userId
                 ? "Your account has been freezed, you can only restore it after 24 hours ✅"
@@ -451,7 +468,7 @@ class UserService {
         if (result.modifiedCount === 0) {
             throw new NotFoundException("account not found, self-freezed, or already restored ❌");
         }
-        return successHandler({ res, message: "Account Restored!" });
+        return successHandler({ req, res, message: "Account Restored!" });
     };
     deleteAccount = async (req, res) => {
         const { userId } = req.params;
@@ -500,8 +517,19 @@ class UserService {
             this._notificationPushDeviceRepository.deleteMany({
                 filter: { userId: userId || req.user._id },
             }),
+            this._userCareerProgressRepository.deleteOne({
+                filter: { userId: userId || req.user._id },
+            }),
+            this._feedbackRepository.updateMany({
+                filter: { createdBy: userId || req.user._id },
+                update: { accountDeleted: true, $unset: { createdBy: 1 } },
+            }),
         ]);
-        return successHandler({ res, message: "Account Deleted Permanently ✅" });
+        return successHandler({
+            req,
+            res,
+            message: "Account Deleted Permanently ✅",
+        });
     };
     submitFeedback = async (req, res) => {
         const { text, stars } = req.validationResult
@@ -518,6 +546,7 @@ class UserService {
             data: [{ text, stars, createdBy: req.user._id }],
         });
         return successHandler({
+            req,
             res,
             message: "Feedback submitted successfully ✅",
         });
@@ -529,12 +558,19 @@ class UserService {
             filter: {},
             page,
             size,
-            options: { sort: { createdAt: -1 } },
+            options: {
+                sort: { createdAt: -1 },
+                populate: {
+                    path: "createdBy",
+                    match: { paranoid: false },
+                    select: "firstName lastName profilePicture",
+                },
+            },
         });
         if (!feedbacks?.data?.length) {
             throw new NotFoundException("No feedbacks found ❌");
         }
-        return successHandler({ res, body: feedbacks });
+        return successHandler({ req, res, body: feedbacks });
     };
     replyToFeedback = async (req, res) => {
         const { feedbackId } = req.params;
@@ -563,7 +599,7 @@ class UserService {
                 otpOrLink: text,
             },
         });
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
     deleteFeedback = async (req, res) => {
         const { feedbackId } = req.params;
@@ -573,7 +609,7 @@ class UserService {
         if (!result.deletedCount) {
             throw new NotFoundException("Invalid feedbackId or already deleted ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
 }
 export default UserService;

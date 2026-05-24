@@ -124,7 +124,7 @@ abstract class DatabaseRepository<TDocument> {
   }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
     const res = await this.model.findOne(filter, projection, options);
 
-    if (filter?.__v != undefined && res == undefined) {
+    if (res == undefined && filter?.__v != undefined) {
       const { __v, ...baseFilter } = filter;
       const existsIgnoringVersion = await this.model.exists(baseFilter);
       if (existsIgnoringVersion) {
@@ -207,17 +207,16 @@ abstract class DatabaseRepository<TDocument> {
         }),
       };
     }
+
     const res = await this.model.updateOne(filter, update, options);
 
-    if (filter?.__v != undefined) {
-      if (!res.matchedCount) {
-        const { __v, ...baseFilter } = filter;
-        const existsIgnoringVersion = await this.model.exists(baseFilter);
-        if (existsIgnoringVersion) {
-          throw new VersionConflictException(
-            StringConstants.INVALID_VERSION_MESSAGE,
-          );
-        }
+    if (!res.matchedCount && filter?.__v != undefined) {
+      const { __v, ...baseFilter } = filter;
+      const existsIgnoringVersion = await this.model.exists(baseFilter);
+      if (existsIgnoringVersion) {
+        throw new VersionConflictException(
+          StringConstants.INVALID_VERSION_MESSAGE,
+        );
       }
     }
 
@@ -419,7 +418,7 @@ abstract class DatabaseRepository<TDocument> {
   }): Promise<UpdateWriteOpResult> => {
     const res = await this.model.replaceOne(filter, replacement, options);
 
-    if (!res.matchedCount) {
+    if (!res.matchedCount && filter?.__v != undefined) {
       const { __v, ...baseFilter } = filter;
       const existsIgnoringVersion = await this.model.exists(baseFilter);
       if (existsIgnoringVersion) {

@@ -16,7 +16,7 @@ const uploadsRouter = Router();
 uploadsRouter.get(
   RoutePaths.getFileFromSubKeyByPresignedUrl,
   validationMiddleware({ schema: UploadsValidators.getFileFromSubKey }),
-  async (req: Request, res: Response): Promise<Response> => {
+  async (req: Request, res: Response): Promise<Response | void> => {
     const { download, downloadName } =
       req.query as GetFileFromSubKeyQueryDtoType;
     const { path } = req.params as unknown as GetFileFromSubKeyParamsDtoType;
@@ -29,11 +29,12 @@ uploadsRouter.get(
     });
 
     return successHandler({
+      req,
       res,
       message: "Presigned URL Generated !",
       body: { url: signedUrl },
     });
-  }
+  },
 );
 
 uploadsRouter.get(
@@ -53,7 +54,7 @@ uploadsRouter.get(
     res.set("Cross-Origin-Resource-Policy", "cross-origin");
     res.setHeader(
       "Content-Type",
-      s3Response.ContentType || "application/octet-stream"
+      s3Response.ContentType || "application/octet-stream",
     );
     if (download === "true") {
       res.setHeader(
@@ -62,7 +63,7 @@ uploadsRouter.get(
           downloadName
             ? `${downloadName}.${s3Response.ContentType?.split("/")[1]}`
             : SubKey.split("/").pop()
-        }"`
+        }"`,
       );
     }
 
@@ -70,7 +71,7 @@ uploadsRouter.get(
       source: s3Response.Body as ReadableStream,
       destination: res,
     });
-  }
+  },
 );
 
 export default uploadsRouter;

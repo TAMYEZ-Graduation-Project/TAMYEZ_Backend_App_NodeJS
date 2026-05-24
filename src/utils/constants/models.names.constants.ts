@@ -9,6 +9,8 @@ abstract class ModelsNames {
   static readonly adminNotificationsLimit = "AdminNotificationsLimit";
   static readonly careerModel = "Career";
   static readonly roadmapStepModel = "RoadmapStep";
+  static readonly userCareerProgressModel = "UserCareerProgress";
+  static readonly careerSuggestionAttemptModel = "CareerSuggestionAttempt";
   static readonly dashboardReviewModel = "DashboardReview";
   static readonly feedbackModel = "Feedback";
 }

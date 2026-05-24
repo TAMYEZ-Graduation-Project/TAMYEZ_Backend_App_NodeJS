@@ -5,11 +5,13 @@ import {
   QuizAttemptModel,
   SavedQuizModel,
   RoadmapStepModel,
+  UserCareerProgressModel,
 } from "../../db/models/index.ts";
 import {
   QuizAttemptRepository,
   QuizRepository,
   RoadmapStepRepository,
+  UserCareerProgressRepository,
 } from "../../db/repositories/index.ts";
 import successHandler from "../../utils/handlers/success.handler.ts";
 import type {
@@ -22,6 +24,7 @@ import type {
   DeleteQuizParamsDtoType,
   GetQuizParamsDtoType,
   GetQuizQuestionsParamsDtoType,
+  GetQuizQuestionsQueryDtoType,
   GetQuizzesQueryDtoType,
   GetSavedQuizParamsDtoType,
   GetSavedQuizzesQueryDtoType,
@@ -31,9 +34,11 @@ import type {
   UpdateQuizParamsDtoType,
 } from "./quiz.dto.ts";
 import {
+  CareerAssessmentStatusEnum,
   OptionIdsEnum,
   QuestionTypesEnum,
   QuizTypesEnum,
+  RoadmapStepProgressStatusEnum,
   RolesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import {
@@ -65,12 +70,14 @@ import type {
   FullIQuestion,
   HIQuestion,
   IQuestion,
-} from "../../db/interfaces/quiz_questions.interface.ts";
+} from "../../db/interfaces/quiz_attempt.interface.ts";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
 import type { ISavedQuestion } from "../../db/interfaces/saved_quiz.interface.ts";
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.ts";
 import pause from "../../utils/pause/code.pause.ts";
 import type { Types } from "mongoose";
+import type { FullIRoadmapStep } from "../../db/interfaces/roadmap_step.interface.ts";
+import UserProgressService from "../../utils/services/user_progress.service.ts";
 
 class QuizService {
   private _quizRepository = new QuizRepository(QuizModel);
@@ -82,9 +89,19 @@ class QuizService {
   private readonly _roadmapStepRepository = new RoadmapStepRepository(
     RoadmapStepModel,
   );
+  private readonly _userCareerProgressRepository =
+    new UserCareerProgressRepository(UserCareerProgressModel);
+  private readonly _userProgressService = new UserProgressService(
+    this._roadmapStepRepository,
+    this._userCareerProgressRepository,
+  );
+
   //private _quizApisManager = new QuizApisManager();
 
-  createQuiz = async (req: Request, res: Response): Promise<Response> => {
+  createQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { title, description, aiPrompt, type, duration, tags } = req
       .validationResult.body as CreateQuizBodyDtoType;
 
@@ -137,23 +154,27 @@ class QuizService {
     });
 
     return successHandler({
+      req,
       res,
       message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
     });
   };
 
-  updateQuiz = async (req: Request, res: Response): Promise<Response> => {
+  updateQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId } = req.params as UpdateQuizParamsDtoType;
     const { title, description, aiPrompt, type, duration, tags, v } = req
       .validationResult.body as UpdateQuizBodyDtoType;
 
     const quiz = await this._quizRepository.findOne({
-      filter: { _id: quizId, paranoid: false },
+      filter: { _id: quizId },
     });
 
     if (!quiz) {
       throw new NotFoundException(
-        StringConstants.INVALID_PARAMETER_MESSAGE("quizId"),
+        "Quiz not found or archived ❌",
       );
     }
 
@@ -205,13 +226,14 @@ class QuizService {
     });
 
     return successHandler({
+      req,
       res,
-      message: StringConstants.CREATED_SUCCESSFULLY_MESSAGE("Quiz"),
+      message: "Quiz updated successfully ✅",
     });
   };
 
   getQuizzes = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { page, size, searchKey } = req.validationResult
         .query as GetQuizzesQueryDtoType;
       const result = await this._quizRepository.paginate({
@@ -247,12 +269,12 @@ class QuizService {
         );
       }
 
-      return successHandler({ res, body: result });
+      return successHandler({ req, res, body: result });
     };
   };
 
   getQuiz = ({ archived = false }: { archived?: boolean } = {}) => {
-    return async (req: Request, res: Response): Promise<Response> => {
+    return async (req: Request, res: Response): Promise<Response | void> => {
       const { quizId, roadmapStepId } = req.params as GetQuizParamsDtoType;
 
       // when role == user than ofcourse archived is false
@@ -318,7 +340,11 @@ class QuizService {
         );
       }
 
-      return successHandler<IGetQuizDetailsResponse>({ res, body: { quiz } });
+      return successHandler<IGetQuizDetailsResponse>({
+        req,
+        res,
+        body: { quiz },
+      });
     };
   };
 
@@ -440,9 +466,14 @@ class QuizService {
     };
   };
 
-  getQuizQuestions = async (req: Request, res: Response): Promise<Response> => {
+  getQuizQuestions = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId, roadmapStepId } =
       req.params as GetQuizQuestionsParamsDtoType;
+    const { discardActiveAttempt } = req.validationResult
+      .query as GetQuizQuestionsQueryDtoType;
 
     const filter: { _id?: string; uniqueKey?: Record<any, any> } = {};
     if (quizId === QuizTypesEnum.careerAssessment) {
@@ -477,6 +508,7 @@ class QuizService {
     }
 
     if (quizId !== QuizTypesEnum.careerAssessment) {
+      // check roadmapStep exists and has the specifed quizId
       const roadmapStep = await this._roadmapStepRepository.findOne({
         filter: {
           _id: roadmapStepId,
@@ -492,6 +524,54 @@ class QuizService {
         throw new NotFoundException(
           "Invalid roadmapStepId, career freezed or quiz is not in your roadmap step ❌",
         );
+      }
+
+      // check step status
+      const stepStatus = (
+        (await this._userProgressService.refreshProgressAndClassify({
+          progress: req.progress!,
+          user: req.user!,
+          stepOrSteps: roadmapStep,
+        })) as FullIRoadmapStep
+      ).progressStatus;
+
+      if (stepStatus === RoadmapStepProgressStatusEnum.lockedPrereq)
+        throw new BadRequestException("Step is locked ❌🔒️");
+
+      // check if there are new steps have to be completed first
+      if (
+        stepStatus === RoadmapStepProgressStatusEnum.inProgress ||
+        stepStatus === RoadmapStepProgressStatusEnum.available
+      ) {
+        const firstNewStep = await this._userProgressService.getFirstNewStep({
+          progress: req.progress!,
+        });
+        if (firstNewStep && !firstNewStep._id.equals(roadmapStepId)) {
+          throw new BadRequestException(
+            "You can't complete this step until all prior new steps are done first ❌",
+          );
+        }
+      }
+
+      // check all prior quizzes were sucessfully token
+      if (roadmapStep.quizzesIds.length > 1) {
+        const quizIndex = roadmapStep.quizzesIds.findIndex((quiz) =>
+          quiz.equals(quizId),
+        );
+        if (quizIndex > 0) {
+          if (
+            (await this._savedQuizRepository.countDocuments({
+              filter: {
+                userId: req.user!._id!,
+                quizId: { $in: roadmapStep.quizzesIds.slice(0, quizIndex) },
+              },
+            })) != quizIndex
+          ) {
+            throw new BadRequestException(
+              "All prior quizzes must be taken sequentially in order ❌",
+            );
+          }
+        }
       }
     }
 
@@ -517,7 +597,7 @@ class QuizService {
     if (
       quizId !== QuizTypesEnum.careerAssessment &&
       (await this._quizCooldownRepository.findOne({
-        filter: { quizId: quiz._id, userId: req.user!._id! },
+        filter: { userId: req.user!._id!, quizId: quiz._id },
       }))
     ) {
       throw new BadRequestException(
@@ -525,71 +605,86 @@ class QuizService {
       );
     }
 
-    const [_, generatedQuestions] = await Promise.all([
-      this._quizAttemptRepository.deleteOne({
-        filter: { quizId: quiz._id, userId: req.user!._id!, __v: undefined },
-      }),
-      this._generateQuestions({
-        title: quiz.title,
-        aiPrompt: quiz.aiPrompt,
-      }),
-    ]);
+    if (
+      !discardActiveAttempt &&
+      (await this._quizAttemptRepository.exists({
+        filter: { userId: req.user!._id!, quizId: quiz._id, roadmapStepId },
+      }))
+    ) {
+      throw new BadRequestException(
+        "There is an active attempt on this quiz ⚠️ Do you want to discard it?",
+      );
+    }
+    const generatedQuestions = await this._generateQuestions({
+      title: quiz.title,
+      aiPrompt: quiz.aiPrompt,
+    });
 
     // await this._quizApisManager.getQuizQustions({
     //   title: quiz.title,
     //   aiPrompt: quiz.aiPrompt,
     // });
 
-    let [quizQuestions] = await this._quizAttemptRepository.create({
-      data: [
-        {
-          quizId: quiz._id,
-          userId: req.user!._id!,
-          attemptType:
-            quizId === QuizTypesEnum.careerAssessment ||
+    let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
+      filter: { userId: req.user!._id!, quizId: quiz._id, roadmapStepId },
+      update: {
+        quizId: quiz._id,
+        userId: req.user!._id!,
+        attemptType:
+          quizId === QuizTypesEnum.careerAssessment ||
+          quiz.title == StringConstants.CAREER_ASSESSMENT
+            ? QuizTypesEnum.careerAssessment
+            : QuizTypesEnum.stepQuiz,
+        careerId: req.user?.careerPath?.id,
+        roadmapStepId: roadmapStepId as unknown as Types.ObjectId | undefined,
+        questions: generatedQuestions.questions,
+        expiresAt: new Date(
+          Date.now() +
+            (quizId === QuizTypesEnum.careerAssessment ||
             quiz.title == StringConstants.CAREER_ASSESSMENT
-              ? QuizTypesEnum.careerAssessment
-              : QuizTypesEnum.stepQuiz,
-          careerId: req.user?.careerPath!.id!,
-          roadmapStepId: roadmapStepId as unknown as Types.ObjectId | undefined,
-          questions: generatedQuestions.questions,
-          expiresAt: new Date(
-            Date.now() +
-              (quizId === QuizTypesEnum.careerAssessment ||
-              quiz.title == StringConstants.CAREER_ASSESSMENT
-                ? Number(
-                    process.env[
-                      EnvFields.CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS
-                    ],
-                  )
-                : quiz.duration! +
-                  Number(
-                    process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS],
-                  )) *
-                1000,
-          ),
-        },
-      ],
+              ? Number(
+                  process.env[
+                    EnvFields.CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS
+                  ],
+                )
+              : quiz.duration! +
+                Number(
+                  process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS],
+                )) *
+              1000,
+        ),
+      },
+      options: { new: true, upsert: true },
     });
 
-    if (!quizQuestions) {
+    if (!quizAttempt) {
       throw new ServerException("Failed to generate quiz questions ❓");
     }
 
     if (!req.user!.quizAttempts?.count) {
       req.user!.quizAttempts = { count: 0, lastAttempt: new Date() };
     }
+    if (
+      quizId === QuizTypesEnum.careerAssessment ||
+      quiz.title == StringConstants.CAREER_ASSESSMENT
+    ) {
+      req.user!.assessmentStatus = CareerAssessmentStatusEnum.inProgress;
+    }
+    req.user!.increment();
     await req.user?.save();
 
-    const quizQuestionsObj = quizQuestions.toJSON();
-    if (quizId === QuizTypesEnum.careerAssessment) {
-      delete quizQuestionsObj.id;
-    }
+    // const quizQuestionsObj = quizQuestions.toJSON();
+    // if (quizId === QuizTypesEnum.careerAssessment) {
+    //   delete quizQuestionsObj.id;
+    // }
+
+    if (res.headersSent || res.writableEnded) return;
 
     return successHandler<IGetQuizQuestionsResponse>({
+      req,
       res,
       body: {
-        quiz: quizQuestionsObj,
+        quizAttempt,
       },
     });
   };
@@ -625,12 +720,15 @@ class QuizService {
     });
   };
 
-  checkQuizAnswers = async (req: Request, res: Response): Promise<Response> => {
+  checkQuizAnswers = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizAttemptId } = req.params as CheckQuizAnswersParamsDtoType;
     const { answers } = req.validationResult
       .body as CheckQuizAnswersBodyDtoType;
 
-    const quizQuestions = await this._quizAttemptRepository.findOne({
+    const quizAttempt = await this._quizAttemptRepository.findOne({
       filter: { _id: quizAttemptId, userId: req.user!._id! },
       options: {
         populate: [
@@ -639,33 +737,38 @@ class QuizService {
             match: { paranoid: false },
             select: "title aiPrompt",
           },
+          {
+            path: "roadmapStepId",
+            match: { paranoid: false },
+            select: "quizzesIds",
+          },
         ],
       },
     });
 
-    if (!quizQuestions) {
+    if (!quizAttempt) {
       throw new NotFoundException(
         "Quiz questions not found for the given quizAttemptId and user 🚫",
       );
     }
 
     if (
-      (quizQuestions.quizId as unknown as HIQuiz).title ===
+      (quizAttempt.quizId as unknown as HIQuiz).title ===
       StringConstants.CAREER_ASSESSMENT
     ) {
       throw new BadRequestException(
-        `Answers of ${StringConstants.CAREER_ASSESSMENT} quiz, use get suggested careers API 🚫`,
+        `Answers of ${StringConstants.CAREER_ASSESSMENT} quiz, use check career assessment API 🚫`,
       );
     }
 
-    if (answers.length !== quizQuestions.questions.length) {
+    if (answers.length !== quizAttempt.questions.length) {
       throw new ValidationException(
         "Number of answers provided does not match number of questions ❌",
       );
     }
 
     // ---- Build maps once (O(n)) ----
-    const questions = quizQuestions.questions as HIQuestion[];
+    const questions = quizAttempt.questions as HIQuestion[];
     const qById = new Map<string, { index: number } & FullIQuestion>();
     for (let i = 0; i < questions.length; i++) {
       const qid = questions[i]!.id?.toString()!;
@@ -701,8 +804,8 @@ class QuizService {
     const gate = makeCompleter();
     this._checkWrittenQuestionsAnswers({
       resolve: gate.resolve as unknown as () => void,
-      title: (quizQuestions.quizId as unknown as HIQuiz).title,
-      aiPrompt: (quizQuestions.quizId as unknown as HIQuiz).aiPrompt!,
+      title: (quizAttempt.quizId as unknown as HIQuiz).title,
+      aiPrompt: (quizAttempt.quizId as unknown as HIQuiz).aiPrompt!,
       writtenAnswers,
     });
 
@@ -770,47 +873,71 @@ class QuizService {
     );
 
     if (scoreNumber >= 50) {
-      if (
-        !(await this._savedQuizRepository.findOneAndUpdate({
-          filter: {
-            quizId: quizQuestions.quizId!._id!,
-            userId: req.user!._id!,
-            __v: undefined,
-          },
-          update: {
+      await this._savedQuizRepository.updateOne({
+        filter: {
+          userId: req.user!._id!,
+          quizId: quizAttempt.quizId!._id!,
+        },
+        update: {
+          $set: {
+            careerId: quizAttempt.careerId,
+            roadmapStepId: quizAttempt.roadmapStepId,
             questions: checkedAnswers,
             score: `${scoreNumber}%`,
             takenAt: new Date(),
           },
+        },
+        options: { upsert: true },
+      });
+      // check if roadmap step marked as completed or not
+      if (
+        !(await this._userCareerProgressRepository.exists({
+          filter: {
+            userId: req.user!._id!,
+            completedSteps: (
+              quizAttempt.roadmapStepId as unknown as FullIRoadmapStep
+            )._id,
+          },
         }))
       ) {
-        await this._savedQuizRepository.create({
-          data: [
-            {
-              quizId: quizQuestions.quizId!._id!,
-              userId: req.user!._id!,
-              careerId: quizQuestions.careerId,
-              roadmapStepId: quizQuestions.roadmapStepId,
-              questions: checkedAnswers,
-              score: `${scoreNumber}%`,
-              takenAt: new Date(),
-            },
-          ],
-        });
+        const quizzesIds = (
+          quizAttempt.roadmapStepId as unknown as FullIRoadmapStep
+        ).quizzesIds;
+        if (
+          (quizzesIds.length == 1 &&
+            quizzesIds[0]!.equals(quizAttempt.quizId)) ||
+          (quizzesIds[quizzesIds.length - 1]!.equals(
+            (quizAttempt.quizId as unknown as HIQuiz)._id,
+          ) &&
+            (await this._savedQuizRepository.countDocuments({
+              filter: {
+                userId: req.user!._id!,
+                quizId: {
+                  $in: quizzesIds,
+                },
+              },
+            })) == quizzesIds.length)
+        ) {
+          // add step to completedSteps
+          await this._userProgressService.addStepToCompletedAndRefreshProgress({
+            user: req.user!,
+            stepId: (quizAttempt.roadmapStepId as unknown as FullIRoadmapStep)
+              ._id,
+          });
+        }
       }
     } else {
       await Promise.all([
         this._savedQuizRepository.deleteOne({
           filter: {
-            quizId: quizQuestions.quizId!._id!,
             userId: req.user!._id!,
-            __v: undefined,
+            quizId: quizAttempt.quizId!._id!,
           },
         }),
         this._quizCooldownRepository.create({
           data: [
             {
-              quizId: quizQuestions.quizId!._id!,
+              quizId: quizAttempt.quizId!._id!,
               userId: req.user!._id!,
               cooldownEndsAt: new Date(
                 Date.now() +
@@ -823,8 +950,9 @@ class QuizService {
       ]);
     }
 
-    await quizQuestions.deleteOne();
+    await quizAttempt.deleteOne();
     return successHandler({
+      req,
       res,
       message: "Quiz answers checked successfully ✅",
       body: {
@@ -837,7 +965,10 @@ class QuizService {
     });
   };
 
-  getSavedQuizzes = async (req: Request, res: Response): Promise<Response> => {
+  getSavedQuizzes = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { page, size } = req.validationResult
       .query as GetSavedQuizzesQueryDtoType;
 
@@ -862,13 +993,17 @@ class QuizService {
     }
 
     return successHandler({
+      req,
       res,
       message: "Saved quizzes fetched successfully ✅",
       body: { savedQuizzes },
     });
   };
 
-  getSavedQuiz = async (req: Request, res: Response): Promise<Response> => {
+  getSavedQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { savedQuizId } = req.params as GetSavedQuizParamsDtoType;
 
     const savedQuiz = await this._savedQuizRepository.findOne({
@@ -889,13 +1024,17 @@ class QuizService {
     }
 
     return successHandler({
+      req,
       res,
       message: "Saved quiz fetched successfully ✅",
       body: { savedQuiz },
     });
   };
 
-  archiveQuiz = async (req: Request, res: Response): Promise<Response> => {
+  archiveQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId } = req.params as ArchiveQuizParamsDtoType;
     const { v } = req.body as ArchiveQuizBodyDtoType;
 
@@ -930,10 +1069,13 @@ class QuizService {
       },
     });
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
-  restoreQuiz = async (req: Request, res: Response): Promise<Response> => {
+  restoreQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId } = req.params as RestoreQuizParamsDtoType;
     const { v } = req.body as RestoreQuizBodyDtoType;
 
@@ -954,10 +1096,13 @@ class QuizService {
       throw new NotFoundException("Invalid quizId or Not freezed ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 
-  deleteQuiz = async (req: Request, res: Response): Promise<Response> => {
+  deleteQuiz = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { quizId } = req.params as DeleteQuizParamsDtoType;
     const { v } = req.body as DeleteQuizBodyDtoType;
 
@@ -976,7 +1121,7 @@ class QuizService {
 
     if (await this._quizAttemptRepository.exists({ filter: { quizId } })) {
       throw new BadRequestException(
-        "There are active quiz attempts on this roadmap step please wait until it's done ❌⌛️",
+        "There are active quiz attempts on this quiz please wait until it's done ❌⌛️",
       );
     }
 
@@ -997,7 +1142,7 @@ class QuizService {
       throw new NotFoundException("Invalid quizId or Not freezed ❌");
     }
 
-    return successHandler({ res });
+    return successHandler({ req, res });
   };
 }
 

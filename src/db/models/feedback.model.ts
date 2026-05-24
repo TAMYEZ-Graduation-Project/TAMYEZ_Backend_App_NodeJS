@@ -4,6 +4,8 @@ import DocumentFormat from "../../utils/formats/document.format.ts";
 import type { IFeedback, IReply } from "../interfaces/feedback.interface.ts";
 import type { FullIUser, IUser } from "../interfaces/user.interface.ts";
 import type { PartialUndefined } from "../../utils/types/partial_undefined.type.ts";
+import S3KeyUtil from "../../utils/multer/s3_key.multer.ts";
+import { ProvidersEnum } from "../../utils/constants/enum.constants.ts";
 
 const replySchema = new mongoose.Schema<IReply>(
   {
@@ -27,6 +29,7 @@ const feedbackSchema = new mongoose.Schema<IFeedback>(
       required: true,
     },
     reply: { type: replySchema },
+    accountDeleted: { type: Boolean, default: false },
   },
   {
     timestamps: true,
@@ -37,20 +40,32 @@ const feedbackSchema = new mongoose.Schema<IFeedback>(
 );
 
 feedbackSchema.methods.toJSON = function () {
+  console.log(this.toObject());
+
   const feedbackObject = DocumentFormat.getIdFrom_Id<IFeedback>(
     this.toObject(),
   );
 
-  if (!Types.ObjectId.isValid(feedbackObject.createdBy.toString())) {
-    (
-      feedbackObject.createdBy as unknown as PartialUndefined<FullIUser>
-    ).firstName = undefined;
-    (
-      feedbackObject.createdBy as unknown as PartialUndefined<FullIUser>
-    ).lastName = undefined;
+  if (
+    feedbackObject.createdBy &&
+    !Types.ObjectId.isValid(feedbackObject.createdBy.toString())
+  ) {
+    const userObject =
+      feedbackObject.createdBy as unknown as PartialUndefined<FullIUser>;
+    userObject.firstName = undefined;
+    userObject.lastName = undefined;
+
+    (userObject.profilePicture as String | undefined) = userObject
+      ?.profilePicture?.url
+      ? userObject.profilePicture!.provider === ProvidersEnum.local
+        ? S3KeyUtil.generateS3UploadsUrlFromSubKey(
+            userObject.profilePicture.url,
+          )
+        : userObject.profilePicture.url
+      : undefined;
 
     feedbackObject.createdBy = DocumentFormat.getIdFrom_Id<IUser>(
-      feedbackObject.createdBy as unknown as FullIUser,
+      userObject as unknown as FullIUser,
     ) as unknown as Types.ObjectId;
   }
 
@@ -69,6 +84,7 @@ feedbackSchema.methods.toJSON = function () {
     stars: feedbackObject?.stars,
     createdBy: feedbackObject?.createdBy,
     reply: feedbackObject?.reply,
+    accountDeleted: feedbackObject?.accountDeleted,
     createdAt: feedbackObject?.createdAt,
     updateAt: feedbackObject?.updatedAt,
     v: feedbackObject?.v,

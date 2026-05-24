@@ -103,7 +103,7 @@ class TokenSecurityUtil {
                     {
                         path: "careerPath.id",
                         match: { paranoid: false },
-                        select: "title slug pictureUrl freezed",
+                        select: "title slug pictureUrl freezed stepsCount orderEpoch",
                     },
                 ],
             },

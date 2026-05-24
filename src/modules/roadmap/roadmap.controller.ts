@@ -14,6 +14,7 @@ import {
   StorageTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
 import { expressRateLimitError } from "../../utils/constants/error.constants.ts";
+import loadUserProgressMiddleware from "../../middlewares/progress.middleware.ts";
 
 export const roadmapRouter: Router = Router();
 export const adminRoadmapRouter = Router();
@@ -26,6 +27,7 @@ roadmapRouter.get(
   RoutePaths.getRoadmap,
   Auths.authenticationMiddleware({ isOptional: true }),
   validationMiddleware({ schema: RoadmapValidators.getRoadmap }),
+  loadUserProgressMiddleware,
   roadmapService.getRoadmap(),
 );
 
@@ -33,6 +35,7 @@ roadmapRouter.get(
   RoutePaths.getRoadmapStep,
   Auths.authenticationMiddleware(),
   validationMiddleware({ schema: RoadmapValidators.getRoadmapStep }),
+  loadUserProgressMiddleware,
   roadmapService.getRoadmapStep(),
 );
 
@@ -73,17 +76,6 @@ adminRoadmapRouter.patch(
 );
 
 adminRoadmapRouter.patch(
-  RoutePaths.updateRoadmapStep,
-  rateLimit({
-    limit: 10,
-    windowMs: 10 * 60 * 1000,
-    message: expressRateLimitError,
-  }),
-  validationMiddleware({ schema: RoadmapValidators.updateRoadmapStep }),
-  roadmapService.updateRoadmapStep,
-);
-
-adminRoadmapRouter.patch(
   RoutePaths.updateRoadmapStepResource,
   rateLimit({
     limit: 10,
@@ -97,6 +89,17 @@ adminRoadmapRouter.patch(
   }),
   validationMiddleware({ schema: RoadmapValidators.updateRoadmapStepResource }),
   roadmapService.updateRoadmapStepResource,
+);
+
+adminRoadmapRouter.patch(
+  RoutePaths.updateRoadmapStep,
+  rateLimit({
+    limit: 10,
+    windowMs: 10 * 60 * 1000,
+    message: expressRateLimitError,
+  }),
+  validationMiddleware({ schema: RoadmapValidators.updateRoadmapStep }),
+  roadmapService.updateRoadmapStep,
 );
 
 adminRoadmapRouter.delete(

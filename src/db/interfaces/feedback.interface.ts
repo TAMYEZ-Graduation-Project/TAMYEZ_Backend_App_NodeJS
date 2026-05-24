@@ -13,6 +13,7 @@ export interface IFeedback {
   createdBy: Types.ObjectId;
   reply: IReply;
 
+  accountDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

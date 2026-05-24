@@ -104,9 +104,10 @@ const quizAttemptSchema = new mongoose.Schema({
     toJSON: { virtuals: true },
     id: false,
 });
-quizAttemptSchema.index({ quizId: 1, userId: 1 }, { unique: true });
-quizAttemptSchema.index({ careerId: 1 });
-quizAttemptSchema.index({ roadmapStepId: 1 });
+quizAttemptSchema.index({ userId: 1, quizId: 1, roadmapStepId: 1 }, { unique: true });
+quizAttemptSchema.index({ quizId: 1 });
+quizAttemptSchema.index({ roadmapStepId: 1 }, { sparse: true });
+quizAttemptSchema.index({ careerId: 1 }, { sparse: true });
 quizAttemptSchema.virtual("id").get(function () {
     return this._id;
 });

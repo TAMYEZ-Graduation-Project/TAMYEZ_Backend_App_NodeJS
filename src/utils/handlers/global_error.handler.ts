@@ -7,9 +7,17 @@ const globalErrorHandler = async (
   error: IAppError,
   req: Request,
   res: Response,
-  next: NextFunction
-): Promise<Response> => {
+  next: NextFunction,
+): Promise<Response | void> => {
   console.log({ error });
+
+  if (
+    (req as any).timedout || // set by connect-timeout; or your own flag if custom
+    res.headersSent || // headers were already sent by someone else
+    res.writableEnded // response stream already ended
+  ) {
+    return; 
+  }
 
   return res.status(error.statusCode || 500).json({
     success: false,

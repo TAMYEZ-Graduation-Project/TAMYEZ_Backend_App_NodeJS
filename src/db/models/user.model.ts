@@ -5,6 +5,7 @@ import type {
   IUser,
 } from "../interfaces/user.interface.ts";
 import {
+  CareerAssessmentStatusEnum,
   GenderEnum,
   ProvidersEnum,
   RolesEnum,
@@ -108,6 +109,11 @@ const userSchema = new mongoose.Schema<IUser>(
     },
 
     // Acadamic Info
+    assessmentStatus: {
+      type: String,
+      enum: Object.values(CareerAssessmentStatusEnum),
+      default: CareerAssessmentStatusEnum.notStarted,
+    },
     careerPath: {
       type: idSelectedAtObjectSchema({ ref: ModelsNames.careerModel }),
     },
@@ -150,14 +156,19 @@ userSchema.methods.toJSON = function () {
     userObject?.careerPath &&
     !Types.ObjectId.isValid(userObject.careerPath.id.toString())
   ) {
-    const careerObj = userObject.careerPath.id as unknown as ICareer;
+    const careerObj = userObject.careerPath.id as unknown as FullICareer;
     careerObj.pictureUrl =
       careerObj.pictureUrl === process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
         ? careerObj.pictureUrl
         : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObj.pictureUrl)!;
-    userObject.careerPath.id = DocumentFormat.getIdFrom_Id<ICareer>(
-      userObject.careerPath.id as unknown as FullICareer,
-    ) as unknown as Types.ObjectId;
+    userObject.careerPath.id = DocumentFormat.getIdFrom_Id<ICareer>({
+      _id: careerObj?._id,
+      title: careerObj.title,
+      slug: careerObj?.slug,
+      pictureUrl: careerObj?.pictureUrl,
+      stepsCount: careerObj?.stepsCount,
+      __v: careerObj?.__v,
+    } as unknown as FullICareer) as unknown as Types.ObjectId;
   }
 
   return {
@@ -176,7 +187,9 @@ userSchema.methods.toJSON = function () {
           )
         : userObject.profilePicture.url
       : undefined,
+    assessmentStatus: userObject?.assessmentStatus,
     careerPath: userObject?.careerPath,
+    careerDeleted: userObject?.careerDeleted,
     createdAt: userObject?.createdAt,
     updatedAt: userObject?.updatedAt,
     confirmedAt: userObject?.confirmedAt,

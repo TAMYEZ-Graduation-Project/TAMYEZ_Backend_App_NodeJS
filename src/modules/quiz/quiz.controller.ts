@@ -6,6 +6,7 @@ import quizAuthorizationEndpoints from "./quiz.auhorization.ts";
 import validationMiddleware from "../../middlewares/validation.middleware.ts";
 import QuizValidators from "./quiz.validation.ts";
 import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.ts";
+import loadUserProgressMiddleware from "../../middlewares/progress.middleware.ts";
 
 export const quizRouter = Router();
 export const adminQuizRouter = Router();
@@ -38,6 +39,7 @@ quizRouter.get(
     applicationType: ApplicationTypeEnum.user,
   }),
   validationMiddleware({ schema: QuizValidators.getQuizQuestions }),
+  loadUserProgressMiddleware,
   quizService.getQuizQuestions,
 );
 

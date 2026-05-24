@@ -17,6 +17,7 @@ uploadsRouter.get(RoutePaths.getFileFromSubKeyByPresignedUrl, validationMiddlewa
         downloadName,
     });
     return successHandler({
+        req,
         res,
         message: "Presigned URL Generated !",
         body: { url: signedUrl },

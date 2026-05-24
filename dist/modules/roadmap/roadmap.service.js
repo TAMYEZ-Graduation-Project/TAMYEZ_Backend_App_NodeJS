@@ -1,46 +1,56 @@
-import { CareerModel, QuizAttemptModel, QuizModel, RoadmapStepModel, SavedQuizModel, } from "../../db/models/index.js";
-import { CareerRepository, QuizAttemptRepository, QuizRepository, RoadmapStepRepository, } from "../../db/repositories/index.js";
+import { CareerModel, QuizAttemptModel, QuizModel, RoadmapStepModel, SavedQuizModel, UserCareerProgressModel, } from "../../db/models/index.js";
+import { CareerRepository, QuizAttemptRepository, QuizRepository, RoadmapStepRepository, UserCareerProgressRepository, } from "../../db/repositories/index.js";
 import successHandler from "../../utils/handlers/success.handler.js";
-import { BadRequestException, ConflictException, NotFoundException, ServerException, } from "../../utils/exceptions/custom.exceptions.js";
+import { BadRequestException, ConflictException, NotFoundException, ServerException, ValidationException, } from "../../utils/exceptions/custom.exceptions.js";
 import { startSession, Types } from "mongoose";
 import S3Service from "../../utils/multer/s3.service.js";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
 import { isNumberBetweenOrEqual } from "../../utils/validators/numeric.validator.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
-import { ApplicationTypeEnum } from "../../utils/constants/enum.constants.js";
+import { ApplicationTypeEnum, RoadmapStepProgressStatusEnum, } from "../../utils/constants/enum.constants.js";
 import DocumentFormat from "../../utils/formats/document.format.js";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.js";
+import UserProgressService from "../../utils/services/user_progress.service.js";
 class RoadmapService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
     _quizRespository = new QuizRepository(QuizModel);
     _quizAttemptRepository = new QuizAttemptRepository(QuizAttemptModel);
     _savedQuizRepository = new SavedQuizRepository(SavedQuizModel);
-    async checkAndUpdateOrder({ career, order, }) {
+    _userCareerProgressRepository = new UserCareerProgressRepository(UserCareerProgressModel);
+    _userProgressService = new UserProgressService(this._roadmapStepRepository, this._userCareerProgressRepository);
+    async checkAndUpdateOrder({ career, order, isDeleting = false, }) {
         if (order && order > 0) {
             if (order <= career.stepsCount && career.stepsCount > 0) {
                 const session = await startSession();
                 await session.withTransaction(async () => {
-                    await this._roadmapStepRepository.updateMany({
-                        filter: {
-                            careerId: career._id,
-                            order: { $gte: Number(order) },
-                        },
-                        update: {
-                            $inc: { order: 500 },
-                        },
-                        options: { session },
-                    });
-                    await this._roadmapStepRepository.updateMany({
-                        filter: { careerId: career._id, order: { $gt: 500 } },
-                        update: {
-                            $inc: { order: -499 },
-                        },
-                        options: { session },
+                    await this._roadmapStepRepository.bulkWrite({
+                        operations: [
+                            {
+                                updateMany: {
+                                    filter: {
+                                        careerId: career._id,
+                                        order: { $gte: Number(order) },
+                                    },
+                                    update: {
+                                        $inc: { order: 500 },
+                                    },
+                                },
+                            },
+                            {
+                                updateMany: {
+                                    filter: { careerId: career._id, order: { $gt: 500 } },
+                                    update: {
+                                        $inc: { order: isDeleting ? -501 : -499 },
+                                    },
+                                },
+                            },
+                        ],
+                        options: { ordered: true, session },
                     });
                 });
-                session.endSession();
+                await session.endSession();
             }
             else if (order > career.stepsCount + 1) {
                 throw new BadRequestException(`Step order must be sequential with no gaps. Current stepsCount is ${career.stepsCount} ❌`);
@@ -109,25 +119,40 @@ class RoadmapService {
         }
         await this._careerRepository.updateOne({
             filter: { _id: careerId, __v: career.__v },
-            update: { $inc: { stepsCount: 1 } },
+            update: { $inc: { stepsCount: 1, orderEpoch: 1 } },
         });
         return successHandler({
+            req,
             res,
             message: "Roadmap step created successfully ✅",
         });
     };
     getRoadmap = ({ archived = false } = {}) => {
         return async (req, res) => {
-            const { page, size, searchKey, haveQuizzes, belongToCareers } = req
+            let { page, size, searchKey, haveQuizzes, belongToCareers } = req
                 .validationResult.query;
+            if (req.user &&
+                req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
+                if (searchKey || haveQuizzes || belongToCareers)
+                    throw new ValidationException("Invalid to use searchKey, haveQuizzes or belongToCareers with application type user ❌");
+                if (!req.user.careerPath)
+                    throw new BadRequestException("Didn't select a careerPath yet, can't get this roadmap for you ❌");
+            }
+            else {
+                belongToCareers = !belongToCareers
+                    ? StringConstants.ALL
+                    : belongToCareers;
+            }
             const pipeline = [];
-            if (belongToCareers !== StringConstants.ALL) {
+            if (!belongToCareers || belongToCareers !== StringConstants.ALL) {
                 pipeline.push({
                     $match: {
                         careerId: {
                             $in: belongToCareers
-                                .split(",")
-                                .map((c) => Types.ObjectId.createFromHexString(c)),
+                                ?.split(",")
+                                .map((c) => Types.ObjectId.createFromHexString(c)) || [
+                                (req.user?.careerPath?.id)._id,
+                            ],
                         },
                     },
                 });
@@ -167,8 +192,7 @@ class RoadmapService {
             });
             if (!archived) {
                 if (!(req.user &&
-                    req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
-                    req.user.careerPath?.id?.equals(belongToCareers)))
+                    req.tokenPayload?.applicationType === ApplicationTypeEnum.user))
                     pipeline.push({
                         $match: {
                             $and: [
@@ -226,13 +250,25 @@ class RoadmapService {
                     ? "No archived roadmap steps found 🔍❌"
                     : "No roadmap steps found 🔍❌");
             }
+            if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
+                result.data?.length) {
+                await this._userProgressService.refreshProgressAndClassify({
+                    stepOrSteps: result.data,
+                    progress: req.progress,
+                    user: req.user,
+                });
+            }
             return successHandler({
+                req,
                 res,
                 body: {
                     totalCount: result.total,
                     totalPages: Math.ceil(result.total / size),
                     currentPage: page,
                     size,
+                    percentageCompleted: req.tokenPayload?.applicationType === ApplicationTypeEnum.user
+                        ? req.progress?.percentageCompleted
+                        : undefined,
                     data: result.data.map((step) => DocumentFormat.getIdFrom_Id(step)),
                 },
             });
@@ -242,14 +278,17 @@ class RoadmapService {
         return async (req, res) => {
             const { roadmapStepId } = req.params;
             if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user &&
-                !req.user?.careerPath) {
+                !req.user?.careerPath?.id) {
                 throw new BadRequestException("Didn't select a careerPath yet, can't get this roadmapStep for you ❌");
             }
-            const result = await this._roadmapStepRepository.findOne({
+            let result = await this._roadmapStepRepository.findOne({
                 filter: {
                     _id: roadmapStepId,
                     ...(req.tokenPayload?.applicationType === ApplicationTypeEnum.user
-                        ? { careerId: req.user?.careerPath.id }
+                        ? {
+                            careerId: (req.user?.careerPath?.id)
+                                ._id,
+                        }
                         : undefined),
                     paranoid: false,
                 },
@@ -298,12 +337,30 @@ class RoadmapService {
                     result.career?.freezed) {
                     throw new NotFoundException("Invalid roadmapStepId, roadmapStep freezed or career is freezed 🔍❌");
                 }
+                if (req.tokenPayload?.applicationType === ApplicationTypeEnum.user) {
+                    result = (await this._userProgressService.refreshProgressAndClassify({
+                        stepOrSteps: result,
+                        progress: req.progress,
+                        user: req.user,
+                    }));
+                    if (result.progressStatus === RoadmapStepProgressStatusEnum.lockedPrereq) {
+                        throw new BadRequestException("Step is locked ❌🔒️");
+                    }
+                    else if (result.progressStatus === RoadmapStepProgressStatusEnum.available) {
+                        if (await this._userCareerProgressRepository.updateOne({
+                            filter: { userId: req.user._id },
+                            update: { inProgressStep: result._id },
+                        })) {
+                            result.progressStatus = RoadmapStepProgressStatusEnum.inProgress;
+                        }
+                    }
+                }
             }
             if (result &&
                 req.tokenPayload?.applicationType === ApplicationTypeEnum.adminDashboard) {
                 result.careerId = result.careerId._id;
             }
-            return successHandler({ res, body: result });
+            return successHandler({ req, res, body: result });
         };
     };
     _checkRoadmapStepAndCareer = async ({ checkForRoadmapStepFreezed = false, roadmapStepId, v, }) => {
@@ -373,6 +430,7 @@ class RoadmapService {
         await this._checkQuizzesExists({ quizzesIds: body.quizzesIds });
         const session = await startSession();
         await session.withTransaction(async () => {
+            let __v = body.v;
             if (body.order && body.order != roadmapStep.order) {
                 await this._roadmapStepRepository.updateMany({
                     filter: {
@@ -385,6 +443,7 @@ class RoadmapService {
                     update: { $inc: { order: 700 } },
                     options: { session },
                 });
+                __v++;
             }
             const toUpdate = {};
             if (body.title)
@@ -396,7 +455,7 @@ class RoadmapService {
             if (body.allowGlobalResources != undefined)
                 toUpdate.allowGlobalResources = body.allowGlobalResources;
             await this._roadmapStepRepository.updateOne({
-                filter: { _id: roadmapStepId, __v: body.v },
+                filter: { _id: roadmapStepId, __v },
                 update: [
                     {
                         $set: {
@@ -447,9 +506,17 @@ class RoadmapService {
                     },
                     options: { session },
                 });
+                await this._careerRepository.updateOne({
+                    filter: {
+                        _id: roadmapStep.careerId._id,
+                    },
+                    update: { $inc: { orderEpoch: 1 } },
+                    options: { session },
+                });
             }
         });
-        return successHandler({ res });
+        await session.endSession();
+        return successHandler({ req, res });
     };
     static getTotalResourceCount({ currentResources, removeResources, newResourcesCount, }) {
         if (!currentResources?.length) {
@@ -639,6 +706,7 @@ class RoadmapService {
             throw new NotFoundException("Invalid resourceId ❌");
         }
         return successHandler({
+            req,
             res,
             body: {
                 [`${resourceName}`]: result.toJSON()[resourceName],
@@ -649,20 +717,30 @@ class RoadmapService {
     archiveRoadmapStep = async (req, res) => {
         const { roadmapStepId } = req.params;
         const { v } = req.body;
-        await this._checkRoadmapStepAndCareer({ roadmapStepId, v });
-        await this._roadmapStepRepository.updateOne({
+        const roadmapStep = await this._checkRoadmapStepAndCareer({
+            roadmapStepId,
+            v,
+        });
+        if ((await this._roadmapStepRepository.updateOne({
             filter: { _id: roadmapStepId, __v: v },
             update: {
                 freezed: { at: new Date(), by: req.user._id },
                 $unset: { restored: 1 },
             },
-        });
-        return successHandler({ res });
+        })).modifiedCount) {
+            await this._careerRepository.updateOne({
+                filter: {
+                    _id: roadmapStep.careerId._id,
+                },
+                update: { $inc: { orderEpoch: 1 } },
+            });
+        }
+        return successHandler({ req, res });
     };
     restoreRoadmapStep = async (req, res) => {
         const { roadmapStepId } = req.params;
         const { v, quizId } = req.body;
-        const { quizzesIds } = await this._checkRoadmapStepAndCareer({
+        const { quizzesIds, careerId } = await this._checkRoadmapStepAndCareer({
             roadmapStepId,
             v,
             checkForRoadmapStepFreezed: true,
@@ -690,7 +768,7 @@ class RoadmapService {
             }
             newQuizzesIds.push(Types.ObjectId.createFromHexString(quizId));
         }
-        await this._roadmapStepRepository.updateOne({
+        if ((await this._roadmapStepRepository.updateOne({
             filter: {
                 _id: roadmapStepId,
                 __v: v,
@@ -702,8 +780,16 @@ class RoadmapService {
                 quizzesIds: newQuizzesIds,
                 $unset: { freezed: 1 },
             },
-        });
+        })).modifiedCount) {
+            await this._careerRepository.updateOne({
+                filter: {
+                    _id: careerId._id,
+                },
+                update: { $inc: { orderEpoch: 1 } },
+            });
+        }
         return successHandler({
+            req,
             res,
             message: `Roadmap step was restored successfully after ${result.length >= 1 ? `deleting unfound quizzesIds ✅` : `updating quizzesIds with the quizId ${quizId}`} `,
         });
@@ -728,16 +814,33 @@ class RoadmapService {
             },
         })).deletedCount) {
             await Promise.all([
+                this.checkAndUpdateOrder({
+                    career: roadmapStep.careerId,
+                    isDeleting: true,
+                    order: roadmapStep.order,
+                }),
+                this._careerRepository.updateOne({
+                    filter: {
+                        _id: roadmapStep.careerId._id,
+                    },
+                    update: { $inc: { stepsCount: -1, orderEpoch: 1 } },
+                }),
                 S3Service.deleteFolderByPrefix({
                     FolderPath: S3FoldersPaths.roadmapStepFolderPath(roadmapStep.careerId.assetFolderId, roadmapStepId),
                 }),
                 this._savedQuizRepository.deleteMany({ filter: { roadmapStepId } }),
+                this._userCareerProgressRepository.updateMany({
+                    filter: {
+                        careerId: roadmapStep.careerId._id,
+                    },
+                    update: { $pull: { completedSteps: roadmapStepId } },
+                }),
             ]);
         }
         else {
             throw new NotFoundException("Invalid roadmapStepId or Not freezed ❌");
         }
-        return successHandler({ res });
+        return successHandler({ req, res });
     };
 }
 export default RoadmapService;

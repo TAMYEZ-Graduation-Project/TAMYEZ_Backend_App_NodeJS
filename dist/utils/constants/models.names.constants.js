@@ -9,6 +9,8 @@ class ModelsNames {
     static adminNotificationsLimit = "AdminNotificationsLimit";
     static careerModel = "Career";
     static roadmapStepModel = "RoadmapStep";
+    static userCareerProgressModel = "UserCareerProgress";
+    static careerSuggestionAttemptModel = "CareerSuggestionAttempt";
     static dashboardReviewModel = "DashboardReview";
     static feedbackModel = "Feedback";
 }
