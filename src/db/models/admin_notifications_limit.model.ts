@@ -2,7 +2,7 @@ import mongoose, { Model, Schema } from "mongoose";
 import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import { AdminNotificationTypesEnum } from "../../utils/constants/enum.constants.ts";
 import DocumentFormat from "../../utils/formats/document.format.ts";
-import type { IAdminNotificationsLimit } from "../interfaces/admin_notifications_limit.interface.ts";
+import type { HIAdminNotificationsLimit, IAdminNotificationsLimit } from "../interfaces/admin_notifications_limit.interface.ts";
 
 const adminNotificationsLimitSchema =
   new mongoose.Schema<IAdminNotificationsLimit>(
@@ -22,11 +22,11 @@ const adminNotificationsLimitSchema =
         type: Schema.Types.ObjectId,
         ref: "Career",
         unique: true,
-        required: function (this) {
+        required: function (this: HIAdminNotificationsLimit) {
           return this.type === AdminNotificationTypesEnum.careerSpecific;
         },
         validate: {
-          validator: function (value) {
+          validator: function (this: HIAdminNotificationsLimit, value: any) {
             return (
               (!value && this.type === AdminNotificationTypesEnum.allUsers) ||
               (value && this.type === AdminNotificationTypesEnum.careerSpecific)
@@ -35,7 +35,7 @@ const adminNotificationsLimitSchema =
           message:
             "careerId shouldn't have a value when type of the limit is AllUsers notifications",
         },
-      },
+      } as mongoose.SchemaTypeOptions<mongoose.Types.ObjectId | undefined>,
       sentBy: { type: [Schema.Types.ObjectId], ref: "User" },
       expiresAt: { type: Date, expires: 0, required: true },
     },

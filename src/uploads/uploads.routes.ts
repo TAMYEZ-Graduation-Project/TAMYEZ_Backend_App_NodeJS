@@ -67,10 +67,12 @@ uploadsRouter.get(
       );
     }
 
-    return asyncPipeline({
+    await asyncPipeline({
       source: s3Response.Body as ReadableStream,
       destination: res,
     });
+
+    return;
   },
 );
 

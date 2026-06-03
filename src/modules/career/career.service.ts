@@ -59,7 +59,7 @@ import {
   CareerResourceAppliesToEnum,
   QuizTypesEnum,
 } from "../../utils/constants/enum.constants.ts";
-import { startSession, Types, type FilterQuery } from "mongoose";
+import { startSession, Types, type QueryFilter } from "mongoose";
 import type {
   FullICareer,
   HICareerType,
@@ -223,7 +223,7 @@ class CareerService {
           throw new BadRequestException("Didn't choose a career path yet ❌");
       }
 
-      let filter: FilterQuery<ICareer>;
+      let filter: QueryFilter<ICareer>;
       if (
         req.user &&
         req.tokenPayload?.applicationType === ApplicationTypeEnum.user

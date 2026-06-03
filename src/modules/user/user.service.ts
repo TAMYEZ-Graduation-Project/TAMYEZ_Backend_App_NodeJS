@@ -562,7 +562,11 @@ class UserService {
       filter: {
         _id: userId || req.user!._id!,
         ...(userId
-          ? { role: { $nin: [req.user?.role, RolesEnum.superAdmin] } }
+          ? {
+              role: {
+                $nin: [req.user?.role, RolesEnum.superAdmin] as RolesEnum[],
+              },
+            }
           : undefined),
         __v: v,
       },

@@ -76,9 +76,8 @@ quizSchema.methods.toJSON = function () {
         v: quizObject?.v,
     };
 };
-quizSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"], function (next) {
+quizSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"], function () {
     softDeleteFunction(this);
-    next();
 });
 const QuizModel = mongoose.models.Quiz ||
     mongoose.model(ModelsNames.quizModel, quizSchema);

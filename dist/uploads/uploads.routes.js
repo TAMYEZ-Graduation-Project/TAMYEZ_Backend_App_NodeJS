@@ -38,9 +38,10 @@ uploadsRouter.get(RoutePaths.getFileFromSubKey, validationMiddleware({ schema: U
             ? `${downloadName}.${s3Response.ContentType?.split("/")[1]}`
             : SubKey.split("/").pop()}"`);
     }
-    return asyncPipeline({
+    await asyncPipeline({
         source: s3Response.Body,
         destination: res,
     });
+    return;
 });
 export default uploadsRouter;

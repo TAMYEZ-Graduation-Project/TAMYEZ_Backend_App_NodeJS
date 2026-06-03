@@ -71,9 +71,8 @@ userCareerProgressSchema.index({ careerId: 1 });
 
 // userCareerProgressSchema.pre(
 //   ["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"],
-//   function (next) {
+//   function () {
 //     softDeleteFunction(this);
-//     next();
 //   },
 // );
 

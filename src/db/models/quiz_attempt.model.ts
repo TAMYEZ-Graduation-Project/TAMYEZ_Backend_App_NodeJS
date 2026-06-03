@@ -44,7 +44,7 @@ const questionSchema = new mongoose.Schema<IQuestion>(
         return this.type !== QuestionTypesEnum.written;
       },
       validate: {
-        validator: function (value) {
+        validator: function (this: HIQuestion, value: any) {
           return validateIfValidQuestionAnswer({
             questionType: this.type,
             value,

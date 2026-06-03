@@ -132,13 +132,12 @@ careerSchema.methods.toJSON = function () {
         v: careerObject?.v,
     };
 };
-careerSchema.pre("save", async function (next) {
+careerSchema.pre("save", async function () {
     if (this.isModified("title")) {
         this.slug = slugify.default(this.title);
     }
-    next();
 });
-careerSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"], function (next) {
+careerSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"], function () {
     const update = this.getUpdate();
     if (update) {
         if (Array.isArray(update)) {
@@ -154,7 +153,6 @@ careerSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocu
         this.setUpdate(update);
     }
     softDeleteFunction(this);
-    next();
 });
 const CareerModel = mongoose.models?.Career ||
     mongoose.model(ModelsNames.careerModel, careerSchema);

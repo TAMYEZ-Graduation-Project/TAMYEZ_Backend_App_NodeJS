@@ -37,7 +37,7 @@ const savedQuestionSchema = new mongoose.Schema({
     },
     correction: {
         type: mongoose.Schema.Types.Mixed,
-        requied: function () {
+        required: function () {
             return !this.isCorrect;
         },
         validate: {

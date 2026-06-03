@@ -18,7 +18,7 @@ export interface IRoadmapStep {
   youtubePlaylists: IRoadmapStepResource[];
   books: IRoadmapStepResource[];
 
-  allowGlobalResources?: boolean;
+  allowGlobalResources?: boolean | undefined;
 
   quizzesIds: Types.ObjectId[];
 

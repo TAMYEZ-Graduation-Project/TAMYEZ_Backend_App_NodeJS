@@ -173,6 +173,12 @@ class AuthService {
 
       const [email, otp] = tokenAfterDecryption.split(" ");
 
+      if (!email || !otp) {
+        throw new BadRequestException(
+          StringConstants.INVALID_EMAIL_ACCOUNT_OR_VARIFIED_MESSAGE,
+        );
+      }
+
       const user = await this._userRepository.findOne({
         filter: {
           email,
@@ -302,6 +308,12 @@ class AuthService {
       });
 
       const [email, otp] = tokenAfterDecryption.split(" ");
+
+      if (!email || !otp) {
+        throw new BadRequestException(
+          "Invalid email account or already restored ❌",
+        );
+      }
 
       const user = await this._userRepository.findOne({
         filter: {
