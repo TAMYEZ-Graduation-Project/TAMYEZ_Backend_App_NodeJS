@@ -2,63 +2,77 @@ services:
   mongo:
     image: mongo:7
     container_name: mongo
-    hostname: mongo
     restart: always
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    user: "0:0"
     ports:
-      - "27018:27017"        # host:container
+      - "127.0.0.1:27018:27017"
+    env_file:
+      - ./config/mongo.env
     volumes:
       - mongo-data:/data/db
+      - ~/.mongo-secrets/mongo-keyfile:/tmp/keyfile
+    
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 30
-      start_period: 5s
-
-  mongo-init:
-    image: mongo:7
-    container_name: mongo-init
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: "no"
-    entrypoint: ["bash", "-lc"]
+      start_period: 10s
     command: >
-      '
-      echo "⏳ Waiting for Mongo to be ready...";
-      until mongosh --host mongo --quiet --eval "db.runCommand({ ping: 1 }).ok" | grep -q 1; do
-        sleep 1;
-      done;
+      bash -c "
+        cp /tmp/keyfile /data/configdb/mongo-keyfile &&
+        chmod 400 /data/configdb/mongo-keyfile &&
+        chown 999:999 /data/configdb/mongo-keyfile &&
 
-      echo "🔎 Checking replica set status...";
-      RS_STATUS=$$(mongosh --host mongo --quiet --eval "try { rs.status().ok } catch (e) { 0 }");
+        # Start Mongo WITHOUT auth
+        mongod --replSet rs0 --bind_ip_all --fork --logpath /data/db/mongo.log &&
 
-      if [ "$$RS_STATUS" != "1" ]; then
-        echo "⚙️  Initializing replica set rs0...";
-        mongosh --host mongo --quiet --eval "
-          rs.initiate({
-            _id: \"rs0\",
-            members: [{ _id: 0, host: \"mongo:27017\" }]
-          });
-        ";
-
-        echo "⏳ Waiting for PRIMARY...";
-        for i in {1..30}; do
-          STATE=$$(mongosh --host mongo --quiet --eval "try { rs.status().members.filter(m=>m.self)[0].stateStr } catch(e) { \"\" }");
-          if [ \"$$STATE\" = \"PRIMARY\" ]; then
-            echo \"✅ PRIMARY ready\";
-            exit 0;
-          fi
+        # Wait for Mongo to be ready
+        until mongosh --quiet --eval \"db.runCommand({ ping: 1 }).ok\" | grep -q 1; do
           sleep 1;
-        done
+        done;
 
-        echo \"⚠️ Timed out waiting for PRIMARY; check logs\";
-        exit 1;
-      else
-        echo "ℹ️  Replica set already initialized. Skipping.";
-      fi
-      '
+        if [ ! -f /data/db/.initialized ]; then
+
+          echo '🔧 First run initialization...'
+
+          # ✅ Init replica set FIRST
+          mongosh --eval \"
+            rs.initiate({
+              _id: 'rs0',
+              members: [{ _id: 0, host: 'host.docker.internal:27018' }]
+            })
+          \";
+
+          # ✅ Wait for PRIMARY
+          echo '⏳ Waiting for PRIMARY...'
+          until mongosh --quiet --eval \"rs.isMaster().ismaster\" | grep -q true; do
+            sleep 1;
+          done;
+
+          echo '✅ PRIMARY ready'
+
+          # ✅ Create root user AFTER PRIMARY
+          mongosh --eval \"
+            db.getSiblingDB('admin').createUser({
+              user: '$$MONGO_INITDB_ROOT_USERNAME',
+              pwd: '$$MONGO_INITDB_ROOT_PASSWORD',
+              roles: [ { role: 'root', db: 'admin' } ]
+            })
+          \";
+
+          touch /data/db/.initialized
+        fi;
+
+        # Stop temporary Mongo
+        mongod --shutdown
+
+        # Start FINAL Mongo WITH auth + keyfile
+        exec mongod --replSet rs0 --bind_ip_all --auth --keyFile /data/configdb/mongo-keyfile
+      "
+
 
 volumes:
   mongo-data:
