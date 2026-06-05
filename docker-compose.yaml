@@ -4,75 +4,89 @@ services:
     container_name: mongo
     restart: always
     user: "0:0"
+
     ports:
-      - "127.0.0.1:27018:27017"
+      - "27018:27017"
+      - "27017:27017"
+
     env_file:
       - ./config/mongo.env
+
     volumes:
       - mongo-data:/data/db
       - ~/.mongo-secrets/mongo-keyfile:/tmp/keyfile
-    
+
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 || exit 1"]
+      test: [
+        "CMD-SHELL",
+        "mongosh \"mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@localhost:27017/admin\" --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 || exit 1"
+      ]
       interval: 5s
       timeout: 5s
       retries: 30
       start_period: 10s
-    command: >
-      bash -c "
-        cp /tmp/keyfile /data/configdb/mongo-keyfile &&
-        chmod 400 /data/configdb/mongo-keyfile &&
-        chown 999:999 /data/configdb/mongo-keyfile &&
 
-        # Start Mongo WITHOUT auth
-        mongod --replSet rs0 --bind_ip_all --fork --logpath /data/db/mongo.log &&
+    command: |
+      bash -c '
+        set -e
+
+        cp /tmp/keyfile /data/configdb/mongo-keyfile
+        chmod 400 /data/configdb/mongo-keyfile
+        chown 999:999 /data/configdb/mongo-keyfile
+
+        # =========================
+        # START MONGO (NO AUTH)
+        # =========================
+        mongod --replSet rs0 --bind_ip_all --fork --logpath /data/db/mongo-init.log
 
         # Wait for Mongo to be ready
-        until mongosh --quiet --eval \"db.runCommand({ ping: 1 }).ok\" | grep -q 1; do
-          sleep 1;
-        done;
+        until mongosh --quiet --eval "db.runCommand({ ping: 1 }).ok" | grep -q 1; do
+          sleep 1
+        done
 
         if [ ! -f /data/db/.initialized ]; then
+          echo "🔧 First run initialization..."
 
-          echo '🔧 First run initialization...'
-
-          # ✅ Init replica set FIRST
-          mongosh --eval \"
+          # ✅ INIT replica set (INTERNAL ONLY)
+          mongosh --eval "
             rs.initiate({
-              _id: 'rs0',
-              members: [{ _id: 0, host: 'host.docker.internal:27018' }]
+              _id: \"rs0\",
+              members: [{ _id: 0, host: \"mongo:27017\" }]
             })
-          \";
+          "
 
           # ✅ Wait for PRIMARY
-          echo '⏳ Waiting for PRIMARY...'
-          until mongosh --quiet --eval \"rs.isMaster().ismaster\" | grep -q true; do
-            sleep 1;
-          done;
+          echo "⏳ Waiting for PRIMARY..."
+          until mongosh --quiet --eval "rs.isMaster().ismaster" | grep -q true; do
+            sleep 1
+          done
 
-          echo '✅ PRIMARY ready'
+          echo "✅ PRIMARY ready"
 
-          # ✅ Create root user AFTER PRIMARY
-          mongosh --eval \"
-            db.getSiblingDB('admin').createUser({
-              user: '$$MONGO_INITDB_ROOT_USERNAME',
-              pwd: '$$MONGO_INITDB_ROOT_PASSWORD',
-              roles: [ { role: 'root', db: 'admin' } ]
+          # ✅ Create ROOT user
+          mongosh --eval "
+            db.getSiblingDB(\"admin\").createUser({
+              user: \"${MONGO_INITDB_ROOT_USERNAME}\",
+              pwd: \"${MONGO_INITDB_ROOT_PASSWORD}\",
+              roles: [{ role: \"root\", db: \"admin\" }]
             })
-          \";
+          "
 
           touch /data/db/.initialized
-        fi;
+        fi
 
-        # Stop temporary Mongo
+        # Stop temp Mongo
         mongod --shutdown
 
-        # Start FINAL Mongo WITH auth + keyfile
-        exec mongod --replSet rs0 --bind_ip_all --auth --keyFile /data/configdb/mongo-keyfile
-      "
-
+        # =========================
+        # START FINAL MONGO (AUTH)
+        # =========================
+        exec mongod --replSet rs0 --bind_ip_all --auth \
+          --keyFile /data/configdb/mongo-keyfile
+      '
 
 volumes:
   mongo-data:
