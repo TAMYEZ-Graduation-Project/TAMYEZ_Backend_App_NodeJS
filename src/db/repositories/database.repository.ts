@@ -2,7 +2,7 @@ import type {
   HydratedDocument,
   MongooseUpdateQueryOptions,
   ProjectionType,
-  RootFilterQuery,
+  QueryFilter,
   Types,
   UpdateQuery,
   CreateOptions,
@@ -18,6 +18,7 @@ import type {
   PipelineStage,
   UpdateWriteOpResult,
   mongo,
+  DeepPartial,
 } from "mongoose";
 import {
   BadRequestException,
@@ -36,7 +37,8 @@ import type {
   UpdateFunctionsUpdateObjectType,
   UpdateType,
 } from "../../utils/types/update_functions.type.ts";
-import type { PartialUndefined } from "../../utils/types/partial_undefined.type.ts";
+import type { ApplyBasicCreateCasting } from "mongoose";
+import type { Require_id } from "mongoose";
 
 abstract class DatabaseRepository<TDocument> {
   constructor(protected readonly model: Model<TDocument>) {}
@@ -47,7 +49,7 @@ abstract class DatabaseRepository<TDocument> {
       validateBeforeSave: true,
     },
   }: {
-    data: PartialUndefined<TDocument>[];
+    data:  Array<DeepPartial<ApplyBasicCreateCasting<Require_id<TDocument>>>>;
     options?: CreateOptions;
   }): Promise<HydratedDocument<TDocument>[]> => {
     const resultList = await this.model.create(data, options);
@@ -65,7 +67,7 @@ abstract class DatabaseRepository<TDocument> {
     projection,
     options = {},
   }: {
-    filter?: RootFilterQuery<TDocument>;
+    filter?: QueryFilter<TDocument>;
     projection?: ProjectionType<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
   } = {}): Promise<FindFunctionsReturnType<TDocument, TLean>> => {
@@ -80,7 +82,7 @@ abstract class DatabaseRepository<TDocument> {
     size,
     maxAllCount,
   }: {
-    filter: RootFilterQuery<TDocument>;
+    filter: QueryFilter<TDocument>;
     projection?: ProjectionType<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
     page: number | "All";
@@ -118,7 +120,7 @@ abstract class DatabaseRepository<TDocument> {
     projection,
     options = {},
   }: {
-    filter?: RootFilterQuery<TDocument> & { __v?: number | undefined };
+    filter?: QueryFilter<TDocument> & { __v?: number | undefined };
     projection?: ProjectionType<TDocument>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
   }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
@@ -153,7 +155,7 @@ abstract class DatabaseRepository<TDocument> {
     update,
     options = {},
   }: {
-    filter?: RootFilterQuery<TDocument>;
+    filter?: QueryFilter<TDocument>;
     update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
     options?: mongo.UpdateOptions & MongooseUpdateQueryOptions<TDocument>;
   }): Promise<UpdateWriteOpResult> => {
@@ -189,7 +191,7 @@ abstract class DatabaseRepository<TDocument> {
     update,
     options = {},
   }: {
-    filter?: RootFilterQuery<TDocument> & { __v?: number | undefined };
+    filter?: QueryFilter<TDocument> & { __v?: number | undefined };
     update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
     options?: mongo.UpdateOptions & MongooseUpdateQueryOptions<TDocument>;
   }): Promise<UpdateWriteOpResult> => {
@@ -273,7 +275,7 @@ abstract class DatabaseRepository<TDocument> {
     update,
     options = { new: true },
   }: {
-    filter?: RootFilterQuery<TDocument> & { __v?: number | undefined };
+    filter?: QueryFilter<TDocument> & { __v?: number | undefined };
     update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
     options?: FindFunctionOptionsType<TDocument, TLean>;
   }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
@@ -359,7 +361,7 @@ abstract class DatabaseRepository<TDocument> {
     filter = {},
     options = {},
   }: {
-    filter?: RootFilterQuery<TDocument> & { __v?: number | undefined };
+    filter?: QueryFilter<TDocument> & { __v?: number | undefined };
     options?: MongooseBaseQueryOptions<TDocument>;
   }): Promise<DeleteResult> => {
     const res = await this.model.deleteOne(filter, options);
@@ -380,7 +382,7 @@ abstract class DatabaseRepository<TDocument> {
     filter = {},
     options = {},
   }: {
-    filter?: RootFilterQuery<TDocument>;
+    filter?: QueryFilter<TDocument>;
     options?: MongooseBaseQueryOptions<TDocument>;
   }): Promise<DeleteResult> => {
     return this.model.deleteMany(filter, options);
@@ -390,7 +392,7 @@ abstract class DatabaseRepository<TDocument> {
     filter = {},
     options = { new: true },
   }: {
-    filter?: RootFilterQuery<TDocument> & { __v?: number | undefined };
+    filter?: QueryFilter<TDocument> & { __v?: number | undefined };
     options?: FindFunctionOptionsType<TDocument, TLean>;
   }): Promise<FindOneFunctionsReturnType<TDocument, TLean>> => {
     const res = await this.model.findOneAndDelete(filter, options);
@@ -412,7 +414,7 @@ abstract class DatabaseRepository<TDocument> {
     replacement,
     options = {},
   }: {
-    filter?: RootFilterQuery<TDocument> & { __v?: number | undefined };
+    filter?: QueryFilter<TDocument> & { __v?: number | undefined };
     replacement: TDocument;
     options?: MongooseBaseQueryOptions<TDocument>;
   }): Promise<UpdateWriteOpResult> => {
@@ -434,7 +436,7 @@ abstract class DatabaseRepository<TDocument> {
   countDocuments = async ({
     filter = {},
   }: {
-    filter?: RootFilterQuery<TDocument>;
+    filter?: QueryFilter<TDocument>;
   }): Promise<number> => {
     return this.model.countDocuments(filter);
   };
@@ -442,7 +444,7 @@ abstract class DatabaseRepository<TDocument> {
   exists = async ({
     filter,
   }: {
-    filter: RootFilterQuery<TDocument>;
+    filter: QueryFilter<TDocument>;
   }): Promise<{ _id: InferId<TDocument> } | null> => {
     return this.model.exists(filter);
   };

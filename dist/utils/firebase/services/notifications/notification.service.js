@@ -54,8 +54,12 @@ class NotificationService {
         const _notificationPushDeviceRepository = new NotificationPushDeviceRepository(NotificationPushDeviceModel);
         await _notificationPushDeviceRepository.updateMany({
             filter: {
-                userId: { $in: failureDevices.map((fd) => fd?.userId) },
-                deviceId: { $in: failureDevices.map((fd) => fd?.deviceId) },
+                userId: {
+                    $in: failureDevices.map((fd) => fd?.userId),
+                },
+                deviceId: {
+                    $in: failureDevices.map((fd) => fd?.deviceId),
+                },
             },
             update: {
                 isActive: false,

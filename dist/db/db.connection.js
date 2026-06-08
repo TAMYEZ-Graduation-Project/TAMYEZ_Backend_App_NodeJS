@@ -2,15 +2,19 @@ import mongoose from "mongoose";
 import StringConstants from "../utils/constants/strings.constants.js";
 import DashboardReviewRepository from "./repositories/dashboard_review.repository.js";
 import DashboardReviewModel from "./models/dashboard_review.model.js";
-import { DashboardReviewTypes } from "../utils/constants/enum.constants.js";
+import { DashboardReviewTypes, ProjectMoodsEnum, } from "../utils/constants/enum.constants.js";
+import EnvFields from "../utils/constants/env_fields.constants.js";
 async function connnectToDB() {
     try {
         await mongoose.connect(process.env.DB_URI);
         console.log(mongoose.connection.models);
         console.log(StringConstants.CONNECTED_TO_DB_MESSAGE);
-        setTimeout(async () => {
-            await startCollectionWatcher();
-        }, 500);
+        mongoose.connection.once("open", async () => {
+            if (process.env[EnvFields.MOOD] == ProjectMoodsEnum.dev ||
+                process.env[EnvFields.PM_ID] === "0") {
+                await startCollectionWatcher();
+            }
+        });
         return true;
     }
     catch (e) {

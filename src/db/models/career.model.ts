@@ -180,17 +180,15 @@ careerSchema.methods.toJSON = function () {
   };
 };
 
-careerSchema.pre("save", async function (next) {
+careerSchema.pre("save", async function () {
   if (this.isModified("title")) {
     this.slug = slugify.default(this.title);
   }
-
-  next();
 });
 
 careerSchema.pre(
   ["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"],
-  function (next) {
+  function () {
     const update: UpdateWithAggregationPipeline | UpdateQuery<ICareer> | null =
       this.getUpdate();
     if (update) {
@@ -210,7 +208,6 @@ careerSchema.pre(
 
     softDeleteFunction(this);
 
-    next();
   },
 );
 

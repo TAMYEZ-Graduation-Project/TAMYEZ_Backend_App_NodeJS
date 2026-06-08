@@ -8,6 +8,7 @@ import { ServerException } from "../../../exceptions/custom.exceptions.ts";
 import type { INotificationPushDevice } from "../../../../db/interfaces/notification_push_device.interface.ts";
 import { NotificationPushDeviceRepository } from "../../../../db/repositories/index.ts";
 import NotificationPushDeviceModel from "../../../../db/models/notifiction_push_device.model.ts";
+import type mongoose from "mongoose";
 
 class NotificationService {
   sendNotification = async ({
@@ -97,8 +98,16 @@ class NotificationService {
 
     await _notificationPushDeviceRepository.updateMany({
       filter: {
-        userId: { $in: failureDevices.map((fd) => fd?.userId) },
-        deviceId: { $in: failureDevices.map((fd) => fd?.deviceId) },
+        userId: {
+          $in: failureDevices.map(
+            (fd) => fd?.userId as mongoose.Types.ObjectId,
+          ),
+        },
+        deviceId: {
+          $in: failureDevices.map(
+            (fd) => fd?.deviceId as string,
+          ),
+        },
       },
       update: {
         isActive: false,

@@ -91,9 +91,8 @@ quizSchema.methods.toJSON = function () {
 
 quizSchema.pre(
   ["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"],
-  function (next) {
+  function () {
     softDeleteFunction(this);
-    next();
   },
 );
 

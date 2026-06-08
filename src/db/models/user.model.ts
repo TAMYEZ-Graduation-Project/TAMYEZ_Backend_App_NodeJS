@@ -63,7 +63,7 @@ const userSchema = new mongoose.Schema<IUser>(
 
     password: {
       type: String,
-      required: function (this: IUser) {
+      required: function (this) {
         return this.authProvider === ProvidersEnum.local;
       },
     },
@@ -78,7 +78,7 @@ const userSchema = new mongoose.Schema<IUser>(
     gender: {
       type: String,
       enum: Object.values(GenderEnum),
-      required: function (this: IUser) {
+      required: function (this) {
         return this.authProvider === ProvidersEnum.local;
       },
     },
@@ -97,7 +97,7 @@ const userSchema = new mongoose.Schema<IUser>(
 
     phoneNumber: {
       type: String,
-      required: function (this: IUser) {
+      required: function (this: any) {
         return this.authProvider === ProvidersEnum.local;
       },
     },
@@ -197,7 +197,7 @@ userSchema.methods.toJSON = function () {
   };
 };
 
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   if (
     this.isModified("password") &&
     !HashingSecurityUtil.isHashed({ text: this.password })
@@ -215,7 +215,6 @@ userSchema.pre("save", async function (next) {
       plainText: this.phoneNumber,
     });
   }
-  next();
 });
 
 userSchema.pre(["updateOne", "findOneAndUpdate"], async function () {
@@ -244,10 +243,8 @@ userSchema.pre(["updateOne", "findOneAndUpdate"], async function () {
 
 userSchema.pre(
   ["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"],
-  function (next) {
+  function () {
     softDeleteFunction(this);
-
-    next();
   },
 );
 

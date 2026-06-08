@@ -85,6 +85,9 @@ class AuthService {
                 secretKey: process.env[EnvFields.EMAIL_VERIFICATION_TOKEN_ENC_KEY],
             });
             const [email, otp] = tokenAfterDecryption.split(" ");
+            if (!email || !otp) {
+                throw new BadRequestException(StringConstants.INVALID_EMAIL_ACCOUNT_OR_VARIFIED_MESSAGE);
+            }
             const user = await this._userRepository.findOne({
                 filter: {
                     email,
@@ -174,6 +177,9 @@ class AuthService {
                 secretKey: process.env[EnvFields.EMAIL_RESTORATION_TOKEN_ENC_KEY],
             });
             const [email, otp] = tokenAfterDecryption.split(" ");
+            if (!email || !otp) {
+                throw new BadRequestException("Invalid email account or already restored ❌");
+            }
             const user = await this._userRepository.findOne({
                 filter: {
                     email,

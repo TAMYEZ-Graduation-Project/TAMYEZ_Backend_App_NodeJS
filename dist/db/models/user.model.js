@@ -143,7 +143,7 @@ userSchema.methods.toJSON = function () {
         v: userObject?.v,
     };
 };
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
     if (this.isModified("password") &&
         !HashingSecurityUtil.isHashed({ text: this.password })) {
         this.password = await HashingSecurityUtil.hashText({
@@ -156,7 +156,6 @@ userSchema.pre("save", async function (next) {
             plainText: this.phoneNumber,
         });
     }
-    next();
 });
 userSchema.pre(["updateOne", "findOneAndUpdate"], async function () {
     const updateObject = this.getUpdate();
@@ -174,9 +173,8 @@ userSchema.pre(["updateOne", "findOneAndUpdate"], async function () {
     }
     this.setUpdate(updateObject);
 });
-userSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"], function (next) {
+userSchema.pre(["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"], function () {
     softDeleteFunction(this);
-    next();
 });
 userSchema.post(["find", "findOne", "findOneAndUpdate", "countDocuments"], function (docs, next) {
     if (!docs)

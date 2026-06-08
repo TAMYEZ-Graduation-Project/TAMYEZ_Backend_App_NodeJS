@@ -5,6 +5,7 @@ class EnvFields {
     static LOGO_URL = "LOGO_URL";
     static PROTOCOL = "PROTOCOL";
     static HOST = "HOST";
+    static PM_ID = "pm_id";
     static DB_URI = "DB_URI";
     static EMAIL_HOST = "EMAIL_HOST";
     static EMAIL_PORT = "EMAIL_PORT";

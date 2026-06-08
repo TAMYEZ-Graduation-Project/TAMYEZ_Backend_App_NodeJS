@@ -44,7 +44,7 @@ const savedQuestionSchema = new mongoose.Schema<ISavedQuestion>(
       type: mongoose.Schema.Types.Mixed,
       required: true,
       validate: {
-        validator: function (value) {
+        validator: function (this: any, value: any) {
           return validateIfValidQuestionAnswer({
             questionType: this.type,
             value,
@@ -55,12 +55,12 @@ const savedQuestionSchema = new mongoose.Schema<ISavedQuestion>(
     },
 
     correction: {
-      type: mongoose.Schema.Types.Mixed,
-      requied: function (this) {
+      type: mongoose.Schema.Types.Mixed as any,
+      required: function (this: HISavedQuestion) {
         return !this.isCorrect;
       },
       validate: {
-        validator: function (value) {
+        validator: function (this: HISavedQuestion, value: any) {
           return validateIfValidQuestionAnswer({
             questionType: this.type,
             value,

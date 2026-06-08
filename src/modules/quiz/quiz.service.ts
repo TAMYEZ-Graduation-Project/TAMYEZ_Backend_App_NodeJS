@@ -608,7 +608,7 @@ class QuizService {
     if (
       !discardActiveAttempt &&
       (await this._quizAttemptRepository.exists({
-        filter: { userId: req.user!._id!, quizId: quiz._id, roadmapStepId },
+        filter: { userId: req.user!._id!, quizId: quiz._id, roadmapStepId: roadmapStepId! },
       }))
     ) {
       throw new BadRequestException(
@@ -626,7 +626,7 @@ class QuizService {
     // });
 
     let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
-      filter: { userId: req.user!._id!, quizId: quiz._id, roadmapStepId },
+      filter: { userId: req.user!._id!, quizId: quiz._id, roadmapStepId: roadmapStepId! },
       update: {
         quizId: quiz._id,
         userId: req.user!._id!,

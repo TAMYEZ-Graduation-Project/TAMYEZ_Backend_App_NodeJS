@@ -205,10 +205,9 @@ roadmapStepSchema.methods.toJSON = function () {
 
 roadmapStepSchema.pre(
   ["find", "findOne", "updateOne", "findOneAndUpdate", "countDocuments"],
-  function (next) {
+  function () {
     softDeleteFunction(this);
 
-    next();
   },
 );
 
