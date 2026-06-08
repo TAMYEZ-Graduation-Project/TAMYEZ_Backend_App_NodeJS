@@ -14,14 +14,12 @@ async function connnectToDB(): Promise<boolean> {
     await mongoose.connect(process.env.DB_URI!);
     console.log(mongoose.connection.models);
     console.log(StringConstants.CONNECTED_TO_DB_MESSAGE);
-    mongoose.connection.once("open", async () => {
-      if (
-        process.env[EnvFields.MOOD] == ProjectMoodsEnum.dev ||
-        process.env[EnvFields.PM_ID] === "0"
-      ) {
-        await startCollectionWatcher();
-      }
-    });
+    if (
+      process.env[EnvFields.MOOD] == ProjectMoodsEnum.dev ||
+      process.env[EnvFields.PM_ID] === "0"
+    ) {
+      await startCollectionWatcher();
+    }
     return true;
   } catch (e) {
     console.log(StringConstants.FAILED_CONNECTED_TO_DB_MESSAGE, e);
