@@ -5,6 +5,7 @@ abstract class EnvFields {
   static readonly LOGO_URL = "LOGO_URL";
   static readonly PROTOCOL = "PROTOCOL";
   static readonly HOST = "HOST";
+  static readonly PM_ID = "pm_id";
 
   // Database
   static readonly DB_URI = "DB_URI";
