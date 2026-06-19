@@ -40,8 +40,6 @@ const feedbackSchema = new mongoose.Schema<IFeedback>(
 );
 
 feedbackSchema.methods.toJSON = function () {
-  console.log(this.toObject());
-
   const feedbackObject = DocumentFormat.getIdFrom_Id<IFeedback>(
     this.toObject(),
   );

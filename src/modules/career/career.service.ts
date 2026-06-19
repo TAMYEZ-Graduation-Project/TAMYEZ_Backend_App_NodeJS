@@ -643,7 +643,6 @@ class CareerService {
   }: IAIModelCheckCareerAssessmentQuestionsRequest): Promise<IAIModelCheckCareerAssessmentQuestionsResponse> => {
     return new Promise((res) => {
       setTimeout(() => {
-        console.log({ answers });
         const suggestedCareers: IAIModelCheckCareerAssessmentQuestionsResponse["suggestedCareers"] =
           [];
         for (let i = 0; i < 3; i++) {
@@ -873,7 +872,17 @@ class CareerService {
             selectedAt: new Date(),
           },
         },
-        options: { session, returnDocument: "after" },
+        options: {
+          session,
+          returnDocument: "after",
+          populate: [
+            {
+              path: "careerPath.id",
+              match: { paranoid: false },
+              select: "title slug pictureUrl freezed stepsCount orderEpoch",
+            },
+          ],
+        },
       });
       await this._userCareerProgressRepository.create({
         data: [
