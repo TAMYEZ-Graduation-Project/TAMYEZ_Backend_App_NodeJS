@@ -11,6 +11,7 @@ import type {
   IIdSelectedAtObject,
   IProfilePictureObject,
 } from "./common.interface.ts";
+import type { FullICareer } from "./career.interface.ts";
 
 export interface IQuizAttempts {
   count: number;
@@ -54,7 +55,9 @@ export interface IUser {
 
   // Acadamic Info
   assessmentStatus?: CareerAssessmentStatusEnum;
-  careerPath?: IIdSelectedAtObject;
+  careerPath?: IIdSelectedAtObject & {
+    career: Partial<FullICareer> | null;
+  };
   careerDeleted?: ICareerDeleted;
 
   // Quiz Info

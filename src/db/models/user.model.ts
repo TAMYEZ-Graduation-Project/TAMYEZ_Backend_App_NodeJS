@@ -161,14 +161,15 @@ userSchema.methods.toJSON = function () {
       careerObj.pictureUrl === process.env[EnvFields.CAREER_DEFAULT_PICTURE_URL]
         ? careerObj.pictureUrl
         : S3KeyUtil.generateS3UploadsUrlFromSubKey(careerObj.pictureUrl)!;
-    userObject.careerPath.id = DocumentFormat.getIdFrom_Id<ICareer>({
+    userObject.careerPath.id = careerObj._id;
+    userObject.careerPath.career = DocumentFormat.getIdFrom_Id<ICareer>({
       _id: careerObj?._id,
       title: careerObj.title,
       slug: careerObj?.slug,
       pictureUrl: careerObj?.pictureUrl,
       stepsCount: careerObj?.stepsCount,
       __v: careerObj?.__v,
-    } as unknown as FullICareer) as unknown as Types.ObjectId;
+    } as unknown as FullICareer);
   }
 
   return {

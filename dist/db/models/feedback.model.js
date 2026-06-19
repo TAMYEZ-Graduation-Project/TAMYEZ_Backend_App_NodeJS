@@ -28,7 +28,6 @@ const feedbackSchema = new mongoose.Schema({
     toObject: { virtuals: true },
 });
 feedbackSchema.methods.toJSON = function () {
-    console.log(this.toObject());
     const feedbackObject = DocumentFormat.getIdFrom_Id(this.toObject());
     if (feedbackObject.createdBy &&
         !Types.ObjectId.isValid(feedbackObject.createdBy.toString())) {
