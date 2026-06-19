@@ -491,7 +491,7 @@ class RoadmapService {
                         removeIds: body.removeBooks?.map((id) => Types.ObjectId.createFromHexString(id)),
                     }),
                 ],
-                options: { session },
+                options: { session, updatePipeline: true },
             });
             if (body.order && body.order != roadmapStep.order) {
                 await this._roadmapStepRepository.updateMany({
