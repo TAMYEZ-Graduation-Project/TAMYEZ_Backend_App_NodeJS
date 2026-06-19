@@ -712,7 +712,7 @@ class RoadmapService {
             ),
           }),
         ],
-        options: { session },
+        options: { session, updatePipeline: true },
       });
 
       if (body.order && body.order != roadmapStep.order) {

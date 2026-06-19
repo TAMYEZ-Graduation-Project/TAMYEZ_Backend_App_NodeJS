@@ -283,6 +283,7 @@ class CareerService {
                     removeIds: body.removeBooks?.map((id) => Types.ObjectId.createFromHexString(id)),
                 }),
             ],
+            options: { updatePipeline: true },
         });
         return successHandler({ req, res });
     };
