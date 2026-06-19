@@ -68,6 +68,7 @@ import type {
 import { RoadmapService } from "../roadmap/index.ts";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.ts";
 import type {
+  ChooseSuggestedCareerResponse,
   UpdateCareerResourceResponse,
   UploadCareerPictureResponse,
 } from "./career.entity.ts";
@@ -107,7 +108,10 @@ class CareerService {
     this._userCareerProgressRepository,
   );
 
-  createCareer = async (req: Request, res: Response): Promise<Response | void> => {
+  createCareer = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { title, description, summary, courses, youtubePlaylists, books } =
       req.validationResult.body as CreateCareerBodyDto;
 
@@ -154,7 +158,11 @@ class CareerService {
       );
     }
 
-    return successHandler({req, res, message: "Career created successfully ✅" });
+    return successHandler({
+      req,
+      res,
+      message: "Career created successfully ✅",
+    });
   };
 
   getCareers = ({ archived = false }: { archived?: boolean } = {}) => {
@@ -196,7 +204,7 @@ class CareerService {
         );
       }
 
-      return successHandler({req, res, body: result });
+      return successHandler({ req, res, body: result });
     };
   };
 
@@ -283,7 +291,7 @@ class CareerService {
         });
         result.percentageCompleted = req.progress?.percentageCompleted;
       }
-      return successHandler({req, res, body: result });
+      return successHandler({ req, res, body: result });
     };
   };
 
@@ -336,7 +344,10 @@ class CareerService {
     });
   };
 
-  updateCareer = async (req: Request, res: Response): Promise<Response | void> => {
+  updateCareer = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { careerId } = req.params as UpdateCareerParamsDto;
     const body = req.validationResult.body as UpdateCareerBodyDto;
 
@@ -452,7 +463,7 @@ class CareerService {
       ],
     });
 
-    return successHandler({req, res });
+    return successHandler({ req, res });
   };
 
   private _getResourceSpecifiedStepsIds = (
@@ -556,7 +567,7 @@ class CareerService {
       }
     }
 
-    let subKey:string | undefined;
+    let subKey: string | undefined;
     if (body.attachment) {
       subKey = (
         await Promise.all([
@@ -576,35 +587,39 @@ class CareerService {
       )[1];
     }
 
-    const result = await this._careerRepository.findOneAndUpdate({
-      filter: {
-        _id: careerId,
-        [`${resourceName}`]: {
-          $elemMatch: { _id: resourceId },
-        },
-        __v: body.v,
-      },
-      update: listUpdateFieldsHandler({
-        resourceName,
-        body,
-        attachmentSubKey: subKey,
-      }),
-      options: {
-        new: true,
-        arrayFilters: [
-          { "el._id": Types.ObjectId.createFromHexString(resourceId) },
-        ],
-        projection: {
-          _id: 0,
-          __v: 1,
+    const result = await this._careerRepository
+      .findOneAndUpdate({
+        filter: {
+          _id: careerId,
           [`${resourceName}`]: {
-            $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
+            $elemMatch: { _id: resourceId },
+          },
+          __v: body.v,
+        },
+        update: listUpdateFieldsHandler({
+          resourceName,
+          body,
+          attachmentSubKey: subKey,
+        }),
+        options: {
+          returnDocument: "after",
+          arrayFilters: [
+            { "el._id": Types.ObjectId.createFromHexString(resourceId) },
+          ],
+          projection: {
+            _id: 0,
+            __v: 1,
+            [`${resourceName}`]: {
+              $elemMatch: {
+                _id: Types.ObjectId.createFromHexString(resourceId),
+              },
+            },
           },
         },
-      },
-    }).catch(async () => {
-      if (subKey) await S3Service.deleteFile({ SubKey: subKey });
-    });
+      })
+      .catch(async () => {
+        if (subKey) await S3Service.deleteFile({ SubKey: subKey });
+      });
 
     if (!result) {
       if (subKey) await S3Service.deleteFile({ SubKey: subKey });
@@ -784,8 +799,26 @@ class CareerService {
       );
     }
 
-    await quizAttempt.deleteOne();
-    return successHandler({req, res, body: aiModelResponse });
+    const [_, careersPopulated] = await Promise.all([
+      quizAttempt.deleteOne(),
+      this._careerRepository.find({
+        filter: { _id: { $in: Array.from(suggestedCareerIds) } },
+        options: { projection: { pictureUrl: 1 } },
+      }),
+    ]);
+    const careerMap = new Map(
+      careersPopulated!.map((c) => [c._id.toString(), c]),
+    );
+
+    const body = aiModelResponse.suggestedCareers.map((c) => ({
+      ...c,
+      careerId: careerMap.get(c.careerId.toString()),
+    }));
+    return successHandler({
+      req,
+      res,
+      body,
+    });
   };
 
   chooseSuggestedCareer = async (
@@ -827,50 +860,56 @@ class CareerService {
       );
     }
 
+    let userAfterUpdate;
     const session = await startSession();
     await session.withTransaction(async () => {
-      await Promise.all([
-        this._userRepository.updateOne({
-          filter: { _id: req.user!._id! },
-          update: {
-            assessmentStatus: CareerAssessmentStatusEnum.completed,
-            careerPath: {
-              id: Types.ObjectId.createFromHexString(careerId),
-              selectedAt: new Date(),
-            },
+      userAfterUpdate = await this._userRepository.findOneAndUpdate({
+        filter: { _id: req.user!._id! },
+        update: {
+          assessmentStatus: CareerAssessmentStatusEnum.completed,
+          careerPath: {
+            id: Types.ObjectId.createFromHexString(careerId),
+            selectedAt: new Date(),
           },
-          options: { session },
-        }),
-        this._userCareerProgressRepository.create({
-          data: [
-            {
-              userId: req.user!._id!,
-              careerId: Types.ObjectId.createFromHexString(careerId),
-              nextStep: (
-                await this._roadmapStepRepository.findOne({
-                  filter: {
-                    careerId: Types.ObjectId.createFromHexString(careerId),
-                  },
-                  options: { sort: { order: 1 }, projection: { _id: 1 } },
-                })
-              )?._id,
-              orderEpoch: chosenCareer.orderEpoch,
-            },
-          ],
-          options: { session },
-        }),
-        this._careerSuggestionAttemptRepository.deleteOne({
-          filter: { userId: req.user!._id! },
-          options: { session },
-        }),
-      ]);
+        },
+        options: { session, returnDocument: "after" },
+      });
+      await this._userCareerProgressRepository.create({
+        data: [
+          {
+            userId: req.user!._id!,
+            careerId: Types.ObjectId.createFromHexString(careerId),
+            nextStep: (
+              await this._roadmapStepRepository.findOne({
+                filter: {
+                  careerId: Types.ObjectId.createFromHexString(careerId),
+                },
+                options: { sort: { order: 1 }, projection: { _id: 1 } },
+              })
+            )?._id,
+            orderEpoch: chosenCareer.orderEpoch,
+          },
+        ],
+        options: { session },
+      });
+      await this._careerSuggestionAttemptRepository.deleteOne({
+        filter: { userId: req.user!._id! },
+        options: { session },
+      });
     });
     await session.endSession();
 
-    return successHandler({req, res });
+    return successHandler<ChooseSuggestedCareerResponse>({
+      req,
+      res,
+      body: { user: userAfterUpdate! },
+    });
   };
 
-  archiveCareer = async (req: Request, res: Response): Promise<Response | void> => {
+  archiveCareer = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { careerId } = req.params as ArchiveCareerParamsDto;
     const { v, confirmFreezing } = req.body as ArchiveCareerBodyDto;
 
@@ -901,10 +940,13 @@ class CareerService {
       },
     });
 
-    return successHandler({req, res });
+    return successHandler({ req, res });
   };
 
-  restoreCareer = async (req: Request, res: Response): Promise<Response | void> => {
+  restoreCareer = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { careerId } = req.params as RestoreCareerParamsDto;
     const { v } = req.body as RestoreCareerBodyDto;
 
@@ -925,10 +967,13 @@ class CareerService {
       throw new NotFoundException("Invalid careerId or Not freezed ❌");
     }
 
-    return successHandler({req, res });
+    return successHandler({ req, res });
   };
 
-  deleteCareer = async (req: Request, res: Response): Promise<Response | void> => {
+  deleteCareer = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response | void> => {
     const { careerId } = req.params as DeleteCareerParamsDto;
     const { v } = req.body as DeleteCareerBodyDto;
 
@@ -1019,7 +1064,7 @@ class CareerService {
       throw new NotFoundException("Invalid careerId or Not freezed ❌");
     }
 
-    return successHandler({req, res });
+    return successHandler({ req, res });
   };
 }
 

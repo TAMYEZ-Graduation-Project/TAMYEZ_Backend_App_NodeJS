@@ -273,7 +273,7 @@ abstract class DatabaseRepository<TDocument> {
   >({
     filter = {},
     update,
-    options = { new: true },
+    options = { returnDocument: "after" },
   }: {
     filter?: QueryFilter<TDocument> & { __v?: number | undefined };
     update: UpdateFunctionsUpdateObjectType<TDocument, TUpdate>;
@@ -312,7 +312,7 @@ abstract class DatabaseRepository<TDocument> {
     id,
     v,
     update,
-    options = { new: true },
+    options = { returnDocument: "after" },
   }: {
     id: Types.ObjectId | string;
     v: number | undefined;
@@ -390,7 +390,7 @@ abstract class DatabaseRepository<TDocument> {
 
   findOneAndDelete = async <TLean extends boolean = false>({
     filter = {},
-    options = { new: true },
+    options = { returnDocument: "after" },
   }: {
     filter?: QueryFilter<TDocument> & { __v?: number | undefined };
     options?: FindFunctionOptionsType<TDocument, TLean>;

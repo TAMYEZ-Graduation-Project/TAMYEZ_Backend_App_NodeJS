@@ -689,7 +689,7 @@ class RoadmapService {
                 attachmentSubKey: subKey,
             }),
             options: {
-                new: true,
+                returnDocument: "after",
                 arrayFilters: [
                     { "el._id": Types.ObjectId.createFromHexString(resourceId) },
                 ],

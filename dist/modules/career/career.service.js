@@ -54,7 +54,11 @@ class CareerService {
         if (!newCareer) {
             throw new ServerException(`Failed to create career, please try again later ☹️`);
         }
-        return successHandler({ req, res, message: "Career created successfully ✅" });
+        return successHandler({
+            req,
+            res,
+            message: "Career created successfully ✅",
+        });
     };
     getCareers = ({ archived = false } = {}) => {
         return async (req, res) => {
@@ -366,7 +370,8 @@ class CareerService {
                 }),
             ]))[1];
         }
-        const result = await this._careerRepository.findOneAndUpdate({
+        const result = await this._careerRepository
+            .findOneAndUpdate({
             filter: {
                 _id: careerId,
                 [`${resourceName}`]: {
@@ -380,7 +385,7 @@ class CareerService {
                 attachmentSubKey: subKey,
             }),
             options: {
-                new: true,
+                returnDocument: "after",
                 arrayFilters: [
                     { "el._id": Types.ObjectId.createFromHexString(resourceId) },
                 ],
@@ -388,11 +393,14 @@ class CareerService {
                     _id: 0,
                     __v: 1,
                     [`${resourceName}`]: {
-                        $elemMatch: { _id: Types.ObjectId.createFromHexString(resourceId) },
+                        $elemMatch: {
+                            _id: Types.ObjectId.createFromHexString(resourceId),
+                        },
                     },
                 },
             },
-        }).catch(async () => {
+        })
+            .catch(async () => {
             if (subKey)
                 await S3Service.deleteFile({ SubKey: subKey });
         });
@@ -516,8 +524,23 @@ class CareerService {
         })).acknowledged) {
             throw new ServerException("Failed to save career suggestions, please try again later ❌");
         }
-        await quizAttempt.deleteOne();
-        return successHandler({ req, res, body: aiModelResponse });
+        const [_, careersPopulated] = await Promise.all([
+            quizAttempt.deleteOne(),
+            this._careerRepository.find({
+                filter: { _id: { $in: Array.from(suggestedCareerIds) } },
+                options: { projection: { pictureUrl: 1 } },
+            }),
+        ]);
+        const careerMap = new Map(careersPopulated.map((c) => [c._id.toString(), c]));
+        const body = aiModelResponse.suggestedCareers.map((c) => ({
+            ...c,
+            careerId: careerMap.get(c.careerId.toString()),
+        }));
+        return successHandler({
+            req,
+            res,
+            body,
+        });
     };
     chooseSuggestedCareer = async (req, res) => {
         const { careerId } = req.params;
@@ -540,44 +563,47 @@ class CareerService {
         if (careerSuggestionAttempt.suggestions.find((c) => c.careerId.equals(careerId))?.confidence < 60) {
             throw new BadRequestException("The suggested career confidence is less than 60% ❌");
         }
+        let userAfterUpdate;
         const session = await startSession();
         await session.withTransaction(async () => {
-            await Promise.all([
-                this._userRepository.updateOne({
-                    filter: { _id: req.user._id },
-                    update: {
-                        assessmentStatus: CareerAssessmentStatusEnum.completed,
-                        careerPath: {
-                            id: Types.ObjectId.createFromHexString(careerId),
-                            selectedAt: new Date(),
-                        },
+            userAfterUpdate = await this._userRepository.findOneAndUpdate({
+                filter: { _id: req.user._id },
+                update: {
+                    assessmentStatus: CareerAssessmentStatusEnum.completed,
+                    careerPath: {
+                        id: Types.ObjectId.createFromHexString(careerId),
+                        selectedAt: new Date(),
                     },
-                    options: { session },
-                }),
-                this._userCareerProgressRepository.create({
-                    data: [
-                        {
-                            userId: req.user._id,
-                            careerId: Types.ObjectId.createFromHexString(careerId),
-                            nextStep: (await this._roadmapStepRepository.findOne({
-                                filter: {
-                                    careerId: Types.ObjectId.createFromHexString(careerId),
-                                },
-                                options: { sort: { order: 1 }, projection: { _id: 1 } },
-                            }))?._id,
-                            orderEpoch: chosenCareer.orderEpoch,
-                        },
-                    ],
-                    options: { session },
-                }),
-                this._careerSuggestionAttemptRepository.deleteOne({
-                    filter: { userId: req.user._id },
-                    options: { session },
-                }),
-            ]);
+                },
+                options: { session, returnDocument: "after" },
+            });
+            await this._userCareerProgressRepository.create({
+                data: [
+                    {
+                        userId: req.user._id,
+                        careerId: Types.ObjectId.createFromHexString(careerId),
+                        nextStep: (await this._roadmapStepRepository.findOne({
+                            filter: {
+                                careerId: Types.ObjectId.createFromHexString(careerId),
+                            },
+                            options: { sort: { order: 1 }, projection: { _id: 1 } },
+                        }))?._id,
+                        orderEpoch: chosenCareer.orderEpoch,
+                    },
+                ],
+                options: { session },
+            });
+            await this._careerSuggestionAttemptRepository.deleteOne({
+                filter: { userId: req.user._id },
+                options: { session },
+            });
         });
         await session.endSession();
-        return successHandler({ req, res });
+        return successHandler({
+            req,
+            res,
+            body: { user: userAfterUpdate },
+        });
     };
     archiveCareer = async (req, res) => {
         const { careerId } = req.params;

@@ -125,7 +125,7 @@ class DatabaseRepository {
         }
         return res;
     };
-    findOneAndUpdate = async ({ filter = {}, update, options = { new: true }, }) => {
+    findOneAndUpdate = async ({ filter = {}, update, options = { returnDocument: "after" }, }) => {
         if (Array.isArray(update)) {
             update.push({
                 $set: {
@@ -151,7 +151,7 @@ class DatabaseRepository {
         }
         return res;
     };
-    findByIdAndUpdate = async ({ id, v, update, options = { new: true }, }) => {
+    findByIdAndUpdate = async ({ id, v, update, options = { returnDocument: "after" }, }) => {
         if (Array.isArray(update)) {
             update.push({
                 $set: {
@@ -195,7 +195,7 @@ class DatabaseRepository {
     deleteMany = async ({ filter = {}, options = {}, }) => {
         return this.model.deleteMany(filter, options);
     };
-    findOneAndDelete = async ({ filter = {}, options = { new: true }, }) => {
+    findOneAndDelete = async ({ filter = {}, options = { returnDocument: "after" }, }) => {
         const res = await this.model.findOneAndDelete(filter, options);
         if (filter?.__v != undefined && res == undefined) {
             const { __v, ...baseFilter } = filter;
