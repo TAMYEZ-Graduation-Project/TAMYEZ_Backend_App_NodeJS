@@ -368,7 +368,7 @@ class UserService {
             provide: ProvidersEnum.local,
           },
         },
-        options: { projection: { __v: 1 }, new: true },
+        options: { projection: { __v: 1 }, returnDocument: "after" },
       })
       .catch(async (error) => {
         await S3Service.deleteFile({

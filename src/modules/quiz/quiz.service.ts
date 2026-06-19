@@ -654,7 +654,7 @@ class QuizService {
               1000,
         ),
       },
-      options: { new: true, upsert: true },
+      options: { returnDocument: "after", upsert: true },
     });
 
     if (!quizAttempt) {

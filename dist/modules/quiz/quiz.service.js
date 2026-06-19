@@ -428,7 +428,7 @@ class QuizService {
                             Number(process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS])) *
                         1000),
             },
-            options: { new: true, upsert: true },
+            options: { returnDocument: "after", upsert: true },
         });
         if (!quizAttempt) {
             throw new ServerException("Failed to generate quiz questions ❓");
