@@ -450,6 +450,7 @@ class CareerService {
           ),
         }),
       ],
+      options: { updatePipeline: true },
     });
 
     return successHandler({req, res });
