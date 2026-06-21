@@ -1,3 +1,4 @@
+import { QuizTypesEnum } from "./enum.constants.js";
 class RoutePaths {
     static ALL_PATH = "{/*dummy}";
     static API_V1_PATH = "/api/v1";
@@ -69,7 +70,8 @@ class RoutePaths {
     static getArchivedQuizzes = "/archives";
     static getQuiz = "/:quizId{/:roadmapStepId}";
     static getArchivedQuiz = "/:quizId/archives";
-    static getQuizQuestions = "/questions/:quizId{/:roadmapStepId}";
+    static getQuizQuestions = "/questions/:quizId/:roadmapStepId";
+    static getCareerAssessmentQuestions = `/questions/${QuizTypesEnum.careerAssessment}`;
     static getSavedQuizzes = "/saved";
     static getSavedQuiz = "/saved/:savedQuizId";
     static checkQuizAnswers = "/:quizAttemptId";

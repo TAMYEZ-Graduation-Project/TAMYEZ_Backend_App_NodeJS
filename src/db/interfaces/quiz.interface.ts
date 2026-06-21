@@ -10,7 +10,7 @@ export interface IQuiz {
   title: string;
   description: string;
 
-  aiPrompt: string;
+  questionsNumber: number;
 
   type: QuizTypesEnum;
   duration?: number | undefined; // in seconds

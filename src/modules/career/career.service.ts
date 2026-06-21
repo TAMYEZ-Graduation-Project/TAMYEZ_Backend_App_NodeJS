@@ -743,6 +743,7 @@ class CareerService {
       answersForAI.push({
         text: question.text!,
         options: question.options,
+        type: question.type,
         userAnswer: answer.answer,
       });
     }

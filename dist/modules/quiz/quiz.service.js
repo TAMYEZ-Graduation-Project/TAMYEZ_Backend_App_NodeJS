@@ -21,7 +21,7 @@ class QuizService {
     _userCareerProgressRepository = new UserCareerProgressRepository(UserCareerProgressModel);
     _userProgressService = new UserProgressService(this._roadmapStepRepository, this._userCareerProgressRepository);
     createQuiz = async (req, res) => {
-        const { title, description, aiPrompt, type, duration, tags } = req
+        const { title, description, questionsNumber, type, duration, tags } = req
             .validationResult.body;
         if (type === QuizTypesEnum.careerAssessment) {
             if (await this._quizRepository.findOne({ filter: { type } })) {
@@ -50,7 +50,7 @@ class QuizService {
                     uniqueKey,
                     title: title,
                     description,
-                    aiPrompt,
+                    questionsNumber,
                     type,
                     duration,
                     tags,
@@ -66,7 +66,7 @@ class QuizService {
     };
     updateQuiz = async (req, res) => {
         const { quizId } = req.params;
-        const { title, description, aiPrompt, type, duration, tags, v } = req
+        const { title, description, questionsNumber, type, duration, tags, v } = req
             .validationResult.body;
         const quiz = await this._quizRepository.findOne({
             filter: { _id: quizId },
@@ -96,7 +96,14 @@ class QuizService {
         }
         const updateObject = UpdateUtil.getChangedFields({
             document: quiz,
-            updatedObject: { title, description, aiPrompt, type, duration, tags },
+            updatedObject: {
+                title,
+                description,
+                questionsNumber,
+                type,
+                duration,
+                tags,
+            },
         });
         await this._quizRepository.updateOne({
             filter: { _id: quizId, __v: v },
@@ -184,7 +191,6 @@ class QuizService {
                 },
                 projection: req.user.role === RolesEnum.user
                     ? {
-                        aiPrompt: 0,
                         uniqueKey: 0,
                     }
                     : {},
@@ -199,7 +205,114 @@ class QuizService {
             });
         };
     };
-    _generateQuestions = async ({ title, aiPrompt, }) => {
+    _generateRoadmapStepQuizQuestions = async ({ topic, career, num_questions, }) => {
+        await pause(1500);
+        return {
+            questions: [
+                {
+                    type: "mcq-single",
+                    text: "Which data structure uses LIFO (Last In, First Out) principle?",
+                    options: [
+                        { id: "optA", text: "Queue" },
+                        { id: "optB", text: "Stack" },
+                        { id: "optC", text: "Array" },
+                        { id: "optD", text: "Linked List" },
+                    ],
+                    correctAnswer: ["optB"],
+                    explanation: "A stack follows the LIFO principle, meaning the last element added is the first to be removed.",
+                },
+                {
+                    type: "mcq-single",
+                    text: "What is the time complexity of binary search in a sorted array?",
+                    options: [
+                        { id: "optA", text: "O(n)" },
+                        { id: "optB", text: "O(log n)" },
+                        { id: "optC", text: "O(n log n)" },
+                        { id: "optD", text: "O(1)" },
+                    ],
+                    correctAnswer: ["optB"],
+                    explanation: "Binary search halves the search space each time, resulting in logarithmic complexity O(log n).",
+                },
+                {
+                    type: "mcq-multi",
+                    text: "Which of the following are programming paradigms?",
+                    options: [
+                        { id: "optA", text: "Object-Oriented" },
+                        { id: "optB", text: "Functional" },
+                        { id: "optC", text: "Procedural" },
+                        { id: "optD", text: "Relational" },
+                    ],
+                    correctAnswer: [
+                        "optA",
+                        "optB",
+                        "optC",
+                    ],
+                    explanation: "Object-Oriented, Functional, and Procedural are paradigms; Relational refers to databases, not a paradigm.",
+                },
+                {
+                    type: "written",
+                    text: "Explain the difference between TCP and UDP.",
+                },
+                {
+                    type: "mcq-single",
+                    text: "Which algorithm is commonly used for shortest path in a graph?",
+                    options: [
+                        { id: "optA", text: "Dijkstra's Algorithm" },
+                        { id: "optB", text: "Merge Sort" },
+                        { id: "optC", text: "DFS" },
+                        { id: "optD", text: "Bellman-Ford" },
+                    ],
+                    correctAnswer: ["optA"],
+                    explanation: "Dijkstra's algorithm efficiently finds the shortest path from a source to all other nodes in a weighted graph.",
+                },
+                {
+                    type: "mcq-single",
+                    text: "What does SQL stand for?",
+                    options: [
+                        { id: "optA", text: "Structured Query Language" },
+                        { id: "optB", text: "Simple Query Language" },
+                        { id: "optC", text: "Sequential Query Language" },
+                        { id: "optD", text: "Standard Query Language" },
+                    ],
+                    correctAnswer: ["optA"],
+                    explanation: "SQL stands for Structured Query Language, used for managing and querying relational databases.",
+                },
+                {
+                    type: "mcq-multi",
+                    text: "Which of the following are NoSQL databases?",
+                    options: [
+                        { id: "optA", text: "MongoDB" },
+                        { id: "optB", text: "PostgreSQL" },
+                        { id: "optC", text: "Cassandra" },
+                        { id: "optD", text: "Redis" },
+                    ],
+                    correctAnswer: ["optA", "optC", "optD"],
+                    explanation: "MongoDB, Cassandra, and Redis are NoSQL databases; PostgreSQL is a relational database.",
+                },
+                {
+                    type: "written",
+                    text: "Describe the concept of polymorphism in object-oriented programming.",
+                },
+                {
+                    type: "mcq-single",
+                    text: "Which of these is NOT a valid HTTP method?",
+                    options: [
+                        { id: "optA", text: "GET" },
+                        { id: "optB", text: "POST" },
+                        { id: "optC", text: "FETCH" },
+                        { id: "optD", text: "DELETE" },
+                    ],
+                    correctAnswer: ["optC"],
+                    explanation: "GET, POST, and DELETE are valid HTTP methods; FETCH is not an HTTP method but a JavaScript API.",
+                },
+                {
+                    type: "written",
+                    text: "What is the difference between supervised and unsupervised learning in machine learning?",
+                },
+            ],
+        };
+    };
+    _generateCareerAssessmentQuestions = async ({ num_questions, language, }) => {
         await pause(1500);
         return {
             questions: [
@@ -310,71 +423,56 @@ class QuizService {
         const { quizId, roadmapStepId } = req.params;
         const { discardActiveAttempt } = req.validationResult
             .query;
-        const filter = {};
-        if (quizId === QuizTypesEnum.careerAssessment) {
-            if (req.user?.careerPath) {
-                throw new BadRequestException("This account already has a career path, you can't retake the career assessment ❌");
-            }
-            filter.uniqueKey = {
-                $regex: StringConstants.CAREER_ASSESSMENT,
-                $options: "i",
-            };
-        }
-        else {
-            if (!req.user?.careerPath) {
-                throw new BadRequestException("You have to select a career path before taking an roadmap step quizzes ❌");
-            }
-            filter._id = quizId;
+        if (!req.user?.careerPath) {
+            throw new BadRequestException("You have to select a career path before taking an roadmap step quizzes ❌");
         }
         const quiz = await this._quizRepository.findOne({
             filter: {
-                ...filter,
+                _id: quizId,
             },
         });
         if (!quiz) {
             throw new NotFoundException(StringConstants.INVALID_PARAMETER_MESSAGE("quizId"));
         }
-        if (quizId !== QuizTypesEnum.careerAssessment) {
-            const roadmapStep = await this._roadmapStepRepository.findOne({
-                filter: {
-                    _id: roadmapStepId,
-                    careerId: req.user?.careerPath?.id,
-                    quizzesIds: { $in: [quizId] },
-                },
-                options: {
-                    populate: [{ path: "careerId" }],
-                },
-            });
-            if (!roadmapStep || !roadmapStep.careerId) {
-                throw new NotFoundException("Invalid roadmapStepId, career freezed or quiz is not in your roadmap step ❌");
-            }
-            const stepStatus = (await this._userProgressService.refreshProgressAndClassify({
+        const roadmapStep = await this._roadmapStepRepository.findOne({
+            filter: {
+                _id: roadmapStepId,
+                careerId: req.user?.careerPath?.id,
+                quizzesIds: { $in: [quizId] },
+            },
+            options: {
+                populate: [{ path: "careerId" }],
+            },
+        });
+        if (!roadmapStep || !roadmapStep.careerId) {
+            throw new NotFoundException("Invalid roadmapStepId, career freezed or quiz is not in your roadmap step ❌");
+        }
+        const stepStatus = (await this._userProgressService.refreshProgressAndClassify({
+            progress: req.progress,
+            user: req.user,
+            stepOrSteps: roadmapStep,
+        })).progressStatus;
+        if (stepStatus === RoadmapStepProgressStatusEnum.lockedPrereq)
+            throw new BadRequestException("Step is locked ❌🔒️");
+        if (stepStatus === RoadmapStepProgressStatusEnum.inProgress ||
+            stepStatus === RoadmapStepProgressStatusEnum.available) {
+            const firstNewStep = await this._userProgressService.getFirstNewStep({
                 progress: req.progress,
-                user: req.user,
-                stepOrSteps: roadmapStep,
-            })).progressStatus;
-            if (stepStatus === RoadmapStepProgressStatusEnum.lockedPrereq)
-                throw new BadRequestException("Step is locked ❌🔒️");
-            if (stepStatus === RoadmapStepProgressStatusEnum.inProgress ||
-                stepStatus === RoadmapStepProgressStatusEnum.available) {
-                const firstNewStep = await this._userProgressService.getFirstNewStep({
-                    progress: req.progress,
-                });
-                if (firstNewStep && !firstNewStep._id.equals(roadmapStepId)) {
-                    throw new BadRequestException("You can't complete this step until all prior new steps are done first ❌");
-                }
+            });
+            if (firstNewStep && !firstNewStep._id.equals(roadmapStepId)) {
+                throw new BadRequestException("You can't complete this step until all prior new steps are done first ❌");
             }
-            if (roadmapStep.quizzesIds.length > 1) {
-                const quizIndex = roadmapStep.quizzesIds.findIndex((quiz) => quiz.equals(quizId));
-                if (quizIndex > 0) {
-                    if ((await this._savedQuizRepository.countDocuments({
-                        filter: {
-                            userId: req.user._id,
-                            quizId: { $in: roadmapStep.quizzesIds.slice(0, quizIndex) },
-                        },
-                    })) != quizIndex) {
-                        throw new BadRequestException("All prior quizzes must be taken sequentially in order ❌");
-                    }
+        }
+        if (roadmapStep.quizzesIds.length > 1) {
+            const quizIndex = roadmapStep.quizzesIds.findIndex((quiz) => quiz.equals(quizId));
+            if (quizIndex > 0) {
+                if ((await this._savedQuizRepository.countDocuments({
+                    filter: {
+                        userId: req.user._id,
+                        quizId: { $in: roadmapStep.quizzesIds.slice(0, quizIndex) },
+                    },
+                })) != quizIndex) {
+                    throw new BadRequestException("All prior quizzes must be taken sequentially in order ❌");
                 }
             }
         }
@@ -392,40 +490,42 @@ class QuizService {
                 req.user.quizAttempts.count = 0;
             }
         }
-        if (quizId !== QuizTypesEnum.careerAssessment &&
-            (await this._quizCooldownRepository.findOne({
-                filter: { userId: req.user._id, quizId: quiz._id },
-            }))) {
+        if (await this._quizCooldownRepository.findOne({
+            filter: { userId: req.user._id, quizId: quiz._id },
+        })) {
             throw new BadRequestException(`You are in cooldown period for this quiz. Please try again later ❌`);
         }
         if (!discardActiveAttempt &&
             (await this._quizAttemptRepository.exists({
-                filter: { userId: req.user._id, quizId: quiz._id, roadmapStepId: roadmapStepId },
+                filter: {
+                    userId: req.user._id,
+                    quizId: quiz._id,
+                    roadmapStepId: roadmapStepId,
+                },
             }))) {
             throw new BadRequestException("There is an active attempt on this quiz ⚠️ Do you want to discard it?");
         }
-        const generatedQuestions = await this._generateQuestions({
-            title: quiz.title,
-            aiPrompt: quiz.aiPrompt,
+        const generatedQuestions = await this._generateRoadmapStepQuizQuestions({
+            topic: roadmapStep.title,
+            career: roadmapStep.careerId.title,
+            num_questions: Number(process.env[EnvFields.NUMBER_OF_QUESTIONS_FOR_ROADMAP_STEP_QUIZ]),
         });
         let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
-            filter: { userId: req.user._id, quizId: quiz._id, roadmapStepId: roadmapStepId },
+            filter: {
+                userId: req.user._id,
+                quizId: quiz._id,
+                roadmapStepId: roadmapStepId,
+            },
             update: {
                 quizId: quiz._id,
                 userId: req.user._id,
-                attemptType: quizId === QuizTypesEnum.careerAssessment ||
-                    quiz.title == StringConstants.CAREER_ASSESSMENT
-                    ? QuizTypesEnum.careerAssessment
-                    : QuizTypesEnum.stepQuiz,
+                attemptType: QuizTypesEnum.stepQuiz,
                 careerId: req.user?.careerPath?.id,
                 roadmapStepId: roadmapStepId,
                 questions: generatedQuestions.questions,
                 expiresAt: new Date(Date.now() +
-                    (quizId === QuizTypesEnum.careerAssessment ||
-                        quiz.title == StringConstants.CAREER_ASSESSMENT
-                        ? Number(process.env[EnvFields.CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS])
-                        : quiz.duration +
-                            Number(process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS])) *
+                    quiz.duration +
+                    Number(process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS]) *
                         1000),
             },
             options: { returnDocument: "after", upsert: true },
@@ -436,10 +536,65 @@ class QuizService {
         if (!req.user.quizAttempts?.count) {
             req.user.quizAttempts = { count: 0, lastAttempt: new Date() };
         }
-        if (quizId === QuizTypesEnum.careerAssessment ||
-            quiz.title == StringConstants.CAREER_ASSESSMENT) {
-            req.user.assessmentStatus = CareerAssessmentStatusEnum.inProgress;
+        if (res.headersSent || res.writableEnded)
+            return;
+        return successHandler({
+            req,
+            res,
+            body: {
+                quizAttempt,
+            },
+        });
+    };
+    getCareerAssessmentQuestions = async (req, res) => {
+        const { discardActiveAttempt } = req.validationResult
+            .query;
+        if (req.user?.careerPath) {
+            throw new BadRequestException("This account already has a career path, you can't retake the career assessment ❌");
         }
+        const quiz = await this._quizRepository.findOne({
+            filter: {
+                $regex: StringConstants.CAREER_ASSESSMENT,
+                $options: "i",
+            },
+        });
+        if (!quiz) {
+            throw new NotFoundException(StringConstants.INVALID_PARAMETER_MESSAGE("quizId"));
+        }
+        if (!discardActiveAttempt &&
+            (await this._quizAttemptRepository.exists({
+                filter: {
+                    userId: req.user._id,
+                    quizId: quiz._id,
+                },
+            }))) {
+            throw new BadRequestException("There is an active attempt on this quiz ⚠️ Do you want to discard it?");
+        }
+        const generatedQuestions = await this._generateCareerAssessmentQuestions({
+            num_questions: Number(process.env[EnvFields.NUMBER_OF_QUESTIONS_FOR_CAREER_ASSESSMENT]),
+            language: "English",
+        });
+        let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
+            filter: {
+                userId: req.user._id,
+                quizId: quiz._id,
+            },
+            update: {
+                quizId: quiz._id,
+                userId: req.user._id,
+                attemptType: QuizTypesEnum.careerAssessment,
+                careerId: req.user?.careerPath?.id,
+                questions: generatedQuestions.questions,
+                expiresAt: new Date(Date.now() +
+                    Number(process.env[EnvFields.CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS]) *
+                        1000),
+            },
+            options: { returnDocument: "after", upsert: true },
+        });
+        if (!quizAttempt) {
+            throw new ServerException("Failed to generate quiz questions ❓");
+        }
+        req.user.assessmentStatus = CareerAssessmentStatusEnum.inProgress;
         req.user.increment();
         await req.user?.save();
         if (res.headersSent || res.writableEnded)
@@ -452,7 +607,7 @@ class QuizService {
             },
         });
     };
-    _checkWrittenQuestionsAnswers = async ({ resolve, title, aiPrompt, writtenAnswers, }) => {
+    _checkWrittenQuestionsAnswers = async ({ resolve, writtenAnswers, }) => {
         return new Promise((res) => {
             setTimeout(() => {
                 const response = [];
@@ -533,8 +688,6 @@ class QuizService {
         const gate = makeCompleter();
         this._checkWrittenQuestionsAnswers({
             resolve: gate.resolve,
-            title: quizAttempt.quizId.title,
-            aiPrompt: quizAttempt.quizId.aiPrompt,
             writtenAnswers,
         });
         const checkedAnswers = [];

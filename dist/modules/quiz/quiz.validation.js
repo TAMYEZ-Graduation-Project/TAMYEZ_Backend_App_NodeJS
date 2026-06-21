@@ -19,12 +19,12 @@ class QuizValidators {
             })
                 .min(3)
                 .max(50_000),
-            aiPrompt: z
-                .string({
-                error: StringConstants.PATH_REQUIRED_MESSAGE("aiPrompt"),
+            questionsNumber: z
+                .number({
+                error: StringConstants.PATH_REQUIRED_MESSAGE("questionsNumber"),
             })
-                .min(3)
-                .max(50_000),
+                .min(1)
+                .max(50),
             type: z
                 .enum(Object.values(QuizTypesEnum), {
                 error: StringConstants.INVALID_ENUM_VALUE_MESSAGE({
@@ -124,12 +124,12 @@ class QuizValidators {
                 .min(3)
                 .max(50_000)
                 .optional(),
-            aiPrompt: z
-                .string({
-                error: StringConstants.PATH_REQUIRED_MESSAGE("aiPrompt"),
+            questionsNumber: z
+                .number({
+                error: StringConstants.PATH_REQUIRED_MESSAGE("questionsNumber"),
             })
-                .min(3)
-                .max(50_000)
+                .min(1)
+                .max(50)
                 .optional(),
             type: z
                 .enum(Object.values(QuizTypesEnum), {
@@ -187,28 +187,15 @@ class QuizValidators {
         }),
     };
     static getQuizQuestions = {
-        params: this.getQuiz.params
-            .extend({
-            roadmapStepId: generalValidationConstants.objectId.optional(),
-        })
-            .superRefine((data, ctx) => {
-            if (data.quizId !== QuizTypesEnum.careerAssessment &&
-                !data.roadmapStepId) {
-                ctx.addIssue({
-                    code: "custom",
-                    path: ["roadmapStepId"],
-                    message: "roadmapStepId is required when getting questions of roadmap step quiz ❌",
-                });
-            }
-            else if (data.quizId === QuizTypesEnum.careerAssessment &&
-                data.roadmapStepId) {
-                ctx.addIssue({
-                    code: "custom",
-                    path: ["roadmapStepId"],
-                    message: `no need for roadmapStepId, when getting ${QuizTypesEnum.careerAssessment} questions ❌`,
-                });
-            }
+        params: z.strictObject({
+            quizId: generalValidationConstants.objectId,
+            roadmapStepId: generalValidationConstants.objectId,
         }),
+        query: z.strictObject({
+            discardActiveAttempt: z.coerce.boolean().optional().default(false),
+        }),
+    };
+    static getCareerAssessmentQuestions = {
         query: z.strictObject({
             discardActiveAttempt: z.coerce.boolean().optional().default(false),
         }),
