@@ -730,9 +730,7 @@ class QuizService {
     const generatedQuestions = await this._generateRoadmapStepQuizQuestions({
       topic: roadmapStep.title,
       career: (roadmapStep.careerId as unknown as ICareer).title,
-      num_questions: Number(
-        process.env[EnvFields.NUMBER_OF_QUESTIONS_FOR_ROADMAP_STEP_QUIZ],
-      ),
+      num_questions: quiz.questionsNumber,
     });
 
     // await this._quizApisManager.getQuizQustions({
@@ -819,9 +817,7 @@ class QuizService {
     }
 
     const generatedQuestions = await this._generateCareerAssessmentQuestions({
-      num_questions: Number(
-        process.env[EnvFields.NUMBER_OF_QUESTIONS_FOR_CAREER_ASSESSMENT],
-      ),
+      num_questions: quiz.questionsNumber,
       language: "English",
     });
 
