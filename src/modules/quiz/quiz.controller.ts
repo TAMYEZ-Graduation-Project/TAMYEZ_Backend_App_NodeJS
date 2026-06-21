@@ -44,6 +44,16 @@ quizRouter.get(
 );
 
 quizRouter.get(
+  RoutePaths.getCareerAssessmentQuestions,
+  Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+  }),
+  validationMiddleware({ schema: QuizValidators.getCareerAssessmentQuestions }),
+  quizService.getCareerAssessmentQuestions,
+);
+
+
+quizRouter.get(
   RoutePaths.getQuiz,
   Auths.authenticationMiddleware(),
   validationMiddleware({ schema: QuizValidators.getQuiz }),

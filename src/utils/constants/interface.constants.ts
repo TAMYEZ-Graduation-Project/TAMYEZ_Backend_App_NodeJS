@@ -69,9 +69,15 @@ export interface IPaginationMetaData {
   size?: number | undefined;
 }
 
-export interface IAIModelGeneratedQuestionsRequest {
-  title: string;
-  aiPrompt: string;
+export interface IAIModelGenerateRoadmapStepQuizQuestionsRequest {
+  topic: string;
+  career: string;
+  num_questions: number;
+}
+
+export interface IAIModelGenerateCareerAssessmentQuestionsRequest {
+  num_questions: number;
+  language: string;
 }
 
 export interface IAIModelGeneratedQuestionsResponse {
@@ -84,7 +90,7 @@ export interface IAIModelGeneratedQuestionsResponse {
   }[];
 }
 
-export interface IAIModelCheckWrittenQuestionsRequest extends IAIModelGeneratedQuestionsRequest {
+export interface IAIModelCheckWrittenQuestionsRequest {
   writtenAnswers: {
     questionId: string;
     text: string;
@@ -97,6 +103,7 @@ export interface IAIModelCheckCareerAssessmentQuestionsRequest {
   answers: {
     text: string;
     options?: { id: OptionIdsEnum; text: string }[] | undefined;
+    type: QuestionTypesEnum;
     userAnswer: string | OptionIdsEnum[];
   }[];
 }

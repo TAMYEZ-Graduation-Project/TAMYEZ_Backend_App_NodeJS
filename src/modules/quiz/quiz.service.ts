@@ -62,7 +62,8 @@ import EnvFields from "../../utils/constants/env_fields.constants.ts";
 import type {
   IAIModelCheckWrittenQuestionsRequest,
   IAIModelCheckWrittenQuestionsResponse,
-  IAIModelGeneratedQuestionsRequest,
+  IAIModelGenerateCareerAssessmentQuestionsRequest,
+  IAIModelGenerateRoadmapStepQuizQuestionsRequest,
   IAIModelGeneratedQuestionsResponse,
 } from "../../utils/constants/interface.constants.ts";
 import makeCompleter from "../../utils/completer/make.completer.ts";
@@ -78,6 +79,7 @@ import pause from "../../utils/pause/code.pause.ts";
 import type { Types } from "mongoose";
 import type { FullIRoadmapStep } from "../../db/interfaces/roadmap_step.interface.ts";
 import UserProgressService from "../../utils/services/user_progress.service.ts";
+import type { ICareer } from "../../db/interfaces/career.interface.ts";
 
 class QuizService {
   private _quizRepository = new QuizRepository(QuizModel);
@@ -102,7 +104,7 @@ class QuizService {
     req: Request,
     res: Response,
   ): Promise<Response | void> => {
-    const { title, description, aiPrompt, type, duration, tags } = req
+    const { title, description, questionsNumber, type, duration, tags } = req
       .validationResult.body as CreateQuizBodyDtoType;
 
     if (type === QuizTypesEnum.careerAssessment) {
@@ -144,7 +146,7 @@ class QuizService {
           uniqueKey,
           title: title!,
           description,
-          aiPrompt,
+          questionsNumber,
           type,
           duration,
           tags,
@@ -165,7 +167,7 @@ class QuizService {
     res: Response,
   ): Promise<Response | void> => {
     const { quizId } = req.params as UpdateQuizParamsDtoType;
-    const { title, description, aiPrompt, type, duration, tags, v } = req
+    const { title, description, questionsNumber, type, duration, tags, v } = req
       .validationResult.body as UpdateQuizBodyDtoType;
 
     const quiz = await this._quizRepository.findOne({
@@ -173,9 +175,7 @@ class QuizService {
     });
 
     if (!quiz) {
-      throw new NotFoundException(
-        "Quiz not found or archived ❌",
-      );
+      throw new NotFoundException("Quiz not found or archived ❌");
     }
 
     const uniqueKey = QuizUtil.getQuizUniqueKey({
@@ -211,7 +211,14 @@ class QuizService {
 
     const updateObject = UpdateUtil.getChangedFields<HIQuiz>({
       document: quiz,
-      updatedObject: { title, description, aiPrompt, type, duration, tags },
+      updatedObject: {
+        title,
+        description,
+        questionsNumber,
+        type,
+        duration,
+        tags,
+      },
     });
 
     await this._quizRepository.updateOne({
@@ -328,7 +335,6 @@ class QuizService {
         projection:
           req.user!.role === RolesEnum.user
             ? {
-                aiPrompt: 0,
                 uniqueKey: 0,
               }
             : {},
@@ -348,10 +354,129 @@ class QuizService {
     };
   };
 
-  private _generateQuestions = async ({
-    title,
-    aiPrompt,
-  }: IAIModelGeneratedQuestionsRequest): Promise<IAIModelGeneratedQuestionsResponse> => {
+  private _generateRoadmapStepQuizQuestions = async ({
+    topic,
+    career,
+    num_questions,
+  }: IAIModelGenerateRoadmapStepQuizQuestionsRequest): Promise<IAIModelGeneratedQuestionsResponse> => {
+    await pause(1500);
+    return {
+      questions: [
+        {
+          type: "mcq-single" as QuestionTypesEnum,
+          text: "Which data structure uses LIFO (Last In, First Out) principle?",
+          options: [
+            { id: "optA" as OptionIdsEnum, text: "Queue" },
+            { id: "optB" as OptionIdsEnum, text: "Stack" },
+            { id: "optC" as OptionIdsEnum, text: "Array" },
+            { id: "optD" as OptionIdsEnum, text: "Linked List" },
+          ],
+          correctAnswer: ["optB" as OptionIdsEnum],
+          explanation:
+            "A stack follows the LIFO principle, meaning the last element added is the first to be removed.",
+        },
+        {
+          type: "mcq-single" as QuestionTypesEnum,
+          text: "What is the time complexity of binary search in a sorted array?",
+          options: [
+            { id: "optA" as OptionIdsEnum, text: "O(n)" },
+            { id: "optB" as OptionIdsEnum, text: "O(log n)" },
+            { id: "optC" as OptionIdsEnum, text: "O(n log n)" },
+            { id: "optD" as OptionIdsEnum, text: "O(1)" },
+          ],
+          correctAnswer: ["optB" as OptionIdsEnum],
+          explanation:
+            "Binary search halves the search space each time, resulting in logarithmic complexity O(log n).",
+        },
+        {
+          type: "mcq-multi" as QuestionTypesEnum,
+          text: "Which of the following are programming paradigms?",
+          options: [
+            { id: "optA" as OptionIdsEnum, text: "Object-Oriented" },
+            { id: "optB" as OptionIdsEnum, text: "Functional" },
+            { id: "optC" as OptionIdsEnum, text: "Procedural" },
+            { id: "optD" as OptionIdsEnum, text: "Relational" },
+          ],
+          correctAnswer: [
+            "optA" as OptionIdsEnum,
+            "optB" as OptionIdsEnum,
+            "optC" as OptionIdsEnum,
+          ],
+          explanation:
+            "Object-Oriented, Functional, and Procedural are paradigms; Relational refers to databases, not a paradigm.",
+        },
+        {
+          type: "written" as QuestionTypesEnum,
+          text: "Explain the difference between TCP and UDP.",
+        },
+        {
+          type: "mcq-single" as QuestionTypesEnum,
+          text: "Which algorithm is commonly used for shortest path in a graph?",
+          options: [
+            { id: "optA" as OptionIdsEnum, text: "Dijkstra's Algorithm" },
+            { id: "optB" as OptionIdsEnum, text: "Merge Sort" },
+            { id: "optC" as OptionIdsEnum, text: "DFS" },
+            { id: "optD" as OptionIdsEnum, text: "Bellman-Ford" },
+          ],
+          correctAnswer: ["optA" as OptionIdsEnum],
+          explanation:
+            "Dijkstra's algorithm efficiently finds the shortest path from a source to all other nodes in a weighted graph.",
+        },
+        {
+          type: "mcq-single" as QuestionTypesEnum,
+          text: "What does SQL stand for?",
+          options: [
+            { id: "optA" as OptionIdsEnum, text: "Structured Query Language" },
+            { id: "optB" as OptionIdsEnum, text: "Simple Query Language" },
+            { id: "optC" as OptionIdsEnum, text: "Sequential Query Language" },
+            { id: "optD" as OptionIdsEnum, text: "Standard Query Language" },
+          ],
+          correctAnswer: ["optA" as OptionIdsEnum],
+          explanation:
+            "SQL stands for Structured Query Language, used for managing and querying relational databases.",
+        },
+        {
+          type: "mcq-multi" as QuestionTypesEnum,
+          text: "Which of the following are NoSQL databases?",
+          options: [
+            { id: "optA" as OptionIdsEnum, text: "MongoDB" },
+            { id: "optB" as OptionIdsEnum, text: "PostgreSQL" },
+            { id: "optC" as OptionIdsEnum, text: "Cassandra" },
+            { id: "optD" as OptionIdsEnum, text: "Redis" },
+          ],
+          correctAnswer: ["optA", "optC", "optD"] as OptionIdsEnum[],
+          explanation:
+            "MongoDB, Cassandra, and Redis are NoSQL databases; PostgreSQL is a relational database.",
+        },
+        {
+          type: "written" as QuestionTypesEnum,
+          text: "Describe the concept of polymorphism in object-oriented programming.",
+        },
+        {
+          type: "mcq-single" as QuestionTypesEnum,
+          text: "Which of these is NOT a valid HTTP method?",
+          options: [
+            { id: "optA" as OptionIdsEnum, text: "GET" },
+            { id: "optB" as OptionIdsEnum, text: "POST" },
+            { id: "optC" as OptionIdsEnum, text: "FETCH" },
+            { id: "optD" as OptionIdsEnum, text: "DELETE" },
+          ],
+          correctAnswer: ["optC" as OptionIdsEnum],
+          explanation:
+            "GET, POST, and DELETE are valid HTTP methods; FETCH is not an HTTP method but a JavaScript API.",
+        },
+        {
+          type: "written" as QuestionTypesEnum,
+          text: "What is the difference between supervised and unsupervised learning in machine learning?",
+        },
+      ],
+    };
+  };
+
+  private _generateCareerAssessmentQuestions = async ({
+    num_questions,
+    language,
+  }: IAIModelGenerateCareerAssessmentQuestionsRequest): Promise<IAIModelGeneratedQuestionsResponse> => {
     await pause(1500);
     return {
       questions: [
@@ -475,29 +600,15 @@ class QuizService {
     const { discardActiveAttempt } = req.validationResult
       .query as GetQuizQuestionsQueryDtoType;
 
-    const filter: { _id?: string; uniqueKey?: Record<any, any> } = {};
-    if (quizId === QuizTypesEnum.careerAssessment) {
-      if (req.user?.careerPath) {
-        throw new BadRequestException(
-          "This account already has a career path, you can't retake the career assessment ❌",
-        );
-      }
-      filter.uniqueKey = {
-        $regex: StringConstants.CAREER_ASSESSMENT,
-        $options: "i",
-      };
-    } else {
-      if (!req.user?.careerPath) {
-        throw new BadRequestException(
-          "You have to select a career path before taking an roadmap step quizzes ❌",
-        );
-      }
-      filter._id = quizId;
+    if (!req.user?.careerPath) {
+      throw new BadRequestException(
+        "You have to select a career path before taking an roadmap step quizzes ❌",
+      );
     }
 
     const quiz = await this._quizRepository.findOne({
       filter: {
-        ...filter,
+        _id: quizId,
       },
     });
 
@@ -507,70 +618,68 @@ class QuizService {
       );
     }
 
-    if (quizId !== QuizTypesEnum.careerAssessment) {
-      // check roadmapStep exists and has the specifed quizId
-      const roadmapStep = await this._roadmapStepRepository.findOne({
-        filter: {
-          _id: roadmapStepId,
-          careerId: req.user?.careerPath?.id!,
-          quizzesIds: { $in: [quizId] },
-        },
-        options: {
-          populate: [{ path: "careerId" }],
-        },
+    // check roadmapStep exists and has the specifed quizId
+    const roadmapStep = await this._roadmapStepRepository.findOne<false>({
+      filter: {
+        _id: roadmapStepId,
+        careerId: req.user?.careerPath?.id!,
+        quizzesIds: { $in: [quizId] },
+      },
+      options: {
+        populate: [{ path: "careerId" }],
+      },
+    });
+
+    if (!roadmapStep || !roadmapStep.careerId) {
+      throw new NotFoundException(
+        "Invalid roadmapStepId, career freezed or quiz is not in your roadmap step ❌",
+      );
+    }
+
+    // check step status
+    const stepStatus = (
+      (await this._userProgressService.refreshProgressAndClassify({
+        progress: req.progress!,
+        user: req.user!,
+        stepOrSteps: roadmapStep,
+      })) as FullIRoadmapStep
+    ).progressStatus;
+
+    if (stepStatus === RoadmapStepProgressStatusEnum.lockedPrereq)
+      throw new BadRequestException("Step is locked ❌🔒️");
+
+    // check if there are new steps have to be completed first
+    if (
+      stepStatus === RoadmapStepProgressStatusEnum.inProgress ||
+      stepStatus === RoadmapStepProgressStatusEnum.available
+    ) {
+      const firstNewStep = await this._userProgressService.getFirstNewStep({
+        progress: req.progress!,
       });
-
-      if (!roadmapStep || !roadmapStep.careerId) {
-        throw new NotFoundException(
-          "Invalid roadmapStepId, career freezed or quiz is not in your roadmap step ❌",
+      if (firstNewStep && !firstNewStep._id.equals(roadmapStepId)) {
+        throw new BadRequestException(
+          "You can't complete this step until all prior new steps are done first ❌",
         );
       }
+    }
 
-      // check step status
-      const stepStatus = (
-        (await this._userProgressService.refreshProgressAndClassify({
-          progress: req.progress!,
-          user: req.user!,
-          stepOrSteps: roadmapStep,
-        })) as FullIRoadmapStep
-      ).progressStatus;
-
-      if (stepStatus === RoadmapStepProgressStatusEnum.lockedPrereq)
-        throw new BadRequestException("Step is locked ❌🔒️");
-
-      // check if there are new steps have to be completed first
-      if (
-        stepStatus === RoadmapStepProgressStatusEnum.inProgress ||
-        stepStatus === RoadmapStepProgressStatusEnum.available
-      ) {
-        const firstNewStep = await this._userProgressService.getFirstNewStep({
-          progress: req.progress!,
-        });
-        if (firstNewStep && !firstNewStep._id.equals(roadmapStepId)) {
+    // check all prior quizzes were sucessfully token
+    if (roadmapStep.quizzesIds.length > 1) {
+      const quizIndex = roadmapStep.quizzesIds.findIndex((quiz) =>
+        quiz.equals(quizId),
+      );
+      if (quizIndex > 0) {
+        if (
+          (await this._savedQuizRepository.countDocuments({
+            filter: {
+              userId: req.user!._id!,
+              quizId: { $in: roadmapStep.quizzesIds.slice(0, quizIndex) },
+            },
+          })) != quizIndex
+        ) {
           throw new BadRequestException(
-            "You can't complete this step until all prior new steps are done first ❌",
+            "All prior quizzes must be taken sequentially in order ❌",
           );
-        }
-      }
-
-      // check all prior quizzes were sucessfully token
-      if (roadmapStep.quizzesIds.length > 1) {
-        const quizIndex = roadmapStep.quizzesIds.findIndex((quiz) =>
-          quiz.equals(quizId),
-        );
-        if (quizIndex > 0) {
-          if (
-            (await this._savedQuizRepository.countDocuments({
-              filter: {
-                userId: req.user!._id!,
-                quizId: { $in: roadmapStep.quizzesIds.slice(0, quizIndex) },
-              },
-            })) != quizIndex
-          ) {
-            throw new BadRequestException(
-              "All prior quizzes must be taken sequentially in order ❌",
-            );
-          }
         }
       }
     }
@@ -595,10 +704,9 @@ class QuizService {
     }
 
     if (
-      quizId !== QuizTypesEnum.careerAssessment &&
-      (await this._quizCooldownRepository.findOne({
+      await this._quizCooldownRepository.findOne({
         filter: { userId: req.user!._id!, quizId: quiz._id },
-      }))
+      })
     ) {
       throw new BadRequestException(
         `You are in cooldown period for this quiz. Please try again later ❌`,
@@ -608,16 +716,21 @@ class QuizService {
     if (
       !discardActiveAttempt &&
       (await this._quizAttemptRepository.exists({
-        filter: { userId: req.user!._id!, quizId: quiz._id, roadmapStepId: roadmapStepId! },
+        filter: {
+          userId: req.user!._id!,
+          quizId: quiz._id,
+          roadmapStepId: roadmapStepId!,
+        },
       }))
     ) {
       throw new BadRequestException(
         "There is an active attempt on this quiz ⚠️ Do you want to discard it?",
       );
     }
-    const generatedQuestions = await this._generateQuestions({
-      title: quiz.title,
-      aiPrompt: quiz.aiPrompt,
+    const generatedQuestions = await this._generateRoadmapStepQuizQuestions({
+      topic: roadmapStep.title,
+      career: (roadmapStep.careerId as unknown as ICareer).title,
+      num_questions: quiz.questionsNumber,
     });
 
     // await this._quizApisManager.getQuizQustions({
@@ -626,31 +739,22 @@ class QuizService {
     // });
 
     let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
-      filter: { userId: req.user!._id!, quizId: quiz._id, roadmapStepId: roadmapStepId! },
+      filter: {
+        userId: req.user!._id!,
+        quizId: quiz._id,
+        roadmapStepId: roadmapStepId!,
+      },
       update: {
         quizId: quiz._id,
         userId: req.user!._id!,
-        attemptType:
-          quizId === QuizTypesEnum.careerAssessment ||
-          quiz.title == StringConstants.CAREER_ASSESSMENT
-            ? QuizTypesEnum.careerAssessment
-            : QuizTypesEnum.stepQuiz,
+        attemptType: QuizTypesEnum.stepQuiz,
         careerId: req.user?.careerPath?.id,
         roadmapStepId: roadmapStepId as unknown as Types.ObjectId | undefined,
         questions: generatedQuestions.questions,
         expiresAt: new Date(
           Date.now() +
-            (quizId === QuizTypesEnum.careerAssessment ||
-            quiz.title == StringConstants.CAREER_ASSESSMENT
-              ? Number(
-                  process.env[
-                    EnvFields.CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS
-                  ],
-                )
-              : quiz.duration! +
-                Number(
-                  process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS],
-                )) *
+            quiz.duration! +
+            Number(process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS]) *
               1000,
         ),
       },
@@ -664,19 +768,6 @@ class QuizService {
     if (!req.user!.quizAttempts?.count) {
       req.user!.quizAttempts = { count: 0, lastAttempt: new Date() };
     }
-    if (
-      quizId === QuizTypesEnum.careerAssessment ||
-      quiz.title == StringConstants.CAREER_ASSESSMENT
-    ) {
-      req.user!.assessmentStatus = CareerAssessmentStatusEnum.inProgress;
-    }
-    req.user!.increment();
-    await req.user?.save();
-
-    // const quizQuestionsObj = quizQuestions.toJSON();
-    // if (quizId === QuizTypesEnum.careerAssessment) {
-    //   delete quizQuestionsObj.id;
-    // }
 
     if (res.headersSent || res.writableEnded) return;
 
@@ -689,10 +780,91 @@ class QuizService {
     });
   };
 
+  getCareerAssessmentQuestions = async (req: Request, res: Response) => {
+    const { discardActiveAttempt } = req.validationResult
+      .query as GetQuizQuestionsQueryDtoType;
+    if (req.user?.careerPath) {
+      throw new BadRequestException(
+        "This account already has a career path, you can't retake the career assessment ❌",
+      );
+    }
+
+    const quiz = await this._quizRepository.findOne({
+      filter: {
+        $regex: StringConstants.CAREER_ASSESSMENT,
+        $options: "i",
+      },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException(
+        StringConstants.INVALID_PARAMETER_MESSAGE("quizId"),
+      );
+    }
+
+    if (
+      !discardActiveAttempt &&
+      (await this._quizAttemptRepository.exists({
+        filter: {
+          userId: req.user!._id!,
+          quizId: quiz._id,
+        },
+      }))
+    ) {
+      throw new BadRequestException(
+        "There is an active attempt on this quiz ⚠️ Do you want to discard it?",
+      );
+    }
+
+    const generatedQuestions = await this._generateCareerAssessmentQuestions({
+      num_questions: quiz.questionsNumber,
+      language: "English",
+    });
+
+    let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
+      filter: {
+        userId: req.user!._id!,
+        quizId: quiz._id,
+      },
+      update: {
+        quizId: quiz._id,
+        userId: req.user!._id!,
+        attemptType: QuizTypesEnum.careerAssessment,
+        careerId: req.user?.careerPath?.id,
+        questions: generatedQuestions.questions,
+        expiresAt: new Date(
+          Date.now() +
+            Number(
+              process.env[
+                EnvFields.CAREER_ASSESSMENT_QUESTIONS_EXPIRES_IN_SECONDS
+              ],
+            ) *
+              1000,
+        ),
+      },
+      options: { returnDocument: "after", upsert: true },
+    });
+
+    if (!quizAttempt) {
+      throw new ServerException("Failed to generate quiz questions ❓");
+    }
+
+    req.user!.assessmentStatus = CareerAssessmentStatusEnum.inProgress;
+    req.user!.increment();
+    await req.user?.save();
+
+    if (res.headersSent || res.writableEnded) return;
+    return successHandler<IGetQuizQuestionsResponse>({
+      req,
+      res,
+      body: {
+        quizAttempt,
+      },
+    });
+  };
+
   private _checkWrittenQuestionsAnswers = async ({
     resolve,
-    title,
-    aiPrompt,
     writtenAnswers,
   }: IAIModelCheckWrittenQuestionsRequest & {
     resolve: (data: IAIModelCheckWrittenQuestionsResponse[]) => void;
@@ -804,8 +976,8 @@ class QuizService {
     const gate = makeCompleter();
     this._checkWrittenQuestionsAnswers({
       resolve: gate.resolve as unknown as () => void,
-      title: (quizAttempt.quizId as unknown as HIQuiz).title,
-      aiPrompt: (quizAttempt.quizId as unknown as HIQuiz).aiPrompt!,
+      // title: (quizAttempt.quizId as unknown as HIQuiz).title,
+      // aiPrompt: (quizAttempt.quizId as unknown as HIQuiz).aiPrompt!,
       writtenAnswers,
     });
 

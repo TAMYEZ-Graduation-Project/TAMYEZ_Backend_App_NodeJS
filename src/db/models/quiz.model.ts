@@ -16,10 +16,10 @@ const quizSchema = new mongoose.Schema<IQuiz>(
       maxLength: 50_000,
       required: true,
     },
-    aiPrompt: {
-      type: String,
-      minLength: 3,
-      maxLength: 50_000,
+    questionsNumber: {
+      type: Number,
+      min: 1,
+      max: 50,
       required: true,
     },
 
@@ -75,7 +75,7 @@ quizSchema.methods.toJSON = function () {
     id: quizObject?.id,
     title: quizObject?.title,
     description: quizObject?.description,
-    aiPrompt: quizObject?.aiPrompt,
+    questionsNumber: quizObject?.questionsNumber,
     uniqueKey: quizObject?.uniqueKey,
     type: quizObject?.type,
     duration: quizObject?.duration,

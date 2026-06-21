@@ -1,3 +1,5 @@
+import { QuizTypesEnum } from "./enum.constants.ts";
+
 class RoutePaths {
   static readonly ALL_PATH = "{/*dummy}";
   static readonly API_V1_PATH = "/api/v1";
@@ -82,7 +84,8 @@ class RoutePaths {
   static readonly getArchivedQuizzes = "/archives";
   static readonly getQuiz = "/:quizId{/:roadmapStepId}";
   static readonly getArchivedQuiz = "/:quizId/archives";
-  static readonly getQuizQuestions = "/questions/:quizId{/:roadmapStepId}";
+  static readonly getQuizQuestions = "/questions/:quizId/:roadmapStepId";
+  static readonly getCareerAssessmentQuestions = `/questions/${QuizTypesEnum.careerAssessment}`;
   static readonly getSavedQuizzes = "/saved";
   static readonly getSavedQuiz = "/saved/:savedQuizId";
   static readonly checkQuizAnswers = "/:quizAttemptId";

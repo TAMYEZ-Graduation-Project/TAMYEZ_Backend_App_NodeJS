@@ -19,6 +19,9 @@ quizRouter.get(RoutePaths.getSavedQuiz, Auths.authenticationWithGateway({
 quizRouter.get(RoutePaths.getQuizQuestions, Auths.authenticationWithGateway({
     applicationType: ApplicationTypeEnum.user,
 }), validationMiddleware({ schema: QuizValidators.getQuizQuestions }), loadUserProgressMiddleware, quizService.getQuizQuestions);
+quizRouter.get(RoutePaths.getCareerAssessmentQuestions, Auths.authenticationWithGateway({
+    applicationType: ApplicationTypeEnum.user,
+}), validationMiddleware({ schema: QuizValidators.getCareerAssessmentQuestions }), quizService.getCareerAssessmentQuestions);
 quizRouter.get(RoutePaths.getQuiz, Auths.authenticationMiddleware(), validationMiddleware({ schema: QuizValidators.getQuiz }), quizService.getQuiz());
 quizRouter.post(RoutePaths.checkQuizAnswers, Auths.authenticationWithGateway({
     applicationType: ApplicationTypeEnum.user,
