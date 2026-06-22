@@ -111,6 +111,7 @@ careerSchema.methods.toJSON = function () {
             return DocumentFormat.getIdFrom_Id(c);
         }),
         stepsCount: careerObject?.stepsCount,
+        orderEpoch: careerObject?.orderEpoch,
         percentageCompleted,
         roadmap: roadmap?.map((step) => {
             return {
