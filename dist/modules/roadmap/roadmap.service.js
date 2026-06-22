@@ -314,6 +314,7 @@ class RoadmapService {
                                 projection: {
                                     title: 1,
                                     description: 1,
+                                    questionsNumber: 1,
                                     duration: 1,
                                 },
                             },
