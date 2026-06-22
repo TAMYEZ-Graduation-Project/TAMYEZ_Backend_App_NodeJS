@@ -157,7 +157,7 @@ careerSchema.methods.toJSON = function () {
       );
     }),
     stepsCount: careerObject?.stepsCount,
-    // orderEpoch: careerObject?.orderEpoch,
+    orderEpoch: careerObject?.orderEpoch,
     percentageCompleted,
     roadmap: roadmap?.map((step) => {
       return {
