@@ -299,6 +299,9 @@ class UserService {
     changePassword = async (req, res) => {
         const { currentPassword, newPassword, flag, v } = req.validationResult
             .body;
+        if (req.user?.authProvider !== ProvidersEnum.local) {
+            throw new BadRequestException(`Password change is not allowed for ${req.user?.authProvider} providers ❌`);
+        }
         if (!(await HashingSecurityUtil.compareHash({
             plainText: currentPassword,
             cipherText: req.user.password,

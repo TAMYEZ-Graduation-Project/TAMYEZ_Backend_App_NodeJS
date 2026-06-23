@@ -484,6 +484,9 @@ class AuthService {
         if (!user) {
             throw new NotFoundException(StringConstants.INVALID_USER_ACCOUNT_MESSAGE);
         }
+        if (user.authProvider !== ProvidersEnum.local) {
+            throw new BadRequestException(`Forget password is not allowed for ${user.authProvider} providers ❌`);
+        }
         if (user.lastResetPasswordAt &&
             Date.now() <
                 user.lastResetPasswordAt.getTime() +
