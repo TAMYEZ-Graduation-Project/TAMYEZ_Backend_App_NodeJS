@@ -65,7 +65,7 @@ class RoadmapValidators {
             error: StringConstants.PATH_REQUIRED_MESSAGE("quizzesIds"),
           })
           .min(1)
-          .max(5),
+          .max(1),
         allowGlobalResources: z.boolean().optional(),
       })
       .superRefine((data, ctx) => {
@@ -184,7 +184,7 @@ class RoadmapValidators {
         quizzesIds: z
           .array(generalValidationConstants.objectId)
           .min(1)
-          .max(5)
+          .max(1)
           .optional(),
         removeQuizzesIds: z
           .array(generalValidationConstants.objectId)

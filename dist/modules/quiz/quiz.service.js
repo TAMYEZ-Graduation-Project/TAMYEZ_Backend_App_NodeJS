@@ -739,8 +739,9 @@ class QuizService {
         }
         const scoreNumber = Math.round(((checkedAnswers.length - wrongAnswersCount) / checkedAnswers.length) *
             100);
+        let savedQuizId;
         if (scoreNumber >= 50) {
-            await this._savedQuizRepository.updateOne({
+            savedQuizId = (await this._savedQuizRepository.findOneAndUpdate({
                 filter: {
                     userId: req.user._id,
                     quizId: quizAttempt.quizId._id,
@@ -754,8 +755,12 @@ class QuizService {
                         takenAt: new Date(),
                     },
                 },
-                options: { upsert: true },
-            });
+                options: {
+                    upsert: true,
+                    returnDocument: "after",
+                    projection: { _id: 1 },
+                },
+            }))?._id;
             if (!(await this._userCareerProgressRepository.exists({
                 filter: {
                     userId: req.user._id,
@@ -809,6 +814,7 @@ class QuizService {
             res,
             message: "Quiz answers checked successfully ✅",
             body: {
+                savedQuizId,
                 totalQuestions: checkedAnswers.length,
                 wrongAnswersCount,
                 correctAnswersCount: checkedAnswers.length - wrongAnswersCount,
