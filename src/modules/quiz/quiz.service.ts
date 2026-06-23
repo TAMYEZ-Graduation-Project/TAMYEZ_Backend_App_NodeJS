@@ -1044,8 +1044,9 @@ class QuizService {
         100,
     );
 
+    let savedQuizId: Types.ObjectId | undefined;
     if (scoreNumber >= 50) {
-      await this._savedQuizRepository.updateOne({
+      savedQuizId = (await this._savedQuizRepository.findOneAndUpdate({
         filter: {
           userId: req.user!._id!,
           quizId: quizAttempt.quizId!._id!,
@@ -1059,8 +1060,12 @@ class QuizService {
             takenAt: new Date(),
           },
         },
-        options: { upsert: true },
-      });
+        options: {
+          upsert: true,
+          returnDocument: "after",
+          projection: { _id: 1 },
+        },
+      }))?._id;
       // check if roadmap step marked as completed or not
       if (
         !(await this._userCareerProgressRepository.exists({
@@ -1128,6 +1133,7 @@ class QuizService {
       res,
       message: "Quiz answers checked successfully ✅",
       body: {
+        savedQuizId,
         totalQuestions: checkedAnswers.length,
         wrongAnswersCount,
         correctAnswersCount: checkedAnswers.length - wrongAnswersCount,

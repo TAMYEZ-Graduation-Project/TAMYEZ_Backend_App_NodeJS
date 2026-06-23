@@ -630,11 +630,11 @@ class RoadmapService {
           newResourcesCount: body.quizzesIds?.length ?? 0,
         }),
         min: 1,
-        max: 5,
+        max: 1,
       })
     ) {
       throw new BadRequestException(
-        "Each roadmap step list (courses | youtubePlaylists | books | quizzes) must be at most 5 items length, and only (courses | youtubePlaylists | quizzes) must be at least 1 item length ❌",
+        "Each roadmap step list (courses | youtubePlaylists | books) must be at most 5 items length, and only (courses | youtubePlaylists | quizzes) must be at least 1 item length, must be at most 1 item length ❌",
       );
     }
 
