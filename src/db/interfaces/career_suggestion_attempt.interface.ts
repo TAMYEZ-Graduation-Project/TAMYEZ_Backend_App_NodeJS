@@ -1,4 +1,5 @@
 import type { Default__v, HydratedDocument, Require_id, Types } from "mongoose";
+import type { UserLevelsEnum } from "../../utils/constants/enum.constants.ts";
 
 export interface ISuggestedCareer {
   careerId: Types.ObjectId;
@@ -13,6 +14,8 @@ export interface ICareerSuggestionAttempt {
   userId: Types.ObjectId;
 
   suggestions: ISuggestedCareer[];
+
+  userLevel: UserLevelsEnum;
 
   expiresAt: Date;
 

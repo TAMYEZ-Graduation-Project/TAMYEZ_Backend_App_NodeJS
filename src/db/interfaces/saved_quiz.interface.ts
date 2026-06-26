@@ -10,7 +10,8 @@ export interface ISavedQuestion {
   text: string;
   type: QuestionTypesEnum;
   options?: IQuizQuestionOption[] | undefined;
-  isCorrect: boolean;
+  isCorrect?: boolean | undefined;
+  score?: number | undefined;
   userAnswer?: OptionIdsEnum[] | string;
   correction?: OptionIdsEnum[] | string | undefined;
   explanation?: string | undefined;
@@ -28,7 +29,9 @@ export interface ISavedQuiz {
 
   questions: ISavedQuestion[];
 
-  score: string;
+  mcqScore: number;
+  writtenScore: number;
+  finalScore: number;
 
   takenAt: Date;
   createdAt: Date;

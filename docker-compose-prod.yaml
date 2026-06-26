@@ -3,6 +3,8 @@ services:
     build: 
       context: .
       target: prod
+      extra_hosts:
+      - "host.docker.internal:host-gateway"      
     
     container_name: tamyez-app-prod-cont
     env_file:

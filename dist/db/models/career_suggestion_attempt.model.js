@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import ModelsNames from "../../utils/constants/models.names.constants.js";
 import DocumentFormat from "../../utils/formats/document.format.js";
+import { UserLevelsEnum } from "../../utils/constants/enum.constants.js";
 const suggestedCareerSchema = new mongoose.Schema({
     careerId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -36,6 +37,11 @@ const careerSuggestionAttemptSchema = new mongoose.Schema({
         ref: ModelsNames.userModel,
     },
     suggestions: [suggestedCareerSchema],
+    userLevel: {
+        type: String,
+        enum: Object.values(UserLevelsEnum),
+        required: true,
+    },
     expiresAt: { type: Date, required: true, expires: 0 },
 }, {
     timestamps: true,

@@ -22,8 +22,18 @@ const savedQuestionSchema = new mongoose.Schema<ISavedQuestion>(
       required: true,
     },
 
-    isCorrect: { type: Boolean, required: true },
-
+    isCorrect: {
+      type: Boolean,
+      required: function (this) {
+        return this.type !== QuestionTypesEnum.written;
+      },
+    },
+    score: {
+      type: Number,
+      required: function (this) {
+        return this.type === QuestionTypesEnum.written;
+      },
+    },
     options: {
       type: [questionOptionSchema],
       default: undefined,
@@ -57,7 +67,9 @@ const savedQuestionSchema = new mongoose.Schema<ISavedQuestion>(
     correction: {
       type: mongoose.Schema.Types.Mixed as any,
       required: function (this: HISavedQuestion) {
-        return !this.isCorrect;
+        return (
+          this.isCorrect === false && this.type !== QuestionTypesEnum.written
+        );
       },
       validate: {
         validator: function (this: HISavedQuestion, value: any) {
@@ -74,7 +86,9 @@ const savedQuestionSchema = new mongoose.Schema<ISavedQuestion>(
       type: String,
       maxLength: 1000,
       required: function (this) {
-        return this.isCorrect === false;
+        return (
+          this.isCorrect === false || this.type === QuestionTypesEnum.written
+        );
       },
     },
   },
@@ -141,8 +155,9 @@ const savedQuizSchema = new mongoose.Schema<ISavedQuiz>(
       maxlength: 150,
     },
 
-    score: { type: String, required: true },
-
+    mcqScore: { type: Number, required: true },
+    writtenScore: { type: Number },
+    finalScore: { type: Number, required: true },
     takenAt: { type: Date, required: true },
   },
   {
@@ -165,8 +180,17 @@ savedQuizSchema.virtual("id").get(function () {
 });
 
 savedQuizSchema.methods.toJSON = function () {
-  const { _id, quizId, score, userId, takenAt, createdAt, updatedAt } =
-    this.toObject() as FullISavedQuiz;
+  const {
+    _id,
+    quizId,
+    mcqScore,
+    writtenScore,
+    finalScore,
+    userId,
+    takenAt,
+    createdAt,
+    updatedAt,
+  } = this.toObject() as FullISavedQuiz;
 
   let quiz;
   if (!Types.ObjectId.isValid(quizId.toString())) {
@@ -178,7 +202,10 @@ savedQuizSchema.methods.toJSON = function () {
     id: _id,
     quizId: quiz || quizId,
     userId,
-    score,
+    mcqScore: mcqScore != undefined ? Number(mcqScore.toFixed(2)) : undefined,
+    writtenScore:
+      writtenScore != undefined ? Number(writtenScore.toFixed(2)) : undefined,
+    finalScore: Number(finalScore.toFixed(2)),
     questions: (this.questions as HISavedQuestion[])?.map((question) => {
       return (question as HISavedQuestion).toJSON();
     }),
