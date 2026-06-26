@@ -178,3 +178,9 @@ export var RoadmapStepProgressStatusEnum;
     RoadmapStepProgressStatusEnum["lockedPrereq"] = "LockedPrereq";
     RoadmapStepProgressStatusEnum["disabledFrozen"] = "DisabledFrozen";
 })(RoadmapStepProgressStatusEnum || (RoadmapStepProgressStatusEnum = {}));
+export var UserLevelsEnum;
+(function (UserLevelsEnum) {
+    UserLevelsEnum["beginner"] = "beginner";
+    UserLevelsEnum["intermediate"] = "intermediate";
+    UserLevelsEnum["advanced"] = "advanced";
+})(UserLevelsEnum || (UserLevelsEnum = {}));

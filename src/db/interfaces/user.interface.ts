@@ -4,6 +4,7 @@ import type {
   GenderEnum,
   RolesEnum,
   CareerAssessmentStatusEnum,
+  UserLevelsEnum,
 } from "../../utils/constants/enum.constants.ts";
 import type {
   IAtByObject,
@@ -60,6 +61,7 @@ export interface IUser {
   };
   careerDeleted?: ICareerDeleted;
 
+  userLevel?: UserLevelsEnum;
   // Quiz Info
   quizAttempts: IQuizAttempts;
 

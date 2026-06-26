@@ -7,13 +7,14 @@ import S3Service from "../../utils/multer/s3.service.js";
 import IdSecurityUtil from "../../utils/security/id.security.js";
 import S3FoldersPaths from "../../utils/multer/s3_folders_paths.js";
 import S3KeyUtil from "../../utils/multer/s3_key.multer.js";
-import { ApplicationTypeEnum, CareerAssessmentStatusEnum, CareerResourceAppliesToEnum, QuizTypesEnum, } from "../../utils/constants/enum.constants.js";
+import { ApplicationTypeEnum, CareerAssessmentStatusEnum, CareerResourceAppliesToEnum, QuestionTypesEnum, QuizTypesEnum, } from "../../utils/constants/enum.constants.js";
 import { startSession, Types } from "mongoose";
 import { RoadmapService } from "../roadmap/index.js";
 import listUpdateFieldsHandler from "../../utils/handlers/list_update_fields.handler.js";
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.js";
 import StringConstants from "../../utils/constants/strings.constants.js";
 import UserProgressService from "../../utils/services/user_progress.service.js";
+import { QuizApisManager } from "../quiz/index.js";
 class CareerService {
     _careerRepository = new CareerRepository(CareerModel);
     _roadmapStepRepository = new RoadmapStepRepository(RoadmapStepModel);
@@ -23,6 +24,7 @@ class CareerService {
     _careerSuggestionAttemptRepository = new CareerSuggestionAttemptRepository(CareerSuggestionAttemptModel);
     _userCareerProgressRepository = new UserCareerProgressRepository(UserCareerProgressModel);
     _userProgressService = new UserProgressService(this._roadmapStepRepository, this._userCareerProgressRepository);
+    _quizApisManager = new QuizApisManager();
     createCareer = async (req, res) => {
         const { title, description, summary, courses, youtubePlaylists, books } = req.validationResult.body;
         const careersCount = await this._careerRepository.countDocuments({
@@ -419,27 +421,6 @@ class CareerService {
             },
         });
     };
-    aiModelCheckCareerAssessmentQuestions = ({ careerList, answers, }) => {
-        return new Promise((res) => {
-            setTimeout(() => {
-                const suggestedCareers = [];
-                for (let i = 0; i < 3; i++) {
-                    const index = Math.floor(Math.random() * careerList.length);
-                    if (suggestedCareers.find((c) => c.careerId.equals(careerList[index].careerId)))
-                        continue;
-                    suggestedCareers.push({
-                        careerId: careerList[index].careerId,
-                        title: careerList[index].title,
-                        reason: `Because you answers indicates your interest in ${careerList[index].title} field.`,
-                        confidence: Math.floor(Math.random() * (100 - 60)) + 60,
-                    });
-                }
-                res({
-                    suggestedCareers: suggestedCareers.sort((a, b) => b.confidence - a.confidence),
-                });
-            }, 1500);
-        });
-    };
     checkCareerAssessment = async (req, res) => {
         const { quizAttemptId } = req.params;
         const { answers } = req.validationResult
@@ -489,7 +470,9 @@ class CareerService {
                 text: question.text,
                 options: question.options,
                 type: question.type,
-                userAnswer: answer.answer,
+                userAnswer: question.type === QuestionTypesEnum.written
+                    ? [answer.answer]
+                    : answer.answer,
             });
         }
         const careers = await this._careerRepository.find({
@@ -498,9 +481,9 @@ class CareerService {
         if (!careers || careers.length === 0) {
             throw new NotFoundException("No careers found to suggest from, please try again later ❌");
         }
-        const aiModelResponse = await this.aiModelCheckCareerAssessmentQuestions({
+        const aiModelResponse = await this._quizApisManager.checkCareerAssessmentQuestions({
             careerList: careers.map((c) => ({
-                careerId: c._id,
+                careerId: c._id.toString(),
                 title: c.title,
                 summary: c.summary,
             })),
@@ -517,6 +500,7 @@ class CareerService {
             replacement: {
                 userId: req.user._id,
                 suggestions: aiModelResponse.suggestedCareers,
+                userLevel: aiModelResponse.user_level,
                 expiresAt: new Date(Date.now() + 30 * 60 * 1000),
                 createdAt: new Date(),
                 updatedAt: new Date(),
@@ -575,6 +559,7 @@ class CareerService {
                         id: Types.ObjectId.createFromHexString(careerId),
                         selectedAt: new Date(),
                     },
+                    userLevel: careerSuggestionAttempt.userLevel,
                 },
                 options: {
                     session,
@@ -587,6 +572,10 @@ class CareerService {
                         },
                     ],
                 },
+            });
+            await this._userCareerProgressRepository.deleteOne({
+                filter: { userId: req.user._id },
+                options: { session },
             });
             await this._userCareerProgressRepository.create({
                 data: [

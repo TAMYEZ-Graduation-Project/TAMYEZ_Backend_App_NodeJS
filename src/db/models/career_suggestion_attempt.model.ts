@@ -7,6 +7,7 @@ import type {
   ISuggestedCareer,
 } from "../interfaces/career_suggestion_attempt.interface.ts";
 import DocumentFormat from "../../utils/formats/document.format.ts";
+import { UserLevelsEnum } from "../../utils/constants/enum.constants.ts";
 
 const suggestedCareerSchema = new mongoose.Schema<ISuggestedCareer>(
   {
@@ -53,6 +54,12 @@ const careerSuggestionAttemptSchema =
       },
 
       suggestions: [suggestedCareerSchema],
+
+      userLevel: {
+        type: String,
+        enum: Object.values(UserLevelsEnum),
+        required: true,
+      },
 
       expiresAt: { type: Date, required: true, expires: 0 },
     },

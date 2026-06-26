@@ -177,3 +177,9 @@ export enum RoadmapStepProgressStatusEnum {
   lockedPrereq = "LockedPrereq",
   disabledFrozen = "DisabledFrozen",
 }
+
+export enum UserLevelsEnum {
+  beginner = "beginner",
+  intermediate = "intermediate",
+  advanced = "advanced",
+}

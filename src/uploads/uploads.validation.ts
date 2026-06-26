@@ -12,7 +12,6 @@ class UploadsValidators {
         )
         .refine(
           (data) => {     
-            console.log(data.join("/"));
                    
             return AppRegex.getFileWithUrlRegex.test(data.join("/"));
           },

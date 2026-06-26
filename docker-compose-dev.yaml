@@ -3,6 +3,9 @@ services:
     build: 
       context: .
       target: dev
+      extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     
     container_name: tamyez-app-dev-cont
     env_file:

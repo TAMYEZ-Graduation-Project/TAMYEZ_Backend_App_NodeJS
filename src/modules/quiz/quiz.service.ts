@@ -40,6 +40,7 @@ import {
   QuizTypesEnum,
   RoadmapStepProgressStatusEnum,
   RolesEnum,
+  UserLevelsEnum,
 } from "../../utils/constants/enum.constants.ts";
 import {
   BadRequestException,
@@ -55,6 +56,7 @@ import QuizUtil from "../../utils/quiz/utils.quiz.ts";
 import UpdateUtil from "../../utils/update/util.update.ts";
 import type { HIQuiz } from "../../db/interfaces/quiz.interface.ts";
 import type {
+  ICheckQuizAnswersResponse,
   IGetQuizDetailsResponse,
   IGetQuizQuestionsResponse,
 } from "./quiz.entity.ts";
@@ -62,9 +64,6 @@ import EnvFields from "../../utils/constants/env_fields.constants.ts";
 import type {
   IAIModelCheckWrittenQuestionsRequest,
   IAIModelCheckWrittenQuestionsResponse,
-  IAIModelGenerateCareerAssessmentQuestionsRequest,
-  IAIModelGenerateRoadmapStepQuizQuestionsRequest,
-  IAIModelGeneratedQuestionsResponse,
 } from "../../utils/constants/interface.constants.ts";
 import makeCompleter from "../../utils/completer/make.completer.ts";
 import type {
@@ -75,11 +74,11 @@ import type {
 import SavedQuizRepository from "../../db/repositories/saved_quiz.repository.ts";
 import type { ISavedQuestion } from "../../db/interfaces/saved_quiz.interface.ts";
 import QuizCooldownRepository from "../../db/repositories/quiz_cooldown.repository.ts";
-import pause from "../../utils/pause/code.pause.ts";
-import type { Types } from "mongoose";
-import type { FullIRoadmapStep } from "../../db/interfaces/roadmap_step.interface.ts";
 import UserProgressService from "../../utils/services/user_progress.service.ts";
 import type { ICareer } from "../../db/interfaces/career.interface.ts";
+import QuizApisManager from "./quiz.apis.ts";
+import type { FullIRoadmapStep } from "../../db/interfaces/roadmap_step.interface.ts";
+import type { Types } from "mongoose";
 
 class QuizService {
   private _quizRepository = new QuizRepository(QuizModel);
@@ -98,7 +97,7 @@ class QuizService {
     this._userCareerProgressRepository,
   );
 
-  //private _quizApisManager = new QuizApisManager();
+  private _quizApisManager = new QuizApisManager();
 
   createQuiz = async (
     req: Request,
@@ -354,242 +353,243 @@ class QuizService {
     };
   };
 
-  private _generateRoadmapStepQuizQuestions = async ({
-    topic,
-    career,
-    num_questions,
-  }: IAIModelGenerateRoadmapStepQuizQuestionsRequest): Promise<IAIModelGeneratedQuestionsResponse> => {
-    await pause(1500);
-    return {
-      questions: [
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "Which data structure uses LIFO (Last In, First Out) principle?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "Queue" },
-            { id: "optB" as OptionIdsEnum, text: "Stack" },
-            { id: "optC" as OptionIdsEnum, text: "Array" },
-            { id: "optD" as OptionIdsEnum, text: "Linked List" },
-          ],
-          correctAnswer: ["optB" as OptionIdsEnum],
-          explanation:
-            "A stack follows the LIFO principle, meaning the last element added is the first to be removed.",
-        },
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "What is the time complexity of binary search in a sorted array?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "O(n)" },
-            { id: "optB" as OptionIdsEnum, text: "O(log n)" },
-            { id: "optC" as OptionIdsEnum, text: "O(n log n)" },
-            { id: "optD" as OptionIdsEnum, text: "O(1)" },
-          ],
-          correctAnswer: ["optB" as OptionIdsEnum],
-          explanation:
-            "Binary search halves the search space each time, resulting in logarithmic complexity O(log n).",
-        },
-        {
-          type: "mcq-multi" as QuestionTypesEnum,
-          text: "Which of the following are programming paradigms?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "Object-Oriented" },
-            { id: "optB" as OptionIdsEnum, text: "Functional" },
-            { id: "optC" as OptionIdsEnum, text: "Procedural" },
-            { id: "optD" as OptionIdsEnum, text: "Relational" },
-          ],
-          correctAnswer: [
-            "optA" as OptionIdsEnum,
-            "optB" as OptionIdsEnum,
-            "optC" as OptionIdsEnum,
-          ],
-          explanation:
-            "Object-Oriented, Functional, and Procedural are paradigms; Relational refers to databases, not a paradigm.",
-        },
-        {
-          type: "written" as QuestionTypesEnum,
-          text: "Explain the difference between TCP and UDP.",
-        },
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "Which algorithm is commonly used for shortest path in a graph?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "Dijkstra's Algorithm" },
-            { id: "optB" as OptionIdsEnum, text: "Merge Sort" },
-            { id: "optC" as OptionIdsEnum, text: "DFS" },
-            { id: "optD" as OptionIdsEnum, text: "Bellman-Ford" },
-          ],
-          correctAnswer: ["optA" as OptionIdsEnum],
-          explanation:
-            "Dijkstra's algorithm efficiently finds the shortest path from a source to all other nodes in a weighted graph.",
-        },
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "What does SQL stand for?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "Structured Query Language" },
-            { id: "optB" as OptionIdsEnum, text: "Simple Query Language" },
-            { id: "optC" as OptionIdsEnum, text: "Sequential Query Language" },
-            { id: "optD" as OptionIdsEnum, text: "Standard Query Language" },
-          ],
-          correctAnswer: ["optA" as OptionIdsEnum],
-          explanation:
-            "SQL stands for Structured Query Language, used for managing and querying relational databases.",
-        },
-        {
-          type: "mcq-multi" as QuestionTypesEnum,
-          text: "Which of the following are NoSQL databases?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "MongoDB" },
-            { id: "optB" as OptionIdsEnum, text: "PostgreSQL" },
-            { id: "optC" as OptionIdsEnum, text: "Cassandra" },
-            { id: "optD" as OptionIdsEnum, text: "Redis" },
-          ],
-          correctAnswer: ["optA", "optC", "optD"] as OptionIdsEnum[],
-          explanation:
-            "MongoDB, Cassandra, and Redis are NoSQL databases; PostgreSQL is a relational database.",
-        },
-        {
-          type: "written" as QuestionTypesEnum,
-          text: "Describe the concept of polymorphism in object-oriented programming.",
-        },
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "Which of these is NOT a valid HTTP method?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "GET" },
-            { id: "optB" as OptionIdsEnum, text: "POST" },
-            { id: "optC" as OptionIdsEnum, text: "FETCH" },
-            { id: "optD" as OptionIdsEnum, text: "DELETE" },
-          ],
-          correctAnswer: ["optC" as OptionIdsEnum],
-          explanation:
-            "GET, POST, and DELETE are valid HTTP methods; FETCH is not an HTTP method but a JavaScript API.",
-        },
-        {
-          type: "written" as QuestionTypesEnum,
-          text: "What is the difference between supervised and unsupervised learning in machine learning?",
-        },
-      ],
-    };
-  };
+  // private _generateRoadmapStepQuizQuestions = async ({
+  //   topic,
+  //   career,
+  //   num_questions,
+  //   level,
+  // }: IAIModelGenerateRoadmapStepQuizQuestionsRequest): Promise<IAIModelGeneratedQuestionsResponse> => {
+  //   await pause(1500);
+  //   return {
+  //     questions: [
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "Which data structure uses LIFO (Last In, First Out) principle?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "Queue" },
+  //           { id: "optB" as OptionIdsEnum, text: "Stack" },
+  //           { id: "optC" as OptionIdsEnum, text: "Array" },
+  //           { id: "optD" as OptionIdsEnum, text: "Linked List" },
+  //         ],
+  //         correctAnswer: ["optB" as OptionIdsEnum],
+  //         explanation:
+  //           "A stack follows the LIFO principle, meaning the last element added is the first to be removed.",
+  //       },
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "What is the time complexity of binary search in a sorted array?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "O(n)" },
+  //           { id: "optB" as OptionIdsEnum, text: "O(log n)" },
+  //           { id: "optC" as OptionIdsEnum, text: "O(n log n)" },
+  //           { id: "optD" as OptionIdsEnum, text: "O(1)" },
+  //         ],
+  //         correctAnswer: ["optB" as OptionIdsEnum],
+  //         explanation:
+  //           "Binary search halves the search space each time, resulting in logarithmic complexity O(log n).",
+  //       },
+  //       {
+  //         type: "mcq-multi" as QuestionTypesEnum,
+  //         text: "Which of the following are programming paradigms?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "Object-Oriented" },
+  //           { id: "optB" as OptionIdsEnum, text: "Functional" },
+  //           { id: "optC" as OptionIdsEnum, text: "Procedural" },
+  //           { id: "optD" as OptionIdsEnum, text: "Relational" },
+  //         ],
+  //         correctAnswer: [
+  //           "optA" as OptionIdsEnum,
+  //           "optB" as OptionIdsEnum,
+  //           "optC" as OptionIdsEnum,
+  //         ],
+  //         explanation:
+  //           "Object-Oriented, Functional, and Procedural are paradigms; Relational refers to databases, not a paradigm.",
+  //       },
+  //       {
+  //         type: "written" as QuestionTypesEnum,
+  //         text: "Explain the difference between TCP and UDP.",
+  //       },
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "Which algorithm is commonly used for shortest path in a graph?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "Dijkstra's Algorithm" },
+  //           { id: "optB" as OptionIdsEnum, text: "Merge Sort" },
+  //           { id: "optC" as OptionIdsEnum, text: "DFS" },
+  //           { id: "optD" as OptionIdsEnum, text: "Bellman-Ford" },
+  //         ],
+  //         correctAnswer: ["optA" as OptionIdsEnum],
+  //         explanation:
+  //           "Dijkstra's algorithm efficiently finds the shortest path from a source to all other nodes in a weighted graph.",
+  //       },
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "What does SQL stand for?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "Structured Query Language" },
+  //           { id: "optB" as OptionIdsEnum, text: "Simple Query Language" },
+  //           { id: "optC" as OptionIdsEnum, text: "Sequential Query Language" },
+  //           { id: "optD" as OptionIdsEnum, text: "Standard Query Language" },
+  //         ],
+  //         correctAnswer: ["optA" as OptionIdsEnum],
+  //         explanation:
+  //           "SQL stands for Structured Query Language, used for managing and querying relational databases.",
+  //       },
+  //       {
+  //         type: "mcq-multi" as QuestionTypesEnum,
+  //         text: "Which of the following are NoSQL databases?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "MongoDB" },
+  //           { id: "optB" as OptionIdsEnum, text: "PostgreSQL" },
+  //           { id: "optC" as OptionIdsEnum, text: "Cassandra" },
+  //           { id: "optD" as OptionIdsEnum, text: "Redis" },
+  //         ],
+  //         correctAnswer: ["optA", "optC", "optD"] as OptionIdsEnum[],
+  //         explanation:
+  //           "MongoDB, Cassandra, and Redis are NoSQL databases; PostgreSQL is a relational database.",
+  //       },
+  //       {
+  //         type: "written" as QuestionTypesEnum,
+  //         text: "Describe the concept of polymorphism in object-oriented programming.",
+  //       },
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "Which of these is NOT a valid HTTP method?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "GET" },
+  //           { id: "optB" as OptionIdsEnum, text: "POST" },
+  //           { id: "optC" as OptionIdsEnum, text: "FETCH" },
+  //           { id: "optD" as OptionIdsEnum, text: "DELETE" },
+  //         ],
+  //         correctAnswer: ["optC" as OptionIdsEnum],
+  //         explanation:
+  //           "GET, POST, and DELETE are valid HTTP methods; FETCH is not an HTTP method but a JavaScript API.",
+  //       },
+  //       {
+  //         type: "written" as QuestionTypesEnum,
+  //         text: "What is the difference between supervised and unsupervised learning in machine learning?",
+  //       },
+  //     ],
+  //   };
+  // };
 
-  private _generateCareerAssessmentQuestions = async ({
-    num_questions,
-    language,
-  }: IAIModelGenerateCareerAssessmentQuestionsRequest): Promise<IAIModelGeneratedQuestionsResponse> => {
-    await pause(1500);
-    return {
-      questions: [
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "Which data structure uses LIFO (Last In, First Out) principle?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "Queue" },
-            { id: "optB" as OptionIdsEnum, text: "Stack" },
-            { id: "optC" as OptionIdsEnum, text: "Array" },
-            { id: "optD" as OptionIdsEnum, text: "Linked List" },
-          ],
-          correctAnswer: ["optB" as OptionIdsEnum],
-          explanation:
-            "A stack follows the LIFO principle, meaning the last element added is the first to be removed.",
-        },
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "What is the time complexity of binary search in a sorted array?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "O(n)" },
-            { id: "optB" as OptionIdsEnum, text: "O(log n)" },
-            { id: "optC" as OptionIdsEnum, text: "O(n log n)" },
-            { id: "optD" as OptionIdsEnum, text: "O(1)" },
-          ],
-          correctAnswer: ["optB" as OptionIdsEnum],
-          explanation:
-            "Binary search halves the search space each time, resulting in logarithmic complexity O(log n).",
-        },
-        {
-          type: "mcq-multi" as QuestionTypesEnum,
-          text: "Which of the following are programming paradigms?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "Object-Oriented" },
-            { id: "optB" as OptionIdsEnum, text: "Functional" },
-            { id: "optC" as OptionIdsEnum, text: "Procedural" },
-            { id: "optD" as OptionIdsEnum, text: "Relational" },
-          ],
-          correctAnswer: [
-            "optA" as OptionIdsEnum,
-            "optB" as OptionIdsEnum,
-            "optC" as OptionIdsEnum,
-          ],
-          explanation:
-            "Object-Oriented, Functional, and Procedural are paradigms; Relational refers to databases, not a paradigm.",
-        },
-        {
-          type: "written" as QuestionTypesEnum,
-          text: "Explain the difference between TCP and UDP.",
-        },
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "Which algorithm is commonly used for shortest path in a graph?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "Dijkstra's Algorithm" },
-            { id: "optB" as OptionIdsEnum, text: "Merge Sort" },
-            { id: "optC" as OptionIdsEnum, text: "DFS" },
-            { id: "optD" as OptionIdsEnum, text: "Bellman-Ford" },
-          ],
-          correctAnswer: ["optA" as OptionIdsEnum],
-          explanation:
-            "Dijkstra's algorithm efficiently finds the shortest path from a source to all other nodes in a weighted graph.",
-        },
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "What does SQL stand for?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "Structured Query Language" },
-            { id: "optB" as OptionIdsEnum, text: "Simple Query Language" },
-            { id: "optC" as OptionIdsEnum, text: "Sequential Query Language" },
-            { id: "optD" as OptionIdsEnum, text: "Standard Query Language" },
-          ],
-          correctAnswer: ["optA" as OptionIdsEnum],
-          explanation:
-            "SQL stands for Structured Query Language, used for managing and querying relational databases.",
-        },
-        {
-          type: "mcq-multi" as QuestionTypesEnum,
-          text: "Which of the following are NoSQL databases?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "MongoDB" },
-            { id: "optB" as OptionIdsEnum, text: "PostgreSQL" },
-            { id: "optC" as OptionIdsEnum, text: "Cassandra" },
-            { id: "optD" as OptionIdsEnum, text: "Redis" },
-          ],
-          correctAnswer: ["optA", "optC", "optD"] as OptionIdsEnum[],
-          explanation:
-            "MongoDB, Cassandra, and Redis are NoSQL databases; PostgreSQL is a relational database.",
-        },
-        {
-          type: "written" as QuestionTypesEnum,
-          text: "Describe the concept of polymorphism in object-oriented programming.",
-        },
-        {
-          type: "mcq-single" as QuestionTypesEnum,
-          text: "Which of these is NOT a valid HTTP method?",
-          options: [
-            { id: "optA" as OptionIdsEnum, text: "GET" },
-            { id: "optB" as OptionIdsEnum, text: "POST" },
-            { id: "optC" as OptionIdsEnum, text: "FETCH" },
-            { id: "optD" as OptionIdsEnum, text: "DELETE" },
-          ],
-          correctAnswer: ["optC" as OptionIdsEnum],
-          explanation:
-            "GET, POST, and DELETE are valid HTTP methods; FETCH is not an HTTP method but a JavaScript API.",
-        },
-        {
-          type: "written" as QuestionTypesEnum,
-          text: "What is the difference between supervised and unsupervised learning in machine learning?",
-        },
-      ],
-    };
-  };
+  // private _generateCareerAssessmentQuestions = async ({
+  //   num_questions,
+  //   language,
+  // }: IAIModelGenerateCareerAssessmentQuestionsRequest): Promise<IAIModelGeneratedQuestionsResponse> => {
+  //   await pause(1500);
+  //   return {
+  //     questions: [
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "Which data structure uses LIFO (Last In, First Out) principle?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "Queue" },
+  //           { id: "optB" as OptionIdsEnum, text: "Stack" },
+  //           { id: "optC" as OptionIdsEnum, text: "Array" },
+  //           { id: "optD" as OptionIdsEnum, text: "Linked List" },
+  //         ],
+  //         correctAnswer: ["optB" as OptionIdsEnum],
+  //         explanation:
+  //           "A stack follows the LIFO principle, meaning the last element added is the first to be removed.",
+  //       },
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "What is the time complexity of binary search in a sorted array?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "O(n)" },
+  //           { id: "optB" as OptionIdsEnum, text: "O(log n)" },
+  //           { id: "optC" as OptionIdsEnum, text: "O(n log n)" },
+  //           { id: "optD" as OptionIdsEnum, text: "O(1)" },
+  //         ],
+  //         correctAnswer: ["optB" as OptionIdsEnum],
+  //         explanation:
+  //           "Binary search halves the search space each time, resulting in logarithmic complexity O(log n).",
+  //       },
+  //       {
+  //         type: "mcq-multi" as QuestionTypesEnum,
+  //         text: "Which of the following are programming paradigms?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "Object-Oriented" },
+  //           { id: "optB" as OptionIdsEnum, text: "Functional" },
+  //           { id: "optC" as OptionIdsEnum, text: "Procedural" },
+  //           { id: "optD" as OptionIdsEnum, text: "Relational" },
+  //         ],
+  //         correctAnswer: [
+  //           "optA" as OptionIdsEnum,
+  //           "optB" as OptionIdsEnum,
+  //           "optC" as OptionIdsEnum,
+  //         ],
+  //         explanation:
+  //           "Object-Oriented, Functional, and Procedural are paradigms; Relational refers to databases, not a paradigm.",
+  //       },
+  //       {
+  //         type: "written" as QuestionTypesEnum,
+  //         text: "Explain the difference between TCP and UDP.",
+  //       },
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "Which algorithm is commonly used for shortest path in a graph?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "Dijkstra's Algorithm" },
+  //           { id: "optB" as OptionIdsEnum, text: "Merge Sort" },
+  //           { id: "optC" as OptionIdsEnum, text: "DFS" },
+  //           { id: "optD" as OptionIdsEnum, text: "Bellman-Ford" },
+  //         ],
+  //         correctAnswer: ["optA" as OptionIdsEnum],
+  //         explanation:
+  //           "Dijkstra's algorithm efficiently finds the shortest path from a source to all other nodes in a weighted graph.",
+  //       },
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "What does SQL stand for?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "Structured Query Language" },
+  //           { id: "optB" as OptionIdsEnum, text: "Simple Query Language" },
+  //           { id: "optC" as OptionIdsEnum, text: "Sequential Query Language" },
+  //           { id: "optD" as OptionIdsEnum, text: "Standard Query Language" },
+  //         ],
+  //         correctAnswer: ["optA" as OptionIdsEnum],
+  //         explanation:
+  //           "SQL stands for Structured Query Language, used for managing and querying relational databases.",
+  //       },
+  //       {
+  //         type: "mcq-multi" as QuestionTypesEnum,
+  //         text: "Which of the following are NoSQL databases?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "MongoDB" },
+  //           { id: "optB" as OptionIdsEnum, text: "PostgreSQL" },
+  //           { id: "optC" as OptionIdsEnum, text: "Cassandra" },
+  //           { id: "optD" as OptionIdsEnum, text: "Redis" },
+  //         ],
+  //         correctAnswer: ["optA", "optC", "optD"] as OptionIdsEnum[],
+  //         explanation:
+  //           "MongoDB, Cassandra, and Redis are NoSQL databases; PostgreSQL is a relational database.",
+  //       },
+  //       {
+  //         type: "written" as QuestionTypesEnum,
+  //         text: "Describe the concept of polymorphism in object-oriented programming.",
+  //       },
+  //       {
+  //         type: "mcq-single" as QuestionTypesEnum,
+  //         text: "Which of these is NOT a valid HTTP method?",
+  //         options: [
+  //           { id: "optA" as OptionIdsEnum, text: "GET" },
+  //           { id: "optB" as OptionIdsEnum, text: "POST" },
+  //           { id: "optC" as OptionIdsEnum, text: "FETCH" },
+  //           { id: "optD" as OptionIdsEnum, text: "DELETE" },
+  //         ],
+  //         correctAnswer: ["optC" as OptionIdsEnum],
+  //         explanation:
+  //           "GET, POST, and DELETE are valid HTTP methods; FETCH is not an HTTP method but a JavaScript API.",
+  //       },
+  //       {
+  //         type: "written" as QuestionTypesEnum,
+  //         text: "What is the difference between supervised and unsupervised learning in machine learning?",
+  //       },
+  //     ],
+  //   };
+  // };
 
   getQuizQuestions = async (
     req: Request,
@@ -727,16 +727,20 @@ class QuizService {
         "There is an active attempt on this quiz ⚠️ Do you want to discard it?",
       );
     }
-    const generatedQuestions = await this._generateRoadmapStepQuizQuestions({
-      topic: roadmapStep.title,
-      career: (roadmapStep.careerId as unknown as ICareer).title,
-      num_questions: quiz.questionsNumber,
-    });
-
-    // await this._quizApisManager.getQuizQustions({
-    //   title: quiz.title,
-    //   aiPrompt: quiz.aiPrompt,
+    // const generatedQuestions = await this._generateRoadmapStepQuizQuestions({
+    //   topic: roadmapStep.title,
+    //   career: (roadmapStep.careerId as unknown as ICareer).title,
+    //   num_questions: quiz.questionsNumber,
+    //   level: UserLevelsEnum.intermediate,
     // });
+
+    const generatedQuestions =
+      await this._quizApisManager.getRoadmapStepQuestions({
+        topic: roadmapStep.title,
+        career: (roadmapStep.careerId as unknown as ICareer).title,
+        num_questions: 5, //quiz.questionsNumber,
+        level: UserLevelsEnum.intermediate,
+      });
 
     let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
       filter: {
@@ -753,8 +757,10 @@ class QuizService {
         questions: generatedQuestions.questions,
         expiresAt: new Date(
           Date.now() +
-            quiz.duration! +
-            Number(process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS]) *
+            (quiz.duration! +
+              Number(
+                process.env[EnvFields.QUIZ_QUESTIONS_EXPIRES_IN_SECONDS],
+              )) *
               1000,
         ),
       },
@@ -816,10 +822,16 @@ class QuizService {
       );
     }
 
-    const generatedQuestions = await this._generateCareerAssessmentQuestions({
-      num_questions: quiz.questionsNumber,
-      language: "English",
-    });
+    // const generatedQuestions = await this._generateCareerAssessmentQuestions({
+    //   num_questions: quiz.questionsNumber,
+    //   language: "English",
+    // });
+
+    const generatedQuestions =
+      await this._quizApisManager.getCareerAssessmentQustions({
+        num_questions: 5, //quiz.questionsNumber,
+        language: "English",
+      });
 
     let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
       filter: {
@@ -863,35 +875,52 @@ class QuizService {
     });
   };
 
+  // private _checkWrittenQuestionsAnswers = async ({
+  //   resolve,
+  //   writtenAnswers,
+  // }: IAIModelCheckWrittenQuestionsRequest & {
+  //   resolve: (data: IAIModelCheckWrittenQuestionsResponse[]) => void;
+  // }): Promise<IAIModelCheckWrittenQuestionsResponse[]> => {
+  //   return new Promise((res) => {
+  //     setTimeout(() => {
+  //       const response = [];
+  //       for (const answer of writtenAnswers) {
+  //         if (answer.userAnswer.includes("correct")) {
+  //           response.push({
+  //             questionId: answer.questionId,
+  //             isCorrect: true,
+  //           });
+  //         } else {
+  //           response.push({
+  //             questionId: answer.questionId,
+  //             isCorrect: false,
+  //             correction: "This is the correction of user answer",
+  //             explenation: "This is the explanation of user answer",
+  //           });
+  //         }
+  //       }
+  //       resolve(response);
+  //     }, 1500);
+  //   });
+  // };
+
   private _checkWrittenQuestionsAnswers = async ({
     resolve,
-    writtenAnswers,
-  }: IAIModelCheckWrittenQuestionsRequest & {
-    resolve: (data: IAIModelCheckWrittenQuestionsResponse[]) => void;
-  }): Promise<IAIModelCheckWrittenQuestionsResponse[]> => {
-    return new Promise((res) => {
-      setTimeout(() => {
-        const response = [];
-        for (const answer of writtenAnswers) {
-          if (answer.userAnswer.includes("correct")) {
-            response.push({
-              questionId: answer.questionId,
-              isCorrect: true,
-            });
-          } else {
-            response.push({
-              questionId: answer.questionId,
-              isCorrect: false,
-              correction: "This is the correction of user answer",
-              explenation: "This is the explanation of user answer",
-            });
-          }
-        }
-        resolve(response);
-      }, 1500);
-    });
+    reject,
+    payload,
+  }: {
+    payload: IAIModelCheckWrittenQuestionsRequest;
+    resolve: (data: IAIModelCheckWrittenQuestionsResponse) => void;
+    reject: (error: any) => void;
+  }): Promise<void> => {
+    try {
+      const response =
+        await this._quizApisManager.checkRoadmapWrittenAnswers(payload);
+      resolve(response);
+    } catch (e) {
+      reject(e);
+    }
   };
-
   checkQuizAnswers = async (
     req: Request,
     res: Response,
@@ -912,7 +941,12 @@ class QuizService {
           {
             path: "roadmapStepId",
             match: { paranoid: false },
-            select: "quizzesIds",
+            select: "quizzesIds title",
+          },
+          {
+            path: "careerId",
+            match: { paranoid: false },
+            select: "title",
           },
         ],
       },
@@ -949,8 +983,7 @@ class QuizService {
       } & HIQuestion);
     }
 
-    const writtenAnswers: IAIModelCheckWrittenQuestionsRequest["writtenAnswers"] =
-      [];
+    const writtenAnswers: IAIModelCheckWrittenQuestionsRequest["answers"] = [];
     for (const answer of answers) {
       const question = qById.get(answer.questionId);
 
@@ -965,9 +998,9 @@ class QuizService {
       }
       if (answer.type === QuestionTypesEnum.written) {
         writtenAnswers.push({
-          questionId: answer.questionId,
-          text: question.text!,
-          userAnswer: answer.answer as string,
+          question_id: answer.questionId,
+          question: question.text!,
+          answer: answer.answer as string,
         });
       }
     }
@@ -976,31 +1009,35 @@ class QuizService {
     const gate = makeCompleter();
     this._checkWrittenQuestionsAnswers({
       resolve: gate.resolve as unknown as () => void,
-      // title: (quizAttempt.quizId as unknown as HIQuiz).title,
-      // aiPrompt: (quizAttempt.quizId as unknown as HIQuiz).aiPrompt!,
-      writtenAnswers,
+      reject: gate.reject as unknown as () => void,
+      payload: {
+        career: (quizAttempt.careerId as unknown as ICareer).title,
+        topic: (quizAttempt.roadmapStepId as unknown as FullIRoadmapStep).title,
+        level: req.user?.userLevel!,
+        answers: writtenAnswers,
+      },
     });
 
-    const checkedAnswers: ISavedQuestion[] = [];
-    let wrongAnswersCount = 0;
+    const savedMcqAnswers: ISavedQuestion[] = [];
+    let mcqWrongAnswersCount = 0;
     // check non-written questions answers
     for (const answer of answers) {
       const question = qById.get(answer.questionId)! as IQuestion;
 
       if (question.type === QuestionTypesEnum.written) continue;
 
-      const selectedAnswer = answer.answer;
+      const selectedAnswer = answer.answer as OptionIdsEnum[];
 
       const { correctAnswer, explanation, ...rest } = question;
-      if (selectedAnswer.toString() == question.correctAnswer?.toString()) {
-        checkedAnswers.push({
+      if (QuizUtil.areMcqAnswersEqual(selectedAnswer, correctAnswer!)) {
+        savedMcqAnswers.push({
           ...rest,
           isCorrect: true,
           userAnswer: selectedAnswer,
         });
       } else {
-        wrongAnswersCount++;
-        checkedAnswers.push({
+        mcqWrongAnswersCount++;
+        savedMcqAnswers.push({
           ...rest,
           isCorrect: false,
           userAnswer: selectedAnswer,
@@ -1010,62 +1047,64 @@ class QuizService {
       }
     }
 
-    const writtenAnswersResults =
-      (await gate.promise) as IAIModelCheckWrittenQuestionsResponse[];
-
-    // integrate written answers results
-    for (const writtenAnswerResult of writtenAnswersResults) {
-      const question = qById.get(writtenAnswerResult.questionId)!;
-      if (writtenAnswerResult.isCorrect) {
-        checkedAnswers.splice(question.index!, 0, {
-          ...question,
-          isCorrect: true,
-          userAnswer: writtenAnswers.find(
-            (wa) => wa.questionId === writtenAnswerResult.questionId,
-          )!.userAnswer,
-        });
-      } else {
-        wrongAnswersCount++;
-        checkedAnswers.splice(question.index!, 0, {
-          ...question,
-          isCorrect: false,
-          userAnswer: writtenAnswers.find(
-            (wa) => wa.questionId === writtenAnswerResult.questionId,
-          )!.userAnswer,
-          correction: writtenAnswerResult.correction!,
-          explanation: writtenAnswerResult.explenation!,
-        });
-      }
-    }
+    const writtenAnswersResult =
+      (await gate.promise) as IAIModelCheckWrittenQuestionsResponse;
 
     // saving the checked answers
-    const scoreNumber = Math.round(
-      ((checkedAnswers.length - wrongAnswersCount) / checkedAnswers.length) *
-        100,
+    const mcqScore =
+      ((savedMcqAnswers.length - mcqWrongAnswersCount) /
+        savedMcqAnswers.length) *
+      100;
+
+    const mcqCount = savedMcqAnswers.length;
+    const writtenCount = writtenAnswersResult.evaluations.length;
+    const finalScore = Number(
+      (
+        (mcqScore * mcqCount +
+          writtenAnswersResult.overall_score * writtenCount) /
+        (mcqCount + writtenCount)
+      ).toFixed(2),
     );
 
     let savedQuizId: Types.ObjectId | undefined;
-    if (scoreNumber >= 50) {
-      savedQuizId = (await this._savedQuizRepository.findOneAndUpdate({
-        filter: {
-          userId: req.user!._id!,
-          quizId: quizAttempt.quizId!._id!,
-        },
-        update: {
-          $set: {
-            careerId: quizAttempt.careerId,
-            roadmapStepId: quizAttempt.roadmapStepId,
-            questions: checkedAnswers,
-            score: `${scoreNumber}%`,
-            takenAt: new Date(),
+    if (finalScore >= 50) {
+      const savedWrittenAnswers: ISavedQuestion[] = [];
+      for (let i = 0; i < writtenAnswersResult.evaluations.length; i++) {
+        const evaluation = writtenAnswersResult.evaluations[i]!;
+        const writtenAnswer = writtenAnswers[i]!;
+        savedWrittenAnswers.push({
+          text: writtenAnswer?.question,
+          type: QuestionTypesEnum.written,
+          userAnswer: writtenAnswer.answer,
+          score: evaluation?.score,
+          explanation: evaluation?.feedback,
+        });
+      }
+
+      savedQuizId = (
+        await this._savedQuizRepository.findOneAndUpdate({
+          filter: {
+            userId: req.user!._id!,
+            quizId: quizAttempt.quizId!._id!,
           },
-        },
-        options: {
-          upsert: true,
-          returnDocument: "after",
-          projection: { _id: 1 },
-        },
-      }))?._id;
+          update: {
+            $set: {
+              careerId: quizAttempt.careerId,
+              roadmapStepId: quizAttempt.roadmapStepId,
+              questions: [...savedMcqAnswers, ...savedWrittenAnswers],
+              mcqScore,
+              writtenScore: writtenAnswersResult.overall_score,
+              finalScore,
+              takenAt: new Date(),
+            },
+          },
+          options: {
+            upsert: true,
+            returnDocument: "after",
+            projection: { _id: 1 },
+          },
+        })
+      )?._id;
       // check if roadmap step marked as completed or not
       if (
         !(await this._userCareerProgressRepository.exists({
@@ -1128,16 +1167,20 @@ class QuizService {
     }
 
     await quizAttempt.deleteOne();
-    return successHandler({
+    return successHandler<ICheckQuizAnswersResponse>({
       req,
       res,
       message: "Quiz answers checked successfully ✅",
       body: {
         savedQuizId,
-        totalQuestions: checkedAnswers.length,
-        wrongAnswersCount,
-        correctAnswersCount: checkedAnswers.length - wrongAnswersCount,
-        score: `${scoreNumber}%`,
+        totalQuestions: mcqCount + writtenCount,
+        mcqTotal: mcqCount,
+        writtenTotal: writtenCount,
+        wrongAnswersCount: mcqWrongAnswersCount,
+        correctAnswersCount: savedMcqAnswers.length - mcqWrongAnswersCount,
+        mcqScore: Number(mcqScore.toFixed(2)),
+        writtenScore: Number(writtenAnswersResult.overall_score.toFixed(2)),
+        finalScore: Number(finalScore.toFixed(2)),
         //answers: checkedAnswers,
       },
     });

@@ -1,35 +1,94 @@
 import axios from "axios";
 import { BadRequestException } from "../../utils/exceptions/custom.exceptions.ts";
+import type {
+  IAIModelCheckCareerAssessmentQuestionsRequest,
+  IAIModelCheckCareerAssessmentQuestionsResponse,
+  IAIModelCheckWrittenQuestionsRequest,
+  IAIModelCheckWrittenQuestionsResponse,
+  IAIModelGenerateCareerAssessmentQuestionsRequest,
+  IAIModelGeneratedCareerAssessmentQuestionsResponse,
+  IAIModelGeneratedQuestionsResponse,
+  IAIModelGenerateRoadmapStepQuizQuestionsRequest,
+} from "../../utils/constants/interface.constants.ts";
 
 class QuizApisManager {
-  getQuizQustions = async ({
-    title,
-    aiPrompt,
-  }: {
-    title: string;
-    aiPrompt: string;
-  }): Promise<Record<string, any>> => {
+  getCareerAssessmentQustions = async (
+    payload: IAIModelGenerateCareerAssessmentQuestionsRequest,
+  ): Promise<IAIModelGeneratedCareerAssessmentQuestionsResponse> => {
     try {
       const response = await axios.request({
-        method: "GET",
-        url: "https://api.open-meteo.com/v1/forecast",
-        params: {
-          latitude: 52.52,
-          longitude: 13.41,
-          daily:
-            "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,wind_speed_10m_max,sunrise,sunset,daylight_duration,sunshine_duration,uv_index_max,uv_index_clear_sky_max,rain_sum,showers_sum,snowfall_sum,precipitation_hours,precipitation_sum,precipitation_probability_max,wind_gusts_10m_max,wind_direction_10m_dominant,shortwave_radiation_sum,et0_fao_evapotranspiration",
-          hourly:
-            "temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,precipitation,rain,showers,snowfall,snow_depth,vapour_pressure_deficit,et0_fao_evapotranspiration,visibility,evapotranspiration,cloud_cover_high,cloud_cover_mid,cloud_cover_low,cloud_cover,surface_pressure,pressure_msl,weather_code,wind_speed_10m,wind_speed_80m,wind_speed_120m,wind_speed_180m,wind_direction_10m,wind_direction_80m,wind_direction_120m,wind_direction_180m,wind_gusts_10m,temperature_80m,temperature_120m,temperature_180m,soil_temperature_0cm,soil_temperature_6cm,soil_temperature_18cm,soil_temperature_54cm,soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_moisture_27_to_81cm",
-          current:
-            "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure",
-          timezone: "auto",
-        },
+        method: "POST",
+        url: "http://host.docker.internal:8000/ai/generate-main-quiz",
+        data: payload,
       });
-      
+
       return response.data;
     } catch (error: any) {
       throw new BadRequestException(
-        `Failed to get quiz questions ❓❌, ${error.message}`
+        `Failed to get career assessment questions ❓❌, ${error.message}`,
+      );
+    }
+  };
+
+  checkCareerAssessmentQuestions = async (
+    payload: IAIModelCheckCareerAssessmentQuestionsRequest,
+  ): Promise<IAIModelCheckCareerAssessmentQuestionsResponse> => {
+    try {
+      const response = await axios.request({
+        method: "POST",
+        url: "http://host.docker.internal:8000/ai/evaluate-and-match",
+        data: JSON.stringify(payload, null, 2),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      return response.data;
+    } catch (error: any) {
+      throw new BadRequestException(
+        `Failed to check career assessment questions ❓❌, ${error}`,
+      );
+    }
+  };
+  getRoadmapStepQuestions = async (
+    payload: IAIModelGenerateRoadmapStepQuizQuestionsRequest,
+  ): Promise<IAIModelGeneratedQuestionsResponse> => {
+    try {
+      const response = await axios.request({
+        method: "POST",
+        url: "http://host.docker.internal:8000/ai/generate-sub-quiz",
+        data: JSON.stringify(payload, null, 2),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      return response.data;
+    } catch (error: any) {
+      throw new BadRequestException(
+        `Failed to check career assessment questions ❓❌, ${error}`,
+      );
+    }
+  };
+
+  checkRoadmapWrittenAnswers = async (
+    payload: IAIModelCheckWrittenQuestionsRequest,
+  ): Promise<IAIModelCheckWrittenQuestionsResponse> => {
+    try {
+      const response = await axios.request({
+        method: "POST",
+        url: "http://host.docker.internal:8000/ai/evaluate-written-answers",
+        data: JSON.stringify(payload, null, 2),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      return response.data;
+    } catch (error: any) {
+      
+      throw new BadRequestException(
+        `Failed to check career assessment questions ❓❌, ${error}`,
       );
     }
   };
