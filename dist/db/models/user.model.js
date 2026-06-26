@@ -1,5 +1,5 @@
 import mongoose, { Types } from "mongoose";
-import { CareerAssessmentStatusEnum, GenderEnum, ProvidersEnum, RolesEnum, } from "../../utils/constants/enum.constants.js";
+import { CareerAssessmentStatusEnum, GenderEnum, ProvidersEnum, RolesEnum, UserLevelsEnum, } from "../../utils/constants/enum.constants.js";
 import ModelsNames from "../../utils/constants/models.names.constants.js";
 import { softDeleteFunction } from "../../utils/soft_delete/soft_delete.js";
 import DocumentFormat from "../../utils/formats/document.format.js";
@@ -58,6 +58,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: Object.values(RolesEnum),
         default: RolesEnum.user,
+    },
+    userLevel: {
+        type: String,
+        enum: Object.values(UserLevelsEnum),
     },
     authProvider: {
         type: String,
@@ -137,6 +141,7 @@ userSchema.methods.toJSON = function () {
             : undefined,
         assessmentStatus: userObject?.assessmentStatus,
         careerPath: userObject?.careerPath,
+        userLevel: userObject?.userLevel,
         careerDeleted: userObject?.careerDeleted,
         createdAt: userObject?.createdAt,
         updatedAt: userObject?.updatedAt,

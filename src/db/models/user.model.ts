@@ -9,6 +9,7 @@ import {
   GenderEnum,
   ProvidersEnum,
   RolesEnum,
+  UserLevelsEnum,
 } from "../../utils/constants/enum.constants.ts";
 import ModelsNames from "../../utils/constants/models.names.constants.ts";
 import { softDeleteFunction } from "../../utils/soft_delete/soft_delete.ts";
@@ -88,7 +89,10 @@ const userSchema = new mongoose.Schema<IUser>(
       enum: Object.values(RolesEnum),
       default: RolesEnum.user,
     },
-
+    userLevel: {
+      type: String,
+      enum: Object.values(UserLevelsEnum),
+    },
     authProvider: {
       type: String,
       enum: Object.values(ProvidersEnum),
@@ -190,6 +194,7 @@ userSchema.methods.toJSON = function () {
       : undefined,
     assessmentStatus: userObject?.assessmentStatus,
     careerPath: userObject?.careerPath,
+    userLevel: userObject?.userLevel,
     careerDeleted: userObject?.careerDeleted,
     createdAt: userObject?.createdAt,
     updatedAt: userObject?.updatedAt,

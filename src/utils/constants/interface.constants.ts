@@ -5,6 +5,7 @@ import type {
   ErrorCodesEnum,
   OptionIdsEnum,
   QuestionTypesEnum,
+  UserLevelsEnum,
 } from "./enum.constants.ts";
 import type { JwtPayload } from "jsonwebtoken";
 import type { Types } from "mongoose";
@@ -73,6 +74,7 @@ export interface IAIModelGenerateRoadmapStepQuizQuestionsRequest {
   topic: string;
   career: string;
   num_questions: number;
+  level: UserLevelsEnum;
 }
 
 export interface IAIModelGenerateCareerAssessmentQuestionsRequest {
@@ -90,25 +92,37 @@ export interface IAIModelGeneratedQuestionsResponse {
   }[];
 }
 
-export interface IAIModelCheckWrittenQuestionsRequest {
-  writtenAnswers: {
-    questionId: string;
+export interface IAIModelGeneratedCareerAssessmentQuestionsResponse {
+  questions: {
+    type: QuestionTypesEnum;
     text: string;
-    userAnswer: string;
+    options?: { id: OptionIdsEnum; text: string }[] | undefined;
+  }[];
+}
+
+export interface IAIModelCheckWrittenQuestionsRequest {
+  topic: string;
+  career: string;
+  level: UserLevelsEnum;
+  answers: {
+    question_id: string;
+    question: string;
+    answer: string;
   }[];
 }
 
 export interface IAIModelCheckCareerAssessmentQuestionsRequest {
-  careerList: { careerId: Types.ObjectId; title: string; summary: string }[];
+  careerList: { careerId: string; title: string; summary: string }[];
   answers: {
     text: string;
     options?: { id: OptionIdsEnum; text: string }[] | undefined;
     type: QuestionTypesEnum;
-    userAnswer: string | OptionIdsEnum[];
+    userAnswer: string[] | OptionIdsEnum[];
   }[];
 }
 
 export interface IAIModelCheckCareerAssessmentQuestionsResponse {
+  user_level: UserLevelsEnum;
   suggestedCareers: {
     careerId: Types.ObjectId;
     title: string;
@@ -118,8 +132,12 @@ export interface IAIModelCheckCareerAssessmentQuestionsResponse {
 }
 
 export interface IAIModelCheckWrittenQuestionsResponse {
-  questionId: string;
-  isCorrect: boolean;
-  correction?: string; // "This is the correction of user answer (5000)"
-  explenation?: string; // "This is the explenation of the correction (1000)"
+  evaluations: {
+    question: string;
+    student_answer: string;
+    score: number;
+    feedback: string;
+  }[];
+  overall_score: number;
+  overall_feedback: string;
 }

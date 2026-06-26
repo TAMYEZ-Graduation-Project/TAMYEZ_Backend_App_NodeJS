@@ -143,7 +143,7 @@ class FirebaseService {
                     replacement: {
                         ...restObj,
                         userId: req.user._id,
-                        jwtTokenExpiresAt: new Date(req.tokenPayload.exp),
+                        jwtTokenExpiresAt: new Date(req.tokenPayload.exp * 1000),
                         isActive: true,
                     },
                 });
