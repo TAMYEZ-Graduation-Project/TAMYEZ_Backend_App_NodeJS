@@ -83,7 +83,6 @@ const userSchema = new mongoose.Schema<IUser>(
         return this.authProvider === ProvidersEnum.local;
       },
     },
-
     role: {
       type: String,
       enum: Object.values(RolesEnum),
@@ -92,6 +91,9 @@ const userSchema = new mongoose.Schema<IUser>(
     userLevel: {
       type: String,
       enum: Object.values(UserLevelsEnum),
+      required: function (this) {
+        return this.careerPath?.id != undefined;
+      },
     },
     authProvider: {
       type: String,

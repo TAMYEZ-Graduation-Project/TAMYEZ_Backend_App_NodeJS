@@ -143,7 +143,7 @@ savedQuizSchema.methods.toJSON = function () {
         userId,
         mcqScore: mcqScore != undefined ? Number(mcqScore.toFixed(2)) : undefined,
         writtenScore: writtenScore != undefined ? Number(writtenScore.toFixed(2)) : undefined,
-        finalScore: Number(finalScore.toFixed(2)),
+        finalScore: finalScore != undefined ? Number(finalScore.toFixed(2)) : undefined,
         questions: this.questions?.map((question) => {
             return question.toJSON();
         }),

@@ -85,10 +85,9 @@ class QuizApisManager {
       });
 
       return response.data;
-    } catch (error: any) {
-      
+    } catch (error: any) {      
       throw new BadRequestException(
-        `Failed to check career assessment questions ❓❌, ${error}`,
+        `Failed to check quiz questions ❓❌, ${error}`,
       );
     }
   };
