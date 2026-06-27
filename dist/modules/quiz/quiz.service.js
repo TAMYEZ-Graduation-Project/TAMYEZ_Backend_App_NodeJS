@@ -295,7 +295,7 @@ class QuizService {
         const generatedQuestions = await this._quizApisManager.getRoadmapStepQuestions({
             topic: roadmapStep.title,
             career: roadmapStep.careerId.title,
-            num_questions: 5,
+            num_questions: quiz.questionsNumber,
             level: UserLevelsEnum.intermediate,
         });
         let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
@@ -359,7 +359,7 @@ class QuizService {
             throw new BadRequestException("There is an active attempt on this quiz ⚠️ Do you want to discard it?");
         }
         const generatedQuestions = await this._quizApisManager.getCareerAssessmentQustions({
-            num_questions: 5,
+            num_questions: quiz.questionsNumber,
             language: "English",
         });
         let quizAttempt = await this._quizAttemptRepository.findOneAndUpdate({
@@ -624,7 +624,7 @@ class QuizService {
                     },
                 ],
             },
-            projection: { quizId: 1, score: 1, takenAt: 1 },
+            projection: { quizId: 1, finalScore: 1, takenAt: 1 },
             page,
             size,
         });
