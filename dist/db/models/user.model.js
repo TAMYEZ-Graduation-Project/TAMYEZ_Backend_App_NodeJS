@@ -62,6 +62,9 @@ const userSchema = new mongoose.Schema({
     userLevel: {
         type: String,
         enum: Object.values(UserLevelsEnum),
+        required: function () {
+            return this.careerPath?.id != undefined;
+        },
     },
     authProvider: {
         type: String,

@@ -59,7 +59,7 @@ class QuizApisManager {
             return response.data;
         }
         catch (error) {
-            throw new BadRequestException(`Failed to check career assessment questions ❓❌, ${error}`);
+            throw new BadRequestException(`Failed to check quiz questions ❓❌, ${error}`);
         }
     };
 }

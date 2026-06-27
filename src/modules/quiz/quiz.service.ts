@@ -738,7 +738,7 @@ class QuizService {
       await this._quizApisManager.getRoadmapStepQuestions({
         topic: roadmapStep.title,
         career: (roadmapStep.careerId as unknown as ICareer).title,
-        num_questions: 5, //quiz.questionsNumber,
+        num_questions: quiz.questionsNumber,
         level: UserLevelsEnum.intermediate,
       });
 
@@ -829,7 +829,7 @@ class QuizService {
 
     const generatedQuestions =
       await this._quizApisManager.getCareerAssessmentQustions({
-        num_questions: 5, //quiz.questionsNumber,
+        num_questions: quiz.questionsNumber,
         language: "English",
       });
 
@@ -1204,7 +1204,7 @@ class QuizService {
           },
         ],
       },
-      projection: { quizId: 1, score: 1, takenAt: 1 },
+      projection: { quizId: 1, finalScore: 1, takenAt: 1 },
       page,
       size,
     });
